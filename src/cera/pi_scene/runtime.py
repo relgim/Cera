@@ -6,7 +6,9 @@ import json
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from contextvars import copy_context
 from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import RLock
@@ -22,6 +24,13 @@ from cera.provider_dispatch_guard import (
     is_external_provider_boundary,
 )
 from cera.providers.models import ProviderTransportError
+from cera.reader_validation import (
+    BoundReaderValidationV1,
+    ReaderStatus,
+    ReaderValidationCustodyV1,
+    ReaderValidationRequestV1,
+    build_reader_validation_input,
+)
 from cera.semantic_validation import (
     BoundSemanticValidationV1,
     SemanticValidationCustodyV1,
@@ -41,9 +50,21 @@ from .contracts import (
     canonical_authority,
     primary_item_keys,
 )
-from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
+from .http_contracts import (
+    LeanSceneRequestControlsV1,
+    LeanSceneRequestControlsV2,
+    LeanSceneRequestControlsV3,
+)
 from .lineage import LeanAcceptedRegenerationBaseV1
 from .pi_adapter import PiSceneAdapter, PiSceneInvocationResultV1, PiSceneInvocationV1
+from .review_lifecycle import (
+    OrdinaryPythonQualificationV1,
+    OrdinaryReviewMode,
+    OrdinaryReviewPhase,
+    OrdinaryValidationFailureV1,
+    OrdinaryValidationInputBindingV1,
+    OrdinaryValidationOwner,
+)
 from .review_store import (
     CreatorGuidanceV1,
     DecisionReplayV1,
@@ -128,6 +149,24 @@ class OrdinarySemanticValidatorPort(Protocol):
         request: SemanticValidationRequestV1,
         custody: SemanticValidationCustodyV1,
     ) -> BoundSemanticValidationV1: ...
+
+
+class OrdinaryReaderValidatorPort(Protocol):
+    def validate(
+        self,
+        request: ReaderValidationRequestV1,
+        custody: ReaderValidationCustodyV1,
+    ) -> BoundReaderValidationV1: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedOrdinaryValidationsV1:
+    semantic_request: SemanticValidationRequestV1
+    semantic_custody: SemanticValidationCustodyV1
+    reader_request: ReaderValidationRequestV1
+    reader_custody: ReaderValidationCustodyV1
+    semantic_prepared: object | None = None
+    reader_prepared: object | None = None
 
 
 class OrdinaryPlannerPort(Protocol):
@@ -216,6 +255,47 @@ class OrdinaryProviderStageRetryPort(Protocol):
         authority_binding: object,
     ) -> BoundSemanticValidationV1: ...
 
+    def prepare_semantic_validator(
+        self,
+        request: SemanticValidationRequestV1,
+        custody: SemanticValidationCustodyV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+        review_validation_lane: bool = False,
+    ) -> object: ...
+
+    def dispatch_prepared_semantic_validator(
+        self,
+        prepared: object,
+    ) -> BoundSemanticValidationV1: ...
+
+    def prepare_reader(
+        self,
+        request: ReaderValidationRequestV1,
+        custody: ReaderValidationCustodyV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> object: ...
+
+    def dispatch_prepared_reader(
+        self,
+        prepared: object,
+    ) -> BoundReaderValidationV1: ...
+
+    def reconcile_semantic_validator(
+        self,
+        chain_id: str,
+    ) -> BoundSemanticValidationV1 | ProviderStageRetryStatusEnvelopeV1: ...
+
+    def reconcile_reader(
+        self,
+        chain_id: str,
+    ) -> BoundReaderValidationV1 | ProviderStageRetryStatusEnvelopeV1: ...
+
+    def status(self, chain_id: str) -> ProviderStageRetryStatusEnvelopeV1: ...
+
     def run_recorder(
         self,
         invocation: PiSceneInvocationV1,
@@ -253,6 +333,7 @@ class LeanPiSceneCoordinator:
         recording_fault_injector: RecordingFaultInjector | None = None,
         planner_resolver: PlannerResolver | None = None,
         semantic_validator: OrdinarySemanticValidatorPort | None = None,
+        reader_validator: OrdinaryReaderValidatorPort | None = None,
         ordinary_stage_retry: OrdinaryProviderStageRetryPort | None = None,
     ) -> None:
         self.store = store
@@ -266,6 +347,7 @@ class LeanPiSceneCoordinator:
         self._planner_transport_start: PlannerTransportHook | None = None
         self._planner_transport_success: PlannerTransportHook | None = None
         self.semantic_validator = semantic_validator
+        self.reader_validator = reader_validator
         self.ordinary_stage_retry = ordinary_stage_retry
         self._lock = RLock()
         self._review_state_store = DurableReviewStateStore(
@@ -277,6 +359,13 @@ class LeanPiSceneCoordinator:
         self._unresolved_by_branch = dict(recovered.unresolved_by_branch)
         self._decisions = dict(recovered.decisions)
         self._candidate_counter = recovered.candidate_counter
+        # Exact validator inputs live only for the original in-process
+        # dispatch. Their content-free hashes are durable on the review; after
+        # restart no provider is automatically redispatched.
+        self._prepared_ordinary_validations: dict[
+            str,
+            _PreparedOrdinaryValidationsV1,
+        ] = {}
 
     @contextmanager
     def planner_transport_custody(
@@ -350,6 +439,13 @@ class LeanPiSceneCoordinator:
             primary_authority=(output.decision_bundle or output.sequence),
             planner_provider_operations=output.provider_operations,
         )
+        if self.reader_validator is not None:
+            review = self._freeze_ordinary_validation_claim(
+                review,
+                validation_evidence=output.validation_evidence,
+            )
+            self._register_review(review)
+            return review
         review = self._validate_ordinary_review(
             review,
             validation_evidence=output.validation_evidence,
@@ -523,23 +619,25 @@ class LeanPiSceneCoordinator:
                 request_controls=controls,
             )
             base = self.store.regeneration_base(replaced)
-            prefix = self.store.regeneration_prefix_ordinary_context_payloads(base)
-            planned = self._plan_ordinary(
-                replacement_turn,
-                creator_guidance=None,
-                accepted_records_override=prefix,
-            )
+            authority, validation_evidence = self._regeneration_authority_and_evidence(prior)
             successor = self._prepare_review(
                 replacement_turn,
                 route=SceneRoute.ORDINARY,
-                primary_authority=(planned.decision_bundle or planned.sequence),
-                planner_provider_operations=planned.provider_operations,
+                primary_authority=authority,
+                planner_provider_operations=0,
                 regenerated_from_candidate_id=prior.candidate.candidate_id,
                 replacement_base=base,
             )
-            successor = self._validate_ordinary_review(
-                successor,
-                validation_evidence=planned.validation_evidence,
+            successor = (
+                self._freeze_ordinary_validation_claim(
+                    successor,
+                    validation_evidence=validation_evidence,
+                )
+                if self.reader_validator is not None
+                else self._validate_ordinary_review(
+                    successor,
+                    validation_evidence=validation_evidence,
+                )
             )
             self._register_review(successor)
             if (
@@ -551,7 +649,8 @@ class LeanPiSceneCoordinator:
                     acceptance_action="automatic_accept",
                 ).review
             if (
-                successor.semantic_validation is not None
+                successor.review_phase is OrdinaryReviewPhase.LEGACY
+                and successor.semantic_validation is not None
                 and successor.semantic_validation.verdict.automatic_repair_eligible
             ):
                 return self._repair_rejected_ordinary(successor)
@@ -572,6 +671,19 @@ class LeanPiSceneCoordinator:
             current_state=review.turn_input.current_state,
             validation_evidence=validation_evidence,
         )
+        semantic_validation = self._run_semantic_validation(
+            review,
+            validation_request,
+            validation_custody,
+        )
+        return replace(review, semantic_validation=semantic_validation)
+
+    def _run_semantic_validation(
+        self,
+        review: LeanReviewRecordV1,
+        validation_request: SemanticValidationRequestV1,
+        validation_custody: SemanticValidationCustodyV1,
+    ) -> BoundSemanticValidationV1:
         try:
             if self.ordinary_stage_retry is None:
                 semantic_validator = self.semantic_validator
@@ -602,7 +714,756 @@ class LeanPiSceneCoordinator:
                 logic_owner="validator",
                 failure=exc,
             ) from exc
-        return replace(review, semantic_validation=semantic_validation)
+        return semantic_validation
+
+    def _freeze_ordinary_validation_claim(
+        self,
+        review: LeanReviewRecordV1,
+        *,
+        validation_evidence: Sequence[Mapping[str, Any]],
+    ) -> LeanReviewRecordV1:
+        """Build and hash both independent validator inputs before dispatch."""
+
+        if review.candidate.primary_authority_kind != "codex_cognition_plan":
+            raise StateConflictError("Reader lifecycle requires a cognition candidate")
+        if self.reader_validator is None:
+            raise StateConflictError("Reader lifecycle lost its Reader port")
+        if self.semantic_validator is None and self.ordinary_stage_retry is None:
+            raise StateConflictError("Reader lifecycle requires the semantic Validator")
+        semantic_request, semantic_custody = build_semantic_validation_input(
+            candidate=review.candidate,
+            current_state=review.turn_input.current_state,
+            validation_evidence=validation_evidence,
+        )
+        reader_request, reader_custody = build_reader_validation_input(
+            candidate=review.candidate,
+            turn_input=review.turn_input,
+        )
+        semantic_prepared: object | None = None
+        reader_prepared: object | None = None
+        luna_chain_id: str | None = None
+        reader_chain_id: str | None = None
+        if self.ordinary_stage_retry is not None:
+            head = self.store.load_head(
+                world_id=review.candidate.world_id,
+                branch_id=review.candidate.branch_id,
+            )
+            accepted_state_sha256 = _provider_retry_accepted_state_sha256(head)
+            semantic_prepared = self.ordinary_stage_retry.prepare_semantic_validator(
+                semantic_request,
+                semantic_custody,
+                accepted_state_sha256=accepted_state_sha256,
+                authority_binding={
+                    "candidate_id": review.candidate.candidate_id,
+                    "candidate_sha256": review.candidate.candidate_sha256,
+                    "generation": review.candidate.generation,
+                    "primary_authority_sha256": (review.candidate.primary_authority_sha256),
+                },
+                review_validation_lane=True,
+            )
+            reader_prepared = self.ordinary_stage_retry.prepare_reader(
+                reader_request,
+                reader_custody,
+                accepted_state_sha256=accepted_state_sha256,
+                authority_binding={
+                    "candidate_id": review.candidate.candidate_id,
+                    "candidate_sha256": review.candidate.candidate_sha256,
+                    "generation": review.candidate.generation,
+                    "primary_authority_sha256": (review.candidate.primary_authority_sha256),
+                    "reader_request_sha256": canonical_sha256(reader_request),
+                },
+            )
+            luna_chain_id = _prepared_chain_id(semantic_prepared)
+            reader_chain_id = _prepared_chain_id(reader_prepared)
+        binding = OrdinaryValidationInputBindingV1.create(
+            candidate_sha256=review.candidate.candidate_sha256,
+            semantic_request_sha256=canonical_sha256(semantic_request),
+            semantic_custody_sha256=canonical_sha256(semantic_custody),
+            reader_request_sha256=canonical_sha256(reader_request),
+            reader_custody_sha256=canonical_sha256(reader_custody),
+            luna_chain_id=luna_chain_id,
+            reader_chain_id=reader_chain_id,
+        )
+        prepared = _PreparedOrdinaryValidationsV1(
+            semantic_request=semantic_request,
+            semantic_custody=semantic_custody,
+            reader_request=reader_request,
+            reader_custody=reader_custody,
+            semantic_prepared=semantic_prepared,
+            reader_prepared=reader_prepared,
+        )
+        if review.review_id in self._prepared_ordinary_validations:
+            raise StateConflictError("ordinary validation claim identity is occupied")
+        self._prepared_ordinary_validations[review.review_id] = prepared
+        return replace(
+            review,
+            review_phase=OrdinaryReviewPhase.WRITER_FROZEN,
+            validation_input_binding=binding,
+        )
+
+    def begin_ordinary_validation(self, review_id: str) -> LeanReviewRecordV1:
+        """Run Luna and Reader concurrently, then apply the durable gate.
+
+        This method is invoked once from the original HTTP request context.
+        Restart/reload uses :meth:`reconcile_ordinary_review` and never calls
+        this method automatically.
+        """
+
+        with self._lock:
+            snapshot = self.get_review(review_id, reconcile=False)
+            if snapshot.state == LeanReviewState.ACCEPTED:
+                return snapshot
+            review = self._current_review(review_id)
+            if review.review_phase is not OrdinaryReviewPhase.WRITER_FROZEN:
+                if (
+                    review.review_phase
+                    in {
+                        OrdinaryReviewPhase.VALIDATION_REJECTED,
+                        OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT,
+                        OrdinaryReviewPhase.QUALIFIED,
+                    }
+                    or review.state == LeanReviewState.ACCEPTED
+                ):
+                    return review
+                raise StateConflictError("ordinary validation claim is not dispatchable")
+            prepared = self._prepared_ordinary_validations.get(review_id)
+            if prepared is None:
+                return self._block_interrupted_validation(review)
+            claimed = replace(review, review_phase=OrdinaryReviewPhase.VALIDATING)
+            self._replace_review_durably(review, claimed)
+
+        semantic_context = copy_context()
+        reader_context = copy_context()
+        futures: dict[Future[Any], OrdinaryValidationOwner] = {}
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="cera-review-check") as pool:
+            if prepared.semantic_prepared is not None:
+                retry = self.ordinary_stage_retry
+                if retry is None:
+                    raise StateConflictError("prepared Luna validation lost Retry authority")
+                semantic_future = pool.submit(
+                    semantic_context.run,
+                    retry.dispatch_prepared_semantic_validator,
+                    prepared.semantic_prepared,
+                )
+            else:
+                semantic_future = pool.submit(
+                    semantic_context.run,
+                    self._run_semantic_validation,
+                    claimed,
+                    prepared.semantic_request,
+                    prepared.semantic_custody,
+                )
+            futures[semantic_future] = OrdinaryValidationOwner.LUNA
+
+            if prepared.reader_prepared is not None:
+                retry = self.ordinary_stage_retry
+                if retry is None:
+                    raise StateConflictError("prepared Reader validation lost Retry authority")
+                reader_future = pool.submit(
+                    reader_context.run,
+                    retry.dispatch_prepared_reader,
+                    prepared.reader_prepared,
+                )
+            else:
+                reader_validator = self.reader_validator
+                if reader_validator is None:
+                    raise StateConflictError("ordinary validation lost its Reader port")
+                reader_future = pool.submit(
+                    reader_context.run,
+                    reader_validator.validate,
+                    prepared.reader_request,
+                    prepared.reader_custody,
+                )
+            futures[reader_future] = OrdinaryValidationOwner.READER
+            for future in as_completed(futures):
+                owner = futures[future]
+                try:
+                    value = future.result()
+                except Exception as exc:
+                    self._record_validation_failure(review_id, owner=owner, failure=exc)
+                else:
+                    self._record_validation_result(review_id, owner=owner, result=value)
+
+        with self._lock:
+            self._prepared_ordinary_validations.pop(review_id, None)
+            current = self._current_review(review_id)
+            return self._finalize_ordinary_validation(current)
+
+    def _record_validation_result(
+        self,
+        review_id: str,
+        *,
+        owner: OrdinaryValidationOwner,
+        result: object,
+    ) -> None:
+        with self._lock:
+            current = self._current_review(review_id)
+            if current.review_phase is not OrdinaryReviewPhase.VALIDATING:
+                raise StateConflictError("ordinary validation result lost its durable claim")
+            if owner is OrdinaryValidationOwner.LUNA:
+                if type(result) is not BoundSemanticValidationV1:
+                    raise ContractValidationError("Luna returned an invalid validation result")
+                updated = replace(
+                    current,
+                    semantic_validation=result,
+                    luna_provider_stage_retry_status=None,
+                )
+            else:
+                if type(result) is not BoundReaderValidationV1:
+                    raise ContractValidationError("Reader returned an invalid validation result")
+                updated = replace(
+                    current,
+                    reader_validation=result,
+                    reader_provider_stage_retry_status=None,
+                )
+            self._replace_review_durably(current, updated)
+
+    def _record_validation_failure(
+        self,
+        review_id: str,
+        *,
+        owner: OrdinaryValidationOwner,
+        failure: BaseException,
+    ) -> None:
+        retry_status: ProviderStageRetryStatusEnvelopeV1 | None = None
+        chain_id: str | None = None
+        if isinstance(failure, ProviderStageRetryPendingError):
+            retry_status = failure.envelope
+            chain_id = failure.chain_id
+            failure_code = "provider_stage_pending"
+            explanation = f"{owner.value.title()} is paused for manual provider recovery."
+        else:
+            failure_code = "validation_runtime_failed"
+            explanation = f"{owner.value.title()} validation failed before a usable verdict."
+        safe_failure = OrdinaryValidationFailureV1(
+            schema_version=OrdinaryValidationFailureV1.SCHEMA_VERSION,
+            owner=owner,
+            failure_code=failure_code,
+            concise_explanation=explanation,
+            chain_id=chain_id,
+        )
+        with self._lock:
+            current = self._current_review(review_id)
+            if current.review_phase is not OrdinaryReviewPhase.VALIDATING:
+                raise StateConflictError("ordinary validation failure lost its durable claim")
+            failures = tuple(
+                value for value in current.validation_failures if value.owner is not owner
+            ) + (safe_failure,)
+            updated = replace(
+                current,
+                validation_failures=failures,
+                luna_provider_stage_retry_status=(
+                    retry_status
+                    if owner is OrdinaryValidationOwner.LUNA
+                    else current.luna_provider_stage_retry_status
+                ),
+                reader_provider_stage_retry_status=(
+                    retry_status
+                    if owner is OrdinaryValidationOwner.READER
+                    else current.reader_provider_stage_retry_status
+                ),
+            )
+            self._replace_review_durably(current, updated)
+
+    def _finalize_ordinary_validation(
+        self,
+        review: LeanReviewRecordV1,
+        *,
+        dispatch_recorder: bool = True,
+    ) -> LeanReviewRecordV1:
+        if review.validation_failures:
+            if review.review_phase is not OrdinaryReviewPhase.VALIDATION_BLOCKED:
+                blocked = replace(
+                    review,
+                    review_phase=OrdinaryReviewPhase.VALIDATION_BLOCKED,
+                )
+                self._replace_review_durably(review, blocked)
+                return blocked
+            return review
+        semantic = review.semantic_validation
+        reader = review.reader_validation
+        if semantic is None or reader is None:
+            return self._block_interrupted_validation(review)
+        try:
+            qualification = self._qualify_ordinary_review(review)
+        except (ContractValidationError, StateConflictError):
+            blocked = replace(
+                review,
+                review_phase=OrdinaryReviewPhase.VALIDATION_BLOCKED,
+                validation_failures=(
+                    *tuple(
+                        failure
+                        for failure in review.validation_failures
+                        if failure.owner is not OrdinaryValidationOwner.PYTHON
+                    ),
+                    OrdinaryValidationFailureV1(
+                        schema_version=OrdinaryValidationFailureV1.SCHEMA_VERSION,
+                        owner=OrdinaryValidationOwner.PYTHON,
+                        failure_code="python_qualification_failed",
+                        concise_explanation=(
+                            "Python deterministic, identity, custody, or privacy "
+                            "qualification did not pass."
+                        ),
+                    ),
+                ),
+            )
+            self._replace_review_durably(review, blocked)
+            return blocked
+        if (
+            semantic.verdict.verdict is not SemanticVerdict.PASS
+            or reader.verdict.status is not ReaderStatus.ACCEPTED
+        ):
+            rejected = replace(
+                review,
+                review_phase=OrdinaryReviewPhase.VALIDATION_REJECTED,
+                python_qualification=qualification,
+            )
+            self._replace_review_durably(review, rejected)
+            return rejected
+        qualified = replace(
+            review,
+            review_phase=OrdinaryReviewPhase.QUALIFIED,
+            python_qualification=qualification,
+        )
+        # Persist provider-free qualification before immutable Accept so a
+        # crash can complete the same candidate exactly once without a model.
+        self._replace_review_durably(review, qualified)
+        if self._review_mode(qualified) is OrdinaryReviewMode.MANUAL:
+            awaiting = replace(
+                qualified,
+                review_phase=OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT,
+            )
+            self._replace_review_durably(qualified, awaiting)
+            return awaiting
+        return self.accept(
+            qualified.review_id,
+            acceptance_action="automatic_accept",
+            dispatch_recorder=dispatch_recorder,
+        ).review
+
+    def _qualify_ordinary_review(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> OrdinaryPythonQualificationV1:
+        binding = review.validation_input_binding
+        semantic = review.semantic_validation
+        reader = review.reader_validation
+        if binding is None or semantic is None or reader is None:
+            raise StateConflictError("ordinary qualification lacks validator custody")
+        if (
+            review.candidate.route is not SceneRoute.ORDINARY
+            or type(reader) is not BoundReaderValidationV1
+        ):
+            raise ContractValidationError("ordinary qualification lost its typed Reader route")
+        if (
+            binding.semantic_request_sha256 != canonical_sha256(semantic.request)
+            or binding.semantic_custody_sha256 != canonical_sha256(semantic.custody)
+            or binding.reader_request_sha256 != canonical_sha256(reader.request)
+            or binding.reader_custody_sha256 != canonical_sha256(reader.custody)
+        ):
+            raise ContractValidationError("ordinary validation results changed frozen inputs")
+        expected_reader_request, expected_reader_custody = build_reader_validation_input(
+            candidate=review.candidate,
+            turn_input=review.turn_input,
+        )
+        if reader.request != expected_reader_request or reader.custody != expected_reader_custody:
+            raise ContractValidationError(
+                "ordinary Reader result changed the safe accepted-context projection"
+            )
+        head = self.store.load_head(
+            world_id=review.candidate.world_id,
+            branch_id=review.candidate.branch_id,
+        )
+        append_head = (
+            review.candidate.generation == head.generation + 1
+            and review.candidate.parent_accepted_turn_id == head.accepted_turn_id
+            and review.candidate.accepted_head_before_sha256 == head.accepted_head_sha256
+        )
+        selected = head.receipt
+        sibling_head = (
+            selected is not None
+            and review.candidate.generation == selected.generation
+            and review.candidate.parent_accepted_turn_id == selected.parent_accepted_turn_id
+            and review.candidate.accepted_head_before_sha256 == selected.parent_accepted_head_sha256
+        )
+        if not (append_head or sibling_head):
+            raise StateConflictError("ordinary Python qualification found a stale branch head")
+        reader_payload = to_primitive(reader.request)
+        if not isinstance(reader_payload, Mapping) or any(
+            key in reader_payload
+            for key in (
+                "exact_user_source",
+                "adult_handoff",
+                "private_state",
+                "semantic_validation",
+            )
+        ):
+            raise ContractValidationError("ordinary Reader privacy projection changed")
+        return OrdinaryPythonQualificationV1.create(
+            review_id=review.review_id,
+            candidate_sha256=review.candidate.candidate_sha256,
+            validation_input_binding_sha256=binding.binding_sha256,
+            semantic_validation_sha256=canonical_sha256(semantic),
+            reader_validation_sha256=reader.binding_sha256,
+            accepted_head_before_sha256=(
+                review.candidate.accepted_head_before_sha256
+                or canonical_sha256(
+                    {
+                        "schema_version": "cera.pi_scene.unaccepted_root_head.v1",
+                        "world_id": review.candidate.world_id,
+                        "branch_id": review.candidate.branch_id,
+                    }
+                )
+            ),
+        )
+
+    def _block_interrupted_validation(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> LeanReviewRecordV1:
+        failures = list(review.validation_failures)
+        failed_owners = {failure.owner for failure in failures}
+        if review.semantic_validation is None and OrdinaryValidationOwner.LUNA not in failed_owners:
+            failures.append(
+                OrdinaryValidationFailureV1(
+                    schema_version=OrdinaryValidationFailureV1.SCHEMA_VERSION,
+                    owner=OrdinaryValidationOwner.LUNA,
+                    failure_code="validation_interrupted",
+                    concise_explanation="Luna validation requires manual recovery after restart.",
+                )
+            )
+        if review.reader_validation is None and OrdinaryValidationOwner.READER not in failed_owners:
+            failures.append(
+                OrdinaryValidationFailureV1(
+                    schema_version=OrdinaryValidationFailureV1.SCHEMA_VERSION,
+                    owner=OrdinaryValidationOwner.READER,
+                    failure_code="validation_interrupted",
+                    concise_explanation="Reader validation requires manual recovery after restart.",
+                )
+            )
+        blocked = replace(
+            review,
+            review_phase=OrdinaryReviewPhase.VALIDATION_BLOCKED,
+            validation_failures=tuple(failures),
+        )
+        self._replace_review_durably(review, blocked)
+        return blocked
+
+    def reconcile_ordinary_review(self, review_id: str) -> LeanReviewRecordV1:
+        """Perform only local restart/reload reconciliation; never dispatch."""
+
+        with self._lock:
+            review = self.get_review(review_id, reconcile=False)
+            if review.state == LeanReviewState.ACCEPTED:
+                return review
+            if review.review_phase is OrdinaryReviewPhase.QUALIFIED:
+                if self._review_mode(review) is OrdinaryReviewMode.AUTOMATIC:
+                    return self.accept(
+                        review_id,
+                        allow_replay=True,
+                        acceptance_action="automatic_accept",
+                        dispatch_recorder=False,
+                    ).review
+                awaiting = replace(
+                    review,
+                    review_phase=OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT,
+                )
+                self._replace_review_durably(review, awaiting)
+                return awaiting
+            if review.review_phase in {
+                OrdinaryReviewPhase.WRITER_FROZEN,
+                OrdinaryReviewPhase.VALIDATING,
+                OrdinaryReviewPhase.VALIDATION_BLOCKED,
+            }:
+                if review.semantic_validation is not None and review.reader_validation is not None:
+                    return self._finalize_ordinary_validation(
+                        review,
+                        dispatch_recorder=False,
+                    )
+                if (
+                    self.ordinary_stage_retry is not None
+                    and review.validation_input_binding is not None
+                    and review.validation_input_binding.luna_chain_id is not None
+                    and review.validation_input_binding.reader_chain_id is not None
+                ):
+                    return self._reconcile_generic_validation_lanes(review)
+                return self._block_interrupted_validation(review)
+            return review
+
+    def _reconcile_generic_validation_lanes(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> LeanReviewRecordV1:
+        """Join durable lane results/statuses without provider redispatch."""
+
+        retry = self.ordinary_stage_retry
+        binding = review.validation_input_binding
+        if retry is None or binding is None:
+            return self._block_interrupted_validation(review)
+        updated = review
+        lane_specs = (
+            (
+                OrdinaryValidationOwner.LUNA,
+                binding.luna_chain_id,
+                retry.reconcile_semantic_validator,
+            ),
+            (
+                OrdinaryValidationOwner.READER,
+                binding.reader_chain_id,
+                retry.reconcile_reader,
+            ),
+        )
+        for owner, chain_id, reconcile in lane_specs:
+            has_result = (
+                updated.semantic_validation is not None
+                if owner is OrdinaryValidationOwner.LUNA
+                else updated.reader_validation is not None
+            )
+            if has_result:
+                continue
+            if chain_id is None:
+                raise StateConflictError("ordinary validation lane lost chain custody")
+            try:
+                value = reconcile(chain_id)
+            except (ContractValidationError, StateConflictError):
+                value = None
+            failures = tuple(
+                failure for failure in updated.validation_failures if failure.owner is not owner
+            )
+            if owner is OrdinaryValidationOwner.LUNA and type(value) is (BoundSemanticValidationV1):
+                updated = replace(
+                    updated,
+                    semantic_validation=value,
+                    luna_provider_stage_retry_status=None,
+                    validation_failures=failures,
+                )
+                continue
+            if owner is OrdinaryValidationOwner.READER and type(value) is (BoundReaderValidationV1):
+                updated = replace(
+                    updated,
+                    reader_validation=value,
+                    reader_provider_stage_retry_status=None,
+                    validation_failures=failures,
+                )
+                continue
+            envelope = None
+            if isinstance(value, Mapping):
+                envelope = validate_provider_stage_retry_status_envelope_v1(value)
+                status = envelope["status"]
+                if status.get("chain_id") != chain_id:
+                    raise StateConflictError("ordinary validation reconciliation changed chain")
+            failure = OrdinaryValidationFailureV1(
+                schema_version=OrdinaryValidationFailureV1.SCHEMA_VERSION,
+                owner=owner,
+                failure_code=(
+                    "provider_stage_pending"
+                    if envelope is not None
+                    else "validation_reconciliation_failed"
+                ),
+                concise_explanation=(
+                    f"{owner.value.title()} is paused for manual provider recovery."
+                    if envelope is not None
+                    else f"{owner.value.title()} validation requires manual recovery."
+                ),
+                chain_id=chain_id,
+            )
+            updated = replace(
+                updated,
+                validation_failures=(*failures, failure),
+                luna_provider_stage_retry_status=(
+                    envelope
+                    if owner is OrdinaryValidationOwner.LUNA
+                    else updated.luna_provider_stage_retry_status
+                ),
+                reader_provider_stage_retry_status=(
+                    envelope
+                    if owner is OrdinaryValidationOwner.READER
+                    else updated.reader_provider_stage_retry_status
+                ),
+            )
+        if updated != review:
+            updated = replace(
+                updated,
+                review_phase=(
+                    OrdinaryReviewPhase.VALIDATING
+                    if not updated.validation_failures
+                    else OrdinaryReviewPhase.VALIDATION_BLOCKED
+                ),
+            )
+            self._replace_review_durably(review, updated)
+        if (
+            updated.semantic_validation is not None
+            and updated.reader_validation is not None
+            and not updated.validation_failures
+        ):
+            return self._finalize_ordinary_validation(
+                updated,
+                dispatch_recorder=False,
+            )
+        return updated
+
+    def block_background_ordinary_validation(
+        self,
+        review_id: str,
+    ) -> LeanReviewRecordV1:
+        """Turn an unexpected worker stop into a durable provider-free block."""
+
+        with self._lock:
+            review = self._current_review(review_id)
+            if review.state == LeanReviewState.ACCEPTED or review.review_phase in {
+                OrdinaryReviewPhase.VALIDATION_REJECTED,
+                OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT,
+                OrdinaryReviewPhase.QUALIFIED,
+                OrdinaryReviewPhase.VALIDATION_BLOCKED,
+            }:
+                return review
+            binding = review.validation_input_binding
+            if (
+                self.ordinary_stage_retry is not None
+                and binding is not None
+                and binding.luna_chain_id is not None
+                and binding.reader_chain_id is not None
+            ):
+                return self._reconcile_generic_validation_lanes(review)
+            return self._block_interrupted_validation(review)
+
+    def validation_lane_binding_for_chain(
+        self,
+        chain_id: str,
+    ) -> dict[str, str] | None:
+        """Return the safe review-local join binding for one validator chain."""
+
+        if not isinstance(chain_id, str):
+            raise ContractValidationError("ordinary validation chain is invalid")
+        with self._lock:
+            matches: list[tuple[LeanReviewRecordV1, OrdinaryValidationOwner]] = []
+            for review in self._reviews.values():
+                binding = review.validation_input_binding
+                if binding is None:
+                    continue
+                if binding.luna_chain_id == chain_id:
+                    matches.append((review, OrdinaryValidationOwner.LUNA))
+                if binding.reader_chain_id == chain_id:
+                    matches.append((review, OrdinaryValidationOwner.READER))
+            if not matches:
+                return None
+            if len(matches) != 1:
+                raise StateConflictError("ordinary validation chain is multiply bound")
+            review, owner = matches[0]
+            binding = review.validation_input_binding
+            assert binding is not None
+            if binding.luna_chain_id is None or binding.reader_chain_id is None:
+                raise StateConflictError("ordinary validation lane binding is incomplete")
+            return {
+                "schema_version": "cera.pi_scene.review_validation_lanes.v1",
+                "review_id": review.review_id,
+                "lane": owner.value,
+                "chain_id": chain_id,
+                "luna_chain_id": binding.luna_chain_id,
+                "reader_chain_id": binding.reader_chain_id,
+            }
+
+    def resume_ordinary_validation_lane(
+        self,
+        *,
+        chain_id: str,
+        lane: str,
+        result: BoundSemanticValidationV1 | BoundReaderValidationV1,
+    ) -> LeanReviewRecordV1:
+        """Join one manually recovered verdict without any provider dispatch."""
+
+        try:
+            owner = OrdinaryValidationOwner(lane)
+        except ValueError as exc:
+            raise ContractValidationError("ordinary validation lane is invalid") from exc
+        binding_payload = self.validation_lane_binding_for_chain(chain_id)
+        if binding_payload is None or binding_payload["lane"] != owner.value:
+            raise StateConflictError("ordinary validation result lacks its review binding")
+        review_id = binding_payload["review_id"]
+        with self._lock:
+            current = self._current_review(review_id)
+            if owner is OrdinaryValidationOwner.LUNA:
+                if type(result) is not BoundSemanticValidationV1:
+                    raise ContractValidationError("Luna recovery returned another result type")
+                prior_semantic = current.semantic_validation
+                if prior_semantic is not None:
+                    if prior_semantic != result:
+                        raise StateConflictError(
+                            "ordinary validation verdict changed after binding"
+                        )
+                    return current
+                updated = replace(
+                    current,
+                    semantic_validation=result,
+                    luna_provider_stage_retry_status=None,
+                    validation_failures=tuple(
+                        failure
+                        for failure in current.validation_failures
+                        if failure.owner is not owner
+                    ),
+                )
+            else:
+                if type(result) is not BoundReaderValidationV1:
+                    raise ContractValidationError("Reader recovery returned another result type")
+                prior_reader = current.reader_validation
+                if prior_reader is not None:
+                    if prior_reader != result:
+                        raise StateConflictError(
+                            "ordinary validation verdict changed after binding"
+                        )
+                    return current
+                updated = replace(
+                    current,
+                    reader_validation=result,
+                    reader_provider_stage_retry_status=None,
+                    validation_failures=tuple(
+                        failure
+                        for failure in current.validation_failures
+                        if failure.owner is not owner
+                    ),
+                )
+            if current.state is LeanReviewState.ACCEPTED:
+                raise StateConflictError("accepted ordinary review lacks its lane verdict")
+            updated = replace(
+                updated,
+                review_phase=(
+                    OrdinaryReviewPhase.VALIDATING
+                    if not updated.validation_failures
+                    else OrdinaryReviewPhase.VALIDATION_BLOCKED
+                ),
+            )
+            self._replace_review_durably(current, updated)
+            if (
+                updated.semantic_validation is not None
+                and updated.reader_validation is not None
+                and not updated.validation_failures
+            ):
+                return self._finalize_ordinary_validation(
+                    updated,
+                    dispatch_recorder=False,
+                )
+            return updated
+
+    @staticmethod
+    def _review_mode(review: LeanReviewRecordV1) -> OrdinaryReviewMode:
+        controls = review.turn_input.request_controls
+        if isinstance(controls, LeanSceneRequestControlsV3):
+            return OrdinaryReviewMode(controls.review_mode)
+        return OrdinaryReviewMode.AUTOMATIC
+
+    def _replace_review_durably(
+        self,
+        prior: LeanReviewRecordV1,
+        updated: LeanReviewRecordV1,
+    ) -> None:
+        if prior.review_id != updated.review_id or self._reviews.get(prior.review_id) != prior:
+            raise StateConflictError("ordinary review durable transition changed identity")
+        self._reviews[prior.review_id] = updated
+        try:
+            self._persist_review_state()
+        except Exception:
+            self._reviews[prior.review_id] = prior
+            raise
 
     def _repair_rejected_ordinary(
         self,
@@ -683,14 +1544,29 @@ class LeanPiSceneCoordinator:
             self._register_review(review)
             return review
 
-    def get_review(self, review_id: str) -> LeanReviewRecordV1:
+    def get_review(
+        self,
+        review_id: str,
+        *,
+        reconcile: bool = True,
+    ) -> LeanReviewRecordV1:
         with self._lock:
             if review_id in self._reviews:
-                return self._reviews[review_id]
-            replay = self._decisions.get(review_id)
-            if replay is not None:
-                return replay.result.review
-            raise StateConflictError("unknown Pi Scene review")
+                review = self._reviews[review_id]
+            else:
+                replay = self._decisions.get(review_id)
+                if replay is None:
+                    raise StateConflictError("unknown Pi Scene review")
+                review = replay.result.review
+            if reconcile and review.review_phase is not OrdinaryReviewPhase.LEGACY:
+                return self.reconcile_ordinary_review(review_id)
+            return review
+
+    def terminal_decision_replay(self, review_id: str) -> DecisionReplayV1 | None:
+        """Read one already-durable creator decision without any provider work."""
+
+        with self._lock:
+            return self._decisions.get(review_id)
 
     def durable_result_for_turn(
         self,
@@ -744,7 +1620,9 @@ class LeanPiSceneCoordinator:
         branch_id: str,
         turn_context_sha256: str,
         exact_user_source: str,
-        request_controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2,
+        request_controls: (
+            LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2 | LeanSceneRequestControlsV3
+        ),
     ) -> LeanReviewRecordV1 | None:
         """Find exact pre-commit turn custody after current context advances.
 
@@ -823,33 +1701,109 @@ class LeanPiSceneCoordinator:
                     )
             if durable != review:
                 raise StateConflictError("Pi Scene response review is not durable")
-            predecessor_id = review.result.repaired_from_candidate_id
-            if predecessor_id is None:
-                return (review,)
             durable_reviews = {value.review_id: value for value in self._reviews.values()}
             for decision in self._decisions.values():
                 durable_reviews[decision.result.review.review_id] = decision.result.review
                 if decision.result.successor is not None:
                     durable_reviews[decision.result.successor.review_id] = decision.result.successor
-            matches = tuple(
-                value
-                for value in durable_reviews.values()
-                if value.candidate.candidate_id == predecessor_id
-            )
-            if len(matches) != 1:
-                raise StateConflictError("Pi Scene repair predecessor is ambiguous")
-            predecessor = matches[0]
-            if (
-                predecessor.state != LeanReviewState.REPAIRED
-                or predecessor.result.repaired_from_candidate_id is not None
-                or predecessor.candidate.world_id != review.candidate.world_id
-                or predecessor.candidate.branch_id != review.candidate.branch_id
-                or predecessor.candidate.turn_id != review.candidate.turn_id
-                or predecessor.candidate.generation != review.candidate.generation
-                or predecessor.candidate.exact_user_source != review.candidate.exact_user_source
-            ):
-                raise StateConflictError("Pi Scene repair predecessor custody changed")
-            return (predecessor, review)
+            attempts = [review]
+            seen_candidate_ids = {review.candidate.candidate_id}
+            current = review
+            while True:
+                lineage = tuple(
+                    (candidate_id, required_state)
+                    for candidate_id, required_state in (
+                        (
+                            current.result.repaired_from_candidate_id,
+                            LeanReviewState.REPAIRED,
+                        ),
+                        (
+                            current.result.regenerated_from_candidate_id,
+                            LeanReviewState.REGENERATED,
+                        ),
+                        (
+                            current.result.replanned_from_candidate_id,
+                            LeanReviewState.REPLANNED,
+                        ),
+                    )
+                    if candidate_id is not None
+                )
+                if not lineage:
+                    break
+                if len(lineage) != 1:
+                    raise StateConflictError("Pi Scene provider-attempt lineage is ambiguous")
+                predecessor_id, required_state = lineage[0]
+                if predecessor_id in seen_candidate_ids:
+                    raise StateConflictError("Pi Scene provider-attempt lineage has a cycle")
+                matches = tuple(
+                    value
+                    for value in durable_reviews.values()
+                    if value.candidate.candidate_id == predecessor_id
+                )
+                if len(matches) != 1:
+                    raise StateConflictError("Pi Scene provider-attempt predecessor is ambiguous")
+                predecessor = matches[0]
+                predecessor_state_valid = predecessor.state == required_state or (
+                    required_state == LeanReviewState.REGENERATED
+                    and predecessor.state == LeanReviewState.ACCEPTED
+                    and predecessor.accepted_receipt is not None
+                )
+                if (
+                    not predecessor_state_valid
+                    or predecessor.candidate.world_id != review.candidate.world_id
+                    or predecessor.candidate.branch_id != review.candidate.branch_id
+                    or predecessor.candidate.turn_id != review.candidate.turn_id
+                    or predecessor.candidate.generation != review.candidate.generation
+                    or predecessor.candidate.exact_user_source != review.candidate.exact_user_source
+                ):
+                    raise StateConflictError(
+                        "Pi Scene provider-attempt predecessor custody changed"
+                    )
+                attempts.append(predecessor)
+                seen_candidate_ids.add(predecessor_id)
+                current = predecessor
+            attempts.reverse()
+            return tuple(attempts)
+
+    def validation_provider_operations(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> dict[str, int] | None:
+        """Return ledger-proven Luna/Reader operation totals when generically bound."""
+
+        if review.review_phase is OrdinaryReviewPhase.LEGACY:
+            return None
+        binding = review.validation_input_binding
+        retry = self.ordinary_stage_retry
+        status_reader = None if retry is None else getattr(retry, "status", None)
+        if binding is None or not callable(status_reader):
+            return None
+        lane_chains = {
+            "validator": binding.luna_chain_id,
+            "reader": binding.reader_chain_id,
+        }
+        totals: dict[str, int] = {}
+        for role, chain_id in lane_chains.items():
+            if chain_id is None:
+                raise StateConflictError("ordinary validation accounting lost a lane chain")
+            envelope = validate_provider_stage_retry_status_envelope_v1(status_reader(chain_id))
+            status = envelope["status"]
+            observed = status.get("provider_operations_observed_total")
+            if status.get("chain_id") != chain_id or type(observed) is not int or observed < 0:
+                raise StateConflictError(
+                    "ordinary validation accounting changed generic chain custody"
+                )
+            totals[role] = observed
+        return totals
+
+    def validation_provider_operation_attempts(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> tuple[dict[str, int] | None, ...]:
+        """Return ledger totals aligned to each durable candidate attempt."""
+
+        attempts = self.provider_operation_attempts(review)
+        return tuple(self.validation_provider_operations(attempt) for attempt in attempts)
 
     def unresolved_review(
         self,
@@ -882,6 +1836,10 @@ class LeanPiSceneCoordinator:
             if review_id is None:
                 return None
             review = self._reviews[review_id]
+            if review.review_phase is not OrdinaryReviewPhase.LEGACY:
+                raise StateConflictError(
+                    "Pi Scene provisional review requires its explicit lifecycle resolution"
+                )
             if (
                 review.semantic_validation is not None
                 and review.semantic_validation.verdict.verdict is SemanticVerdict.REJECT
@@ -895,20 +1853,43 @@ class LeanPiSceneCoordinator:
         *,
         allow_replay: bool = False,
         acceptance_action: str = "accept",
+        override_feedback: str | None = None,
+        dispatch_recorder: bool = True,
     ) -> LeanDecisionResultV1:
         with self._lock:
             if type(allow_replay) is not bool:
                 raise ContractValidationError("Accept replay flag must be boolean")
+            if type(dispatch_recorder) is not bool:
+                raise ContractValidationError("Accept Recorder-dispatch flag must be boolean")
             if acceptance_action not in {
                 "accept",
                 "automatic_accept",
                 "provisional_accept",
             }:
                 raise ContractValidationError("Accept action is invalid")
-            decision_action = (
-                "accept_provisional" if acceptance_action == "provisional_accept" else "accept"
+            if acceptance_action == "provisional_accept" and override_feedback is not None:
+                if (
+                    not isinstance(override_feedback, str)
+                    or not override_feedback.strip()
+                    or len(override_feedback) > 20_000
+                    or "\x00" in override_feedback
+                ):
+                    raise ContractValidationError(
+                        "provisional Accept requires bounded creator feedback"
+                    )
+            elif override_feedback is not None:
+                raise ContractValidationError(
+                    "ordinary Accept received unrelated override feedback"
+                )
+            decision_action = {
+                "accept": "accept",
+                "automatic_accept": "automatic_accept",
+                "provisional_accept": "accept_provisional",
+            }[acceptance_action]
+            request_sha256 = decision_request_sha256(
+                action=decision_action,
+                feedback=override_feedback,
             )
-            request_sha256 = decision_request_sha256(action=decision_action)
             if allow_replay:
                 replay = self._replay_decision(
                     review_id,
@@ -918,6 +1899,23 @@ class LeanPiSceneCoordinator:
                 if replay is not None:
                     return replay
             review = self._current_review(review_id)
+            if review.review_phase is not OrdinaryReviewPhase.LEGACY:
+                if acceptance_action == "automatic_accept" and (
+                    review.review_phase is not OrdinaryReviewPhase.QUALIFIED
+                    or self._review_mode(review) is not OrdinaryReviewMode.AUTOMATIC
+                ):
+                    raise StateConflictError("automatic Accept lacks qualified automatic custody")
+                if acceptance_action == "accept" and (
+                    review.review_phase is not OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT
+                    or self._review_mode(review) is not OrdinaryReviewMode.MANUAL
+                ):
+                    raise StateConflictError("manual Accept lacks qualified manual custody")
+                if acceptance_action == "provisional_accept" and (
+                    review.review_phase is not OrdinaryReviewPhase.VALIDATION_REJECTED
+                    or review.python_qualification is None
+                    or override_feedback is None
+                ):
+                    raise StateConflictError("creator override lacks rejected semantic custody")
             head = self.store.load_head(
                 world_id=review.candidate.world_id,
                 branch_id=review.candidate.branch_id,
@@ -932,13 +1930,33 @@ class LeanPiSceneCoordinator:
                     review.candidate,
                     replaced_receipt=replaced,
                     semantic_validation=review.semantic_validation,
+                    reader_validation=review.reader_validation,
+                    python_qualification=review.python_qualification,
                     acceptance_action=acceptance_action,
+                    acceptance_decision_request_sha256=(
+                        None
+                        if acceptance_action == "provisional_accept" and override_feedback is None
+                        else request_sha256
+                    ),
+                    override_feedback_sha256=(
+                        None if override_feedback is None else text_sha256(override_feedback)
+                    ),
                 )
             else:
                 accepted = self.store.accept(
                     review.candidate,
                     semantic_validation=review.semantic_validation,
+                    reader_validation=review.reader_validation,
+                    python_qualification=review.python_qualification,
                     acceptance_action=acceptance_action,
+                    acceptance_decision_request_sha256=(
+                        None
+                        if acceptance_action == "provisional_accept" and override_feedback is None
+                        else request_sha256
+                    ),
+                    override_feedback_sha256=(
+                        None if override_feedback is None else text_sha256(override_feedback)
+                    ),
                 )
             # The review becomes terminal immediately after the immutable
             # receipt. Any later session or Recorder exception therefore
@@ -963,7 +1981,9 @@ class LeanPiSceneCoordinator:
             pending_recording: ProviderStageRetryPendingError | None = None
             pending_recording_custody_error: Exception | None = None
             try:
-                recording = self._record_after_accept(terminal)
+                recording = self._record_after_accept(terminal) if dispatch_recorder else None
+                if not dispatch_recorder:
+                    warnings.append("recording_state_pending")
             except ProviderStageRetryPendingError as exc:
                 # The accepted receipt is already immutable story truth. Keep
                 # that exact accepted review durable, then surface the generic
@@ -1037,6 +2057,7 @@ class LeanPiSceneCoordinator:
                 if replay is not None:
                     return replay
             review = self._current_review(review_id)
+            self._require_lifecycle_creator_action(review, "decline")
             terminal = replace(review, state=LeanReviewState.DECLINED)
             result = LeanDecisionResultV1(review=terminal)
             self._commit_review_transition(
@@ -1085,6 +2106,7 @@ class LeanPiSceneCoordinator:
                 if replay is not None:
                     return replay
             review = self._current_review(review_id)
+            self._require_lifecycle_creator_action(review, "regenerate")
             replacement_turn = review.turn_input
             if turn_input is not None:
                 self._validate_regeneration_turn(review, turn_input)
@@ -1096,29 +2118,27 @@ class LeanPiSceneCoordinator:
             )
             if review.candidate.route is SceneRoute.ORDINARY:
                 replacement_base = self._replacement_base_for_candidate(review.candidate)
-                accepted_override = (
-                    None
-                    if replacement_base is None
-                    else self.store.regeneration_prefix_ordinary_context_payloads(replacement_base)
-                )
-                planned = self._plan_ordinary(
-                    replacement_turn,
-                    creator_guidance=guidance,
-                    accepted_records_override=accepted_override,
-                )
+                authority, validation_evidence = self._regeneration_authority_and_evidence(review)
                 successor = self._prepare_review(
                     replacement_turn,
                     route=SceneRoute.ORDINARY,
-                    primary_authority=(planned.decision_bundle or planned.sequence),
-                    planner_provider_operations=planned.provider_operations,
+                    primary_authority=authority,
+                    planner_provider_operations=0,
                     regenerated_from_candidate_id=review.candidate.candidate_id,
                     creator_guidance=guidance,
                     force_rehydrate=force_rehydrate,
                     replacement_base=replacement_base,
                 )
-                successor = self._validate_ordinary_review(
-                    successor,
-                    validation_evidence=planned.validation_evidence,
+                successor = (
+                    self._freeze_ordinary_validation_claim(
+                        successor,
+                        validation_evidence=validation_evidence,
+                    )
+                    if self.reader_validator is not None
+                    else self._validate_ordinary_review(
+                        successor,
+                        validation_evidence=validation_evidence,
+                    )
                 )
             else:
                 authority = json.loads(review.candidate.primary_authority_json)
@@ -1191,6 +2211,7 @@ class LeanPiSceneCoordinator:
                 if replay is not None:
                     return replay
             review = self._current_review(review_id)
+            self._require_lifecycle_creator_action(review, "replan")
             if review.candidate.route is not SceneRoute.ORDINARY:
                 raise ContractValidationError("adult route does not use a Codex replan")
             guidance = CreatorGuidanceV1.create(
@@ -1217,9 +2238,16 @@ class LeanPiSceneCoordinator:
                 creator_guidance=guidance,
                 replacement_base=replacement_base,
             )
-            successor = self._validate_ordinary_review(
-                successor,
-                validation_evidence=planned.validation_evidence,
+            successor = (
+                self._freeze_ordinary_validation_claim(
+                    successor,
+                    validation_evidence=planned.validation_evidence,
+                )
+                if self.reader_validator is not None
+                else self._validate_ordinary_review(
+                    successor,
+                    validation_evidence=planned.validation_evidence,
+                )
             )
             terminal = replace(review, state=LeanReviewState.REPLANNED)
             result = LeanDecisionResultV1(review=terminal, successor=successor)
@@ -1253,6 +2281,32 @@ class LeanPiSceneCoordinator:
                     )
             return result
 
+    def _require_lifecycle_creator_action(
+        self,
+        review: LeanReviewRecordV1,
+        action: str,
+    ) -> None:
+        """Authorize semantic creator actions from current durable lifecycle state."""
+
+        if review.review_phase is OrdinaryReviewPhase.LEGACY:
+            return
+        if action == "replan":
+            raise StateConflictError("Replan is disabled for this review lifecycle release")
+        rejected = (
+            review.review_phase is OrdinaryReviewPhase.VALIDATION_REJECTED
+            and review.python_qualification is not None
+        )
+        manual_pass = (
+            review.review_phase is OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT
+            and self._review_mode(review) is OrdinaryReviewMode.MANUAL
+            and review.python_qualification is not None
+        )
+        if action in {"regenerate", "decline"} and (rejected or manual_pass):
+            return
+        raise StateConflictError(
+            "creator action is not authorized by the current ordinary review lifecycle"
+        )
+
     def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
         with self._lock:
             review = self.get_review(review_id)
@@ -1269,14 +2323,33 @@ class LeanPiSceneCoordinator:
                 decision_action = (
                     "accept_provisional"
                     if review.accepted_receipt.creator_action == "provisional_accept"
+                    else "automatic_accept"
+                    if review.accepted_receipt.creator_action == "automatic_accept"
                     else "accept"
                 )
+                decision_audit = self.store.load_acceptance_decision_audit(review.accepted_receipt)
+                if (
+                    decision_action == "accept_provisional"
+                    and review.review_phase is not OrdinaryReviewPhase.LEGACY
+                    and decision_audit is None
+                ):
+                    raise StateConflictError(
+                        "accepted override lost its feedback-bound decision audit"
+                    )
                 accepted_decision = DecisionReplayV1(
                     action=decision_action,
-                    request_sha256=decision_request_sha256(action=decision_action),
+                    request_sha256=(
+                        decision_request_sha256(action=decision_action)
+                        if decision_audit is None
+                        else decision_audit.decision_request_sha256
+                    ),
                     result=LeanDecisionResultV1(review=terminal),
                 )
-            elif accepted_decision.action not in {"accept", "accept_provisional"}:
+            elif accepted_decision.action not in {
+                "accept",
+                "automatic_accept",
+                "accept_provisional",
+            }:
                 raise StateConflictError(
                     "recording repair review has a conflicting decision receipt"
                 )
@@ -1691,6 +2764,34 @@ class LeanPiSceneCoordinator:
         if controls is None or controls.regeneration_key is None:
             raise ContractValidationError("Pi Scene regeneration requires its typed key")
 
+    @staticmethod
+    def _regeneration_authority_and_evidence(
+        review: LeanReviewRecordV1,
+    ) -> tuple[Mapping[str, Any], tuple[Mapping[str, Any], ...]]:
+        """Reuse the exact frozen Plan and Luna evidence; Regenerate is Writer-only."""
+
+        try:
+            authority = json.loads(review.candidate.primary_authority_json)
+        except json.JSONDecodeError as exc:
+            raise StateConflictError(
+                "ordinary Regenerate lost its frozen primary authority"
+            ) from exc
+        if not isinstance(authority, Mapping):
+            raise StateConflictError("ordinary Regenerate primary authority is not an object")
+        validation = review.semantic_validation
+        evidence: tuple[Mapping[str, Any], ...] = ()
+        if validation is not None:
+            projected: list[Mapping[str, Any]] = []
+            for value in validation.request.selected_evidence:
+                item = to_primitive(value)
+                if not isinstance(item, Mapping):
+                    raise StateConflictError(
+                        "ordinary Regenerate validation evidence changed shape"
+                    )
+                projected.append(dict(item))
+            evidence = tuple(projected)
+        return dict(authority), evidence
+
     def _persist_review_state(self) -> None:
         self._review_state_store.persist(
             candidate_counter=self._candidate_counter,
@@ -1877,7 +2978,7 @@ class LeanPiSceneCoordinator:
             )
 
     def _current_review(self, review_id: str) -> LeanReviewRecordV1:
-        review = self.get_review(review_id)
+        review = self.get_review(review_id, reconcile=False)
         key = (review.candidate.world_id, review.candidate.branch_id)
         if review.state != LeanReviewState.REVIEW_READY:
             raise StateConflictError("Pi Scene review is already terminal")
@@ -1983,6 +3084,17 @@ def _provider_retry_accepted_state_sha256(head: LeanAcceptedHeadV1) -> str:
             ),
         }
     )
+
+
+def _prepared_chain_id(prepared: object) -> str:
+    """Read the content-free chain identity from a generic prepared handle."""
+
+    scope = getattr(prepared, "scope", None)
+    identity = getattr(scope, "identity", None)
+    chain_id = getattr(identity, "chain_id", None)
+    if not isinstance(chain_id, str) or re.fullmatch(r"stage-retry-[a-f0-9]{64}", chain_id) is None:
+        raise ContractValidationError("prepared ordinary validation lost its chain identity")
+    return chain_id
 
 
 def _controlled_current_state(

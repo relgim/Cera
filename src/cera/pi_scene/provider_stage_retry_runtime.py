@@ -89,6 +89,28 @@ class ProviderStageAttemptOwnerFactoryPort(Protocol):
     ) -> ProviderStageAttemptOwnerPort: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderStagePreparedInitialV1:
+    """Process-local handle for one durably prepared initial attempt."""
+
+    scope: ProviderStageRetryOccurrenceScopeV1
+    packet: ProviderStageFrozenPacketV1
+    chain: ProviderStageRetryChainV1
+    owner: ProviderStageAttemptOwnerPort | None
+
+    def __post_init__(self) -> None:
+        if (
+            self.scope.identity != self.chain.identity
+            or self.packet.stage is not self.scope.stage
+            or self.packet.stage_input_sha256 != self.scope.stage_input_sha256
+        ):
+            raise ContractValidationError("provider-stage prepared initial binding changed")
+        if self.owner is not None and self.chain.phase is not (
+            ProviderStageRetryPhase.ATTEMPT_PREPARED
+        ):
+            raise ContractValidationError("provider-stage prepared owner lacks its attempt")
+
+
 class ProviderStageAmbiguityReconcilerPort(Protocol):
     """Read-only/provider-free reconciliation for a Check Status action."""
 
@@ -388,22 +410,62 @@ class ProviderStageRetryRuntimeServiceV1:
     ) -> ProviderStageRetryChainV1:
         """Explicitly authorize the first attempt for one exact frozen packet."""
 
+        prepared = self.prepare_initial(scope=scope, packet=packet)
+        return self.dispatch_prepared_initial(prepared)
+
+    def prepare_initial(
+        self,
+        *,
+        scope: ProviderStageRetryOccurrenceScopeV1,
+        packet: ProviderStageFrozenPacketV1,
+    ) -> ProviderStagePreparedInitialV1:
+        """Create and persist a lazy initial owner with zero provider dispatch."""
+
         self._require_scope_packet(scope, packet)
-        # The hash-only chain and protected input are durable before the full
-        # reconstructable scope, and both are durable before owner creation.
-        # Owner creation therefore cannot contact a provider before restart
-        # status can be authenticated from SQLite.
         with self._chain_lock(scope.identity.chain_id):
             chain = self._store.begin(scope.identity, packet.exact_bytes)
             self._scopes.remember(scope)
         if chain.phase is not ProviderStageRetryPhase.INPUT_FROZEN:
-            # A duplicate whole-request call can observe durable state but may
-            # not resume a prepared owner. Only ``resume_prepared`` names and
-            # authorizes that provider dispatch explicitly.
-            return chain
+            return ProviderStagePreparedInitialV1(
+                scope=scope,
+                packet=packet,
+                chain=chain,
+                owner=None,
+            )
         registration = self._adapters.for_stage(scope.stage)
-        owner = registration.owner_factory.create_initial_owner(scope=scope, packet=packet)
-        return self._executor.execute_initial(scope=scope, packet=packet, owner=owner)
+        owner = registration.owner_factory.create_initial_owner(
+            scope=scope,
+            packet=packet,
+        )
+        prepared, dispatch_owned = self._executor.prepare_initial(
+            scope=scope,
+            packet=packet,
+            owner=owner,
+        )
+        return ProviderStagePreparedInitialV1(
+            scope=scope,
+            packet=packet,
+            chain=prepared,
+            owner=owner if dispatch_owned else None,
+        )
+
+    def dispatch_prepared_initial(
+        self,
+        prepared: ProviderStagePreparedInitialV1,
+    ) -> ProviderStageRetryChainV1:
+        """Dispatch one process-local prepared owner exactly once."""
+
+        if type(prepared) is not ProviderStagePreparedInitialV1:
+            raise ContractValidationError("provider-stage prepared initial contract changed")
+        live = self._store.read(prepared.chain.chain_id)
+        if prepared.owner is None:
+            return live
+        if live != prepared.chain:
+            return live
+        return self._executor.dispatch_prepared_initial(
+            live,
+            owner=prepared.owner,
+        )
 
     def execute_manual_retry(
         self,
@@ -478,6 +540,42 @@ class ProviderStageRetryRuntimeServiceV1:
 
         with self._chain_lock(chain_id):
             chain = self._store.read(chain_id)
+            if chain.phase is ProviderStageRetryPhase.INPUT_FROZEN:
+                scope = self._scopes.find(chain_id)
+                if scope is None or scope.identity != chain.identity:
+                    raise StateConflictError(
+                        "provider-stage input-frozen recovery lost its durable scope"
+                    )
+                exact_input = self._store.load_input(chain_id)
+                try:
+                    packet_payload = json.loads(exact_input.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise StateConflictError(
+                        "provider-stage input-frozen packet is not canonical JSON"
+                    ) from exc
+                packet_kind = (
+                    packet_payload.get("packet_kind") if isinstance(packet_payload, dict) else None
+                )
+                if not isinstance(packet_kind, str):
+                    raise StateConflictError("provider-stage input-frozen packet lost its kind")
+                packet = ProviderStageFrozenPacketV1(
+                    schema_version=ProviderStageFrozenPacketV1.SCHEMA_VERSION,
+                    stage=scope.stage,
+                    packet_kind=packet_kind,
+                    exact_bytes=exact_input,
+                    stage_input_sha256=scope.stage_input_sha256,
+                )
+                registration = self._adapters.for_stage(scope.stage)
+                owner = registration.owner_factory.create_initial_owner(
+                    scope=scope,
+                    packet=packet,
+                )
+                prepared, _dispatch_owned = self._executor.prepare_initial(
+                    scope=scope,
+                    packet=packet,
+                    owner=owner,
+                )
+                return prepared
             if chain.phase not in {
                 ProviderStageRetryPhase.DISPATCH_STARTED,
                 ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
@@ -669,6 +767,7 @@ __all__ = [
     "ProviderStageAttemptOwnerFactoryPort",
     "ProviderStageDownstreamBinderPort",
     "ProviderStageOccurrenceScopeRegistryPort",
+    "ProviderStagePreparedInitialV1",
     "ProviderStageRetryRuntimeServiceV1",
     "ProviderStageRuntimeAdapterRegistryV1",
     "ProviderStageRuntimeAdapterV1",

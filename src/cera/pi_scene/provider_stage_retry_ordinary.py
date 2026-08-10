@@ -25,6 +25,11 @@ from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryStatusEnvelopeV1,
     validate_provider_stage_retry_action_v1,
 )
+from cera.reader_validation import (
+    BoundReaderValidationV1,
+    ReaderValidationCustodyV1,
+    ReaderValidationRequestV1,
+)
 from cera.schema import from_mapping
 from cera.semantic_validation import (
     BoundSemanticValidationV1,
@@ -46,7 +51,11 @@ from .contracts import (
     RecordingStatus,
     SceneRoute,
 )
-from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
+from .http_contracts import (
+    LeanSceneRequestControlsV1,
+    LeanSceneRequestControlsV2,
+    LeanSceneRequestControlsV3,
+)
 from .pi_adapter import PiSceneInvocationResultV1, PiSceneInvocationV1
 from .provider_stage_retry import (
     ProviderStage,
@@ -70,11 +79,15 @@ from .provider_stage_retry_packets import (
     ProviderStageConfigurationV1,
     ProviderStageFrozenPacketV1,
     freeze_planner_stage_packet,
+    freeze_reader_stage_packet,
     freeze_recorder_stage_packet,
     freeze_semantic_validator_stage_packet,
     freeze_writer_stage_packet,
 )
-from .provider_stage_retry_runtime import ProviderStageRetryRuntimeServiceV1
+from .provider_stage_retry_runtime import (
+    ProviderStagePreparedInitialV1,
+    ProviderStageRetryRuntimeServiceV1,
+)
 from .provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
 from .request_binding import PiSceneRequestBindingV1
 from .review_store import CreatorGuidanceV1, LeanReviewRecordV1, LeanSceneTurnInputV1
@@ -92,6 +105,7 @@ _ORDINARY_STAGES = frozenset(
         ProviderStage.PLANNER,
         ProviderStage.WRITER,
         ProviderStage.SEMANTIC_VALIDATOR,
+        ProviderStage.READER,
         ProviderStage.RECORDER,
     }
 )
@@ -103,6 +117,27 @@ _RESULT_READY_PHASES = frozenset(
         ProviderStageRetryPhase.SUCCEEDED,
     }
 )
+
+
+@dataclass(frozen=True, slots=True)
+class OrdinaryPreparedProviderStageV1:
+    """Durably frozen stage occurrence that has not yet been dispatched."""
+
+    scope: ProviderStageRetryOccurrenceScopeV1
+    packet: ProviderStageFrozenPacketV1
+    initial: ProviderStagePreparedInitialV1
+
+    def __post_init__(self) -> None:
+        if self.scope.identity.stage is not self.packet.stage:
+            raise ContractValidationError("prepared ordinary stage changed its owner")
+        if self.scope.stage_input_sha256 != self.packet.stage_input_sha256:
+            raise ContractValidationError("prepared ordinary stage changed exact input")
+        if (
+            self.initial.scope != self.scope
+            or self.initial.packet != self.packet
+            or self.initial.chain.identity != self.scope.identity
+        ):
+            raise ContractValidationError("prepared ordinary stage changed initial custody")
 
 
 def _require_sha256(value: str, field_name: str) -> None:
@@ -260,6 +295,58 @@ class ProviderStageActionProjectionV1:
     envelope: ProviderStageRetryStatusEnvelopeV1
 
 
+@dataclass(frozen=True, slots=True)
+class OrdinaryRecorderReviewResolutionV1:
+    """Provider-free Recorder authority visible from one accepted review."""
+
+    kind: str
+    parent_chain_id: str | None
+    current_chain_id: str | None
+    envelope: ProviderStageRetryStatusEnvelopeV1 | None
+    repair_action: Mapping[str, Any] | None
+
+    def __post_init__(self) -> None:
+        if self.kind not in {"initial_start", "chain_active", "repair_required"}:
+            raise ContractValidationError("ordinary Recorder review resolution changed")
+        if self.kind == "initial_start":
+            if any(
+                value is not None
+                for value in (
+                    self.parent_chain_id,
+                    self.current_chain_id,
+                    self.envelope,
+                    self.repair_action,
+                )
+            ):
+                raise ContractValidationError(
+                    "ordinary initial Recorder resolution contains chain custody"
+                )
+            return
+        if self.parent_chain_id is None or self.current_chain_id is None or self.envelope is None:
+            raise ContractValidationError("ordinary Recorder chain resolution lacks durable status")
+        status = self.envelope.get("status")
+        if not isinstance(status, Mapping) or status.get("chain_id") != self.current_chain_id:
+            raise ContractValidationError(
+                "ordinary Recorder review resolution changed chain identity"
+            )
+        actions = self.envelope.get("actions")
+        if self.kind == "repair_required":
+            if (
+                not isinstance(self.repair_action, Mapping)
+                or not isinstance(actions, list)
+                or actions != [dict(self.repair_action)]
+                or self.current_chain_id != self.parent_chain_id
+                or self.repair_action.get("action_kind") != "repair_recording"
+            ):
+                raise ContractValidationError(
+                    "ordinary Recorder repair resolution lacks its exact action"
+                )
+        elif self.repair_action is not None:
+            raise ContractValidationError(
+                "ordinary active Recorder chain exposed a review repair action"
+            )
+
+
 @runtime_checkable
 class OrdinaryPipelineReplayPort(Protocol):
     """Provider-free replay of a protected ordinary HTTP request."""
@@ -302,10 +389,24 @@ class OrdinaryReviewActionContinuationPort(Protocol):
     ) -> object: ...
 
 
+@runtime_checkable
+class OrdinaryValidationLaneContinuationPort(Protocol):
+    """Provider-free join of one manually recovered validation lane."""
+
+    def resume_ordinary_validation_lane(
+        self,
+        *,
+        chain_id: str,
+        stage: ProviderStage,
+        result: BoundSemanticValidationV1 | BoundReaderValidationV1,
+    ) -> object: ...
+
+
 class OrdinaryPipelineContinuationPort(
     OrdinaryPipelineReplayPort,
     OrdinaryRecorderContinuationPort,
     OrdinaryReviewActionContinuationPort,
+    OrdinaryValidationLaneContinuationPort,
     Protocol,
 ):
     """Full continuation seam implemented by the future HTTP adapter."""
@@ -618,6 +719,14 @@ class OrdinaryProviderStageRetryRuntimeV1:
         self,
         source_chain_id: str,
     ) -> ProtectedOrdinaryChainRequestIdentityV1:
+        source_chain = self._service.read_chain(source_chain_id)
+        if source_chain.identity.stage in {
+            ProviderStage.SEMANTIC_VALIDATOR,
+            ProviderStage.READER,
+        }:
+            # Concurrent validation lanes are authenticated siblings joined by
+            # the durable review, never successors of one another.
+            return self._custody_store.chain_request_identity(source_chain_id)
         repair = self._custody_store.find_recorder_repair_successor(source_chain_id)
         if repair is not None:
             successor = self._service.read_chain(repair.successor_chain_id)
@@ -631,6 +740,103 @@ class OrdinaryProviderStageRetryRuntimeV1:
         """Return the protected no-recursion policy for one Recorder chain."""
 
         return self._custody_store.recorder_repair_parent_for_successor(chain_id) is None
+
+    def recorder_review_resolution(
+        self,
+        *,
+        review_id: str,
+        accepted: LeanAcceptedTurnReceiptV1,
+    ) -> OrdinaryRecorderReviewResolutionV1:
+        """Resolve review-level Recorder authority without dispatching a provider."""
+
+        if type(accepted) is not LeanAcceptedTurnReceiptV1:
+            raise ContractValidationError("ordinary Recorder review receipt changed")
+        review_identity, _ = self._custody_store.load_review_request(review_id)
+        continuation = self._custody_store.recorder_continuation_for_review(
+            review_id=review_id,
+            accepted_turn_id=accepted.accepted_turn_id,
+            accepted_receipt_sha256=accepted.receipt_sha256,
+        )
+        if continuation is None:
+            recorder_chains = self._custody_store.recorder_chain_ids_for_request(
+                review_identity.request_id
+            )
+            if not recorder_chains:
+                return OrdinaryRecorderReviewResolutionV1(
+                    kind="initial_start",
+                    parent_chain_id=None,
+                    current_chain_id=None,
+                    envelope=None,
+                    repair_action=None,
+                )
+            parent_chain_id = recorder_chains[0]
+            exact_input = self._service.store.load_input(parent_chain_id)
+            packet = _canonical_object(exact_input, "Recorder review frozen packet")
+            semantic_input = packet.get("semantic_input")
+            if (
+                packet.get("packet_kind") != "recorder"
+                or not isinstance(semantic_input, Mapping)
+                or semantic_input.get("accepted_story") != accepted.exact_accepted_prose
+                or canonical_sha256(semantic_input.get("accepted_story_receipt"))
+                != canonical_sha256(accepted)
+            ):
+                raise StateConflictError("ordinary Recorder chain changed accepted review input")
+            continuation = ProtectedRecorderContinuationV1(
+                chain_id=parent_chain_id,
+                request_id=review_identity.request_id,
+                review_id=review_id,
+                accepted_turn_id=accepted.accepted_turn_id,
+                accepted_receipt_sha256=accepted.receipt_sha256,
+            )
+            self._custody_store.bind_recorder_continuation(continuation)
+        if continuation.request_id != review_identity.request_id:
+            raise StateConflictError("ordinary Recorder parent changed protected review request")
+        parent = self._service.recover_incomplete(continuation.chain_id)
+        if parent.identity.stage is not ProviderStage.RECORDER:
+            raise StateConflictError("ordinary Recorder parent changed provider stage")
+        successor_authority = self._custody_store.find_recorder_repair_successor(parent.chain_id)
+        if successor_authority is not None:
+            current = self._service.recover_incomplete(successor_authority.successor_chain_id)
+            if current.identity.stage is not ProviderStage.RECORDER:
+                raise StateConflictError(
+                    "ordinary Recorder repair successor changed provider stage"
+                )
+            envelope = self._service.canonical_status(
+                chain_id=current.chain_id,
+                recording_repair_action_allowed=False,
+            )
+            return OrdinaryRecorderReviewResolutionV1(
+                kind="chain_active",
+                parent_chain_id=parent.chain_id,
+                current_chain_id=current.chain_id,
+                envelope=envelope,
+                repair_action=None,
+            )
+        envelope = self._service.canonical_status(
+            chain_id=parent.chain_id,
+            recording_repair_action_allowed=True,
+        )
+        if parent.phase is ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED:
+            actions = envelope.get("actions")
+            if not isinstance(actions, list) or len(actions) != 1:
+                raise StateConflictError("ordinary Recorder repair parent lacks one backend action")
+            action = validate_provider_stage_retry_action_v1(actions[0])
+            if action["action_kind"] != "repair_recording" or action["chain_id"] != parent.chain_id:
+                raise StateConflictError("ordinary Recorder repair parent changed backend action")
+            return OrdinaryRecorderReviewResolutionV1(
+                kind="repair_required",
+                parent_chain_id=parent.chain_id,
+                current_chain_id=parent.chain_id,
+                envelope=envelope,
+                repair_action=action,
+            )
+        return OrdinaryRecorderReviewResolutionV1(
+            kind="chain_active",
+            parent_chain_id=parent.chain_id,
+            current_chain_id=parent.chain_id,
+            envelope=envelope,
+            repair_action=None,
+        )
 
     def chain_request_identity(
         self,
@@ -718,6 +924,23 @@ class OrdinaryProviderStageRetryRuntimeV1:
         ):
             raise StateConflictError("ordinary provider-stage result is not resumable")
         normalized_request, context = self.pending_request_for_chain(chain_id)
+        if chain.identity.stage in {
+            ProviderStage.SEMANTIC_VALIDATOR,
+            ProviderStage.READER,
+        }:
+            if not isinstance(continuation, OrdinaryValidationLaneContinuationPort):
+                raise StateConflictError("ordinary validation continuation port is unavailable")
+            exact_result = self._service.finalize_result_once(chain_id)
+            result: BoundSemanticValidationV1 | BoundReaderValidationV1
+            if chain.identity.stage is ProviderStage.SEMANTIC_VALIDATOR:
+                result = deserialize_semantic_validation_result(exact_result)
+            else:
+                result = deserialize_reader_validation_result(exact_result)
+            return continuation.resume_ordinary_validation_lane(
+                chain_id=chain_id,
+                stage=chain.identity.stage,
+                result=result,
+            )
         review_action = self._custody_store.review_action_for_chain(chain_id)
         if review_action is not None:
             if not isinstance(continuation, OrdinaryReviewActionContinuationPort):
@@ -789,7 +1012,14 @@ class OrdinaryProviderStageRetryRuntimeV1:
         """Apply one already-succeeded Recorder result without accepting again."""
 
         controls = context.turn_input.request_controls
-        if not isinstance(controls, (LeanSceneRequestControlsV1, LeanSceneRequestControlsV2)):
+        if not isinstance(
+            controls,
+            (
+                LeanSceneRequestControlsV1,
+                LeanSceneRequestControlsV2,
+                LeanSceneRequestControlsV3,
+            ),
+        ):
             raise StateConflictError("Recorder continuation lost request controls")
         review = continuation.durable_result_for_request(
             world_id=context.binding.world_id,
@@ -926,6 +1156,25 @@ class OrdinaryProviderStageRetryRuntimeV1:
         accepted_state_sha256: str,
         authority_binding: object,
     ) -> BoundSemanticValidationV1:
+        prepared = self.prepare_semantic_validator(
+            request,
+            custody,
+            accepted_state_sha256=accepted_state_sha256,
+            authority_binding=authority_binding,
+        )
+        return self.dispatch_prepared_semantic_validator(prepared)
+
+    def prepare_semantic_validator(
+        self,
+        request: SemanticValidationRequestV1,
+        custody: SemanticValidationCustodyV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+        review_validation_lane: bool = False,
+    ) -> OrdinaryPreparedProviderStageV1:
+        if type(review_validation_lane) is not bool:
+            raise ContractValidationError("Luna review-lane flag changed")
         state = self._state_for(
             world_id=custody.world_id,
             branch_id=custody.branch_id,
@@ -942,13 +1191,89 @@ class OrdinaryProviderStageRetryRuntimeV1:
             },
             configuration=self._configurations[ProviderStage.SEMANTIC_VALIDATOR],
         )
-        exact_result = self._run_stage(
+        return self._prepare_stage(
             state=state,
             packet=packet,
             accepted_state_sha256=accepted_state_sha256,
             authority_binding=authority_binding,
+            review_validation_lane=review_validation_lane,
         )
+
+    def dispatch_prepared_semantic_validator(
+        self,
+        prepared: OrdinaryPreparedProviderStageV1,
+    ) -> BoundSemanticValidationV1:
+        if prepared.packet.stage is not ProviderStage.SEMANTIC_VALIDATOR:
+            raise StateConflictError("prepared Luna stage changed owner")
+        exact_result = self._dispatch_prepared(prepared)
         return deserialize_semantic_validation_result(exact_result)
+
+    def run_reader(
+        self,
+        request: ReaderValidationRequestV1,
+        custody: ReaderValidationCustodyV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> BoundReaderValidationV1:
+        prepared = self.prepare_reader(
+            request,
+            custody,
+            accepted_state_sha256=accepted_state_sha256,
+            authority_binding=authority_binding,
+        )
+        return self.dispatch_prepared_reader(prepared)
+
+    def prepare_reader(
+        self,
+        request: ReaderValidationRequestV1,
+        custody: ReaderValidationCustodyV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> OrdinaryPreparedProviderStageV1:
+        state = self._state_for(world_id=custody.world_id, branch_id=custody.branch_id)
+        packet = freeze_reader_stage_packet(
+            reader_request=to_primitive(request),
+            reader_custody=to_primitive(custody),
+            configuration=self._configurations[ProviderStage.READER],
+        )
+        return self._prepare_stage(
+            state=state,
+            packet=packet,
+            accepted_state_sha256=accepted_state_sha256,
+            authority_binding=authority_binding,
+            review_validation_lane=True,
+        )
+
+    def dispatch_prepared_reader(
+        self,
+        prepared: OrdinaryPreparedProviderStageV1,
+    ) -> BoundReaderValidationV1:
+        if prepared.packet.stage is not ProviderStage.READER:
+            raise StateConflictError("prepared Reader stage changed owner")
+        exact_result = self._dispatch_prepared(prepared)
+        return deserialize_reader_validation_result(exact_result)
+
+    def reconcile_semantic_validator(
+        self,
+        chain_id: str,
+    ) -> BoundSemanticValidationV1 | ProviderStageRetryStatusEnvelopeV1:
+        value = self._reconcile_validation_chain(
+            chain_id,
+            expected_stage=ProviderStage.SEMANTIC_VALIDATOR,
+        )
+        return deserialize_semantic_validation_result(value) if isinstance(value, bytes) else value
+
+    def reconcile_reader(
+        self,
+        chain_id: str,
+    ) -> BoundReaderValidationV1 | ProviderStageRetryStatusEnvelopeV1:
+        value = self._reconcile_validation_chain(
+            chain_id,
+            expected_stage=ProviderStage.READER,
+        )
+        return deserialize_reader_validation_result(value) if isinstance(value, bytes) else value
 
     def run_recorder(
         self,
@@ -1081,6 +1406,18 @@ class OrdinaryProviderStageRetryRuntimeV1:
             context_sha256=pending.context_sha256,
         )
         review_action = self._custody_store.review_action_for_chain(parent.chain_id)
+        bound_state = self._bound_request.get()
+        if bound_state is not None and bound_state.review_action_id is not None:
+            bound_action, exact_bound_action, _ = self._custody_store.load_review_action(
+                bound_state.review_action_id
+            )
+            if exact_bound_action.get("action") != "repair_recording":
+                raise StateConflictError(
+                    "Recorder review repair changed its protected creator action"
+                )
+            if review_action is not None and review_action != bound_action:
+                raise StateConflictError("Recorder repair parent belongs to another review action")
+            review_action = bound_action
         if review_action is not None:
             self._custody_store.bind_review_action_chain(
                 chain_id=successor_scope.identity.chain_id,
@@ -1119,7 +1456,14 @@ class OrdinaryProviderStageRetryRuntimeV1:
         continuation: OrdinaryRecorderContinuationPort,
     ) -> ProtectedRecorderContinuationV1:
         controls = context.turn_input.request_controls
-        if not isinstance(controls, (LeanSceneRequestControlsV1, LeanSceneRequestControlsV2)):
+        if not isinstance(
+            controls,
+            (
+                LeanSceneRequestControlsV1,
+                LeanSceneRequestControlsV2,
+                LeanSceneRequestControlsV3,
+            ),
+        ):
             raise StateConflictError("Recorder repair lost request controls")
         review = continuation.durable_result_for_request(
             world_id=context.binding.world_id,
@@ -1199,6 +1543,27 @@ class OrdinaryProviderStageRetryRuntimeV1:
         authority_binding: object,
         stage_ordinal: int | None = None,
     ) -> bytes:
+        prepared = self._prepare_stage(
+            state=state,
+            packet=packet,
+            accepted_state_sha256=accepted_state_sha256,
+            authority_binding=authority_binding,
+            stage_ordinal=stage_ordinal,
+        )
+        return self._dispatch_prepared(prepared)
+
+    def _prepare_stage(
+        self,
+        *,
+        state: _BoundRequestState,
+        packet: ProviderStageFrozenPacketV1,
+        accepted_state_sha256: str,
+        authority_binding: object,
+        stage_ordinal: int | None = None,
+        review_validation_lane: bool = False,
+    ) -> OrdinaryPreparedProviderStageV1:
+        """Freeze full generic custody without constructing or invoking an owner."""
+
         _require_sha256(accepted_state_sha256, "accepted state")
         context = state.context
         scope = ProviderStageRetryOccurrenceScopeV1.create(
@@ -1247,29 +1612,67 @@ class OrdinaryProviderStageRetryRuntimeV1:
                 request_sha256=scope.request_sha256,
                 context_sha256=pending.context_sha256,
             )
-        self._custody_store.advance_latest_chain(
+        if review_validation_lane:
+            if packet.stage not in {
+                ProviderStage.SEMANTIC_VALIDATOR,
+                ProviderStage.READER,
+            }:
+                raise StateConflictError("ordinary review lane changed provider stage")
+        else:
+            self._custody_store.advance_latest_chain(
+                scope=scope,
+                context_sha256=pending.context_sha256,
+                semantic_action_boundary=(
+                    packet.stage in {ProviderStage.PLANNER, ProviderStage.WRITER}
+                    and state.consume_semantic_action_boundary()
+                ),
+                recording_repair_boundary=(
+                    packet.stage is ProviderStage.RECORDER
+                    and self._custody_store.recorder_repair_parent_for_successor(
+                        scope.identity.chain_id
+                    )
+                    is not None
+                ),
+            )
+        initial = self._service.prepare_initial(scope=scope, packet=packet)
+        return OrdinaryPreparedProviderStageV1(
             scope=scope,
-            context_sha256=pending.context_sha256,
-            semantic_action_boundary=(
-                packet.stage in {ProviderStage.PLANNER, ProviderStage.WRITER}
-                and state.consume_semantic_action_boundary()
-            ),
-            recording_repair_boundary=(
-                packet.stage is ProviderStage.RECORDER
-                and self._custody_store.recorder_repair_parent_for_successor(
-                    scope.identity.chain_id
-                )
-                is not None
-            ),
+            packet=packet,
+            initial=initial,
         )
-        chain = self._service.start_initial(scope=scope, packet=packet)
+
+    def _dispatch_prepared(
+        self,
+        prepared: OrdinaryPreparedProviderStageV1,
+    ) -> bytes:
+        """Cross the provider boundary only after a durable prepared claim."""
+
+        if type(prepared) is not OrdinaryPreparedProviderStageV1:
+            raise ContractValidationError("ordinary prepared stage contract changed")
+        chain = self._service.dispatch_prepared_initial(prepared.initial)
         if chain.phase in _RESULT_READY_PHASES:
             return self._service.finalize_result_once(chain.chain_id)
         envelope = self._service.canonical_status(
             chain_id=chain.chain_id,
-            scope=scope,
+            scope=prepared.scope,
         )
         raise ProviderStageRetryPendingError(envelope)
+
+    def _reconcile_validation_chain(
+        self,
+        chain_id: str,
+        *,
+        expected_stage: ProviderStage,
+    ) -> bytes | ProviderStageRetryStatusEnvelopeV1:
+        """Read or recover one lane without authorizing provider dispatch."""
+
+        chain = self._service.read_chain(chain_id)
+        if chain.identity.stage is not expected_stage:
+            raise StateConflictError("ordinary validation reconciliation changed lane")
+        chain = self._service.recover_incomplete(chain_id)
+        if chain.phase in _RESULT_READY_PHASES:
+            return self._service.finalize_result_once(chain_id)
+        return self._service.canonical_status(chain_id=chain_id)
 
     def reserve_writer_candidate_occurrence(
         self,
@@ -1360,6 +1763,21 @@ def deserialize_semantic_validation_result(
     return decoded
 
 
+def serialize_reader_validation_result(result: BoundReaderValidationV1) -> bytes:
+    if type(result) is not BoundReaderValidationV1:
+        raise ContractValidationError("Reader result type changed")
+    return canonical_bytes(to_primitive(result))
+
+
+def deserialize_reader_validation_result(
+    exact_result: bytes,
+) -> BoundReaderValidationV1:
+    payload = _canonical_object(exact_result, "Reader result")
+    decoded = from_mapping(BoundReaderValidationV1, payload)
+    assert isinstance(decoded, BoundReaderValidationV1)
+    return decoded
+
+
 def semantic_validation_disposition(
     result: BoundSemanticValidationV1,
 ) -> ProviderStageSemanticDisposition:
@@ -1368,6 +1786,18 @@ def semantic_validation_disposition(
     return (
         ProviderStageSemanticDisposition.ACCEPTED
         if result.verdict.verdict is SemanticVerdict.PASS
+        else ProviderStageSemanticDisposition.REJECTED
+    )
+
+
+def reader_validation_disposition(
+    result: BoundReaderValidationV1,
+) -> ProviderStageSemanticDisposition:
+    if type(result) is not BoundReaderValidationV1:
+        raise ContractValidationError("Reader result type changed")
+    return (
+        ProviderStageSemanticDisposition.ACCEPTED
+        if result.passed
         else ProviderStageSemanticDisposition.REJECTED
     )
 
@@ -1498,11 +1928,15 @@ def planner_request_from_frozen_input(exact_input: bytes) -> PlannerTurnInputV1:
     else:
         controls_mapping = _mapping(controls_payload, "Planner request controls")
         schema_version = controls_mapping.get("schema_version")
-        model = (
-            LeanSceneRequestControlsV2
-            if schema_version == LeanSceneRequestControlsV2.SCHEMA_VERSION
-            else LeanSceneRequestControlsV1
-        )
+        if not isinstance(schema_version, str):
+            raise StateConflictError("Planner request-control schema is unsupported")
+        model = {
+            LeanSceneRequestControlsV1.SCHEMA_VERSION: LeanSceneRequestControlsV1,
+            LeanSceneRequestControlsV2.SCHEMA_VERSION: LeanSceneRequestControlsV2,
+            LeanSceneRequestControlsV3.SCHEMA_VERSION: LeanSceneRequestControlsV3,
+        }.get(schema_version)
+        if model is None:
+            raise StateConflictError("Planner request-control schema is unsupported")
         controls = from_mapping(model, controls_mapping)
         assert isinstance(controls, LeanSceneRequestControlsV1)
     guidance_payload = payload["creator_guidance"]
@@ -1587,6 +2021,32 @@ def semantic_validation_input_from_frozen_input(
     return request, custody
 
 
+def reader_validation_input_from_frozen_input(
+    exact_input: bytes,
+) -> tuple[ReaderValidationRequestV1, ReaderValidationCustodyV1]:
+    semantic = _packet_semantic_input(
+        exact_input,
+        stage=ProviderStage.READER,
+        packet_kind="reader",
+    )
+    _exact_keys(
+        semantic,
+        {"reader_request", "reader_custody"},
+        "Reader semantic input",
+    )
+    request = from_mapping(
+        ReaderValidationRequestV1,
+        _mapping(semantic["reader_request"], "Reader request"),
+    )
+    custody = from_mapping(
+        ReaderValidationCustodyV1,
+        _mapping(semantic["reader_custody"], "Reader custody"),
+    )
+    assert isinstance(request, ReaderValidationRequestV1)
+    assert isinstance(custody, ReaderValidationCustodyV1)
+    return request, custody
+
+
 def recorder_invocation_from_frozen_input(exact_input: bytes) -> PiSceneInvocationV1:
     semantic = _packet_semantic_input(
         exact_input,
@@ -1650,25 +2110,32 @@ def deserialize_pi_result(exact_result: bytes) -> PiSceneInvocationResultV1:
 
 
 __all__ = [
+    "OrdinaryPreparedProviderStageV1",
     "OrdinaryProviderStageRetryRuntimeV1",
+    "OrdinaryRecorderReviewResolutionV1",
     "OrdinaryPipelineContinuationPort",
     "OrdinaryPipelineReplayPort",
     "OrdinaryRecorderContinuationPort",
     "OrdinaryReviewActionContinuationPort",
+    "OrdinaryValidationLaneContinuationPort",
     "OrdinaryStageRetryRequestContextV1",
     "PlannerFrozenRetrievalV1",
     "ProviderStageActionProjectionV1",
     "deserialize_pi_result",
     "deserialize_planner_result",
+    "deserialize_reader_validation_result",
     "deserialize_semantic_validation_result",
     "ordinary_nonsemantic_disposition",
     "pi_invocation_to_payload",
     "planner_request_from_frozen_input",
+    "reader_validation_disposition",
+    "reader_validation_input_from_frozen_input",
     "recorder_invocation_from_frozen_input",
     "semantic_validation_disposition",
     "semantic_validation_input_from_frozen_input",
     "serialize_pi_result",
     "serialize_planner_result",
+    "serialize_reader_validation_result",
     "serialize_semantic_validation_result",
     "writer_invocation_from_frozen_input",
 ]

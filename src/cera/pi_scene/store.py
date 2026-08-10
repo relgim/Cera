@@ -55,6 +55,7 @@ from .lineage import (
     receipt_sha_index,
     selected_receipt_chain,
 )
+from .review_lifecycle import OrdinaryPythonQualificationV1
 
 if TYPE_CHECKING:
     from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
@@ -95,6 +96,43 @@ class _RecordingHeadV1:
             or not re_is_sha256(self.attempt_sha256)
         ):
             raise ContractValidationError("recording-head attempt binding is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class LeanAcceptanceDecisionAuditV1:
+    """Content-free decision identity published with one accepted object."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.acceptance_decision_audit.v1"
+
+    schema_version: str
+    candidate_sha256: str
+    acceptance_action: str
+    decision_request_sha256: str
+    override_feedback_sha256: str | None
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("acceptance decision-audit schema changed")
+        if self.acceptance_action not in {
+            "accept",
+            "automatic_accept",
+            "provisional_accept",
+        }:
+            raise ContractValidationError("acceptance decision-audit action is invalid")
+        if not re_is_sha256(self.candidate_sha256) or not re_is_sha256(
+            self.decision_request_sha256
+        ):
+            raise ContractValidationError("acceptance decision-audit binding is invalid")
+        if self.override_feedback_sha256 is not None and not re_is_sha256(
+            self.override_feedback_sha256
+        ):
+            raise ContractValidationError("override feedback audit binding is invalid")
+        if (self.acceptance_action == "provisional_accept") != (
+            self.override_feedback_sha256 is not None
+        ):
+            raise ContractValidationError(
+                "override feedback audit differs from the acceptance action"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -651,6 +689,20 @@ class LeanSceneStore:
             if receipt.world_id != world_id or receipt.branch_id != branch_id:
                 raise StateConflictError("accepted receipt escaped its branch identity")
             return receipt
+
+    def load_acceptance_decision_audit(
+        self,
+        accepted: LeanAcceptedTurnReceiptV1,
+    ) -> LeanAcceptanceDecisionAuditV1 | None:
+        """Load the immutable hash-only acceptance audit when this version wrote one."""
+
+        with self._lock:
+            branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
+            turn_dir = _locate_accepted_turn_dir(branch_root, accepted)
+            audit = _load_acceptance_decision_audit(turn_dir, accepted=accepted)
+            if audit is not None and audit.candidate_sha256 != accepted.candidate_sha256:
+                raise StateConflictError("acceptance decision audit changed candidate custody")
+            return audit
 
     def promote_adult_acceptance_envelope(
         self,
@@ -1220,7 +1272,11 @@ class LeanSceneStore:
         candidate: LeanCandidateV1,
         *,
         semantic_validation: BoundSemanticValidationV1 | None = None,
+        reader_validation: Any | None = None,
+        python_qualification: OrdinaryPythonQualificationV1 | None = None,
         acceptance_action: str = "accept",
+        acceptance_decision_request_sha256: str | None = None,
+        override_feedback_sha256: str | None = None,
     ) -> LeanAcceptedTurnReceiptV1:
         """Publish phase one exactly once; identical recovery is read-only."""
 
@@ -1261,6 +1317,8 @@ class LeanSceneStore:
             _validate_candidate_qualification(
                 candidate,
                 semantic_validation,
+                reader_validation,
+                python_qualification,
                 acceptance_action=acceptance_action,
             )
             receipt = _receipt_for_candidate(
@@ -1272,7 +1330,13 @@ class LeanSceneStore:
                 candidate=candidate,
                 receipt=receipt,
                 semantic_validation=semantic_validation,
+                reader_validation=reader_validation,
+                python_qualification=python_qualification,
                 acceptance_action=acceptance_action,
+                acceptance_decision_request_sha256=(
+                    acceptance_decision_request_sha256
+                ),
+                override_feedback_sha256=override_feedback_sha256,
             )
             self._select_receipt(
                 branch_root,
@@ -1288,7 +1352,11 @@ class LeanSceneStore:
         *,
         replaced_receipt: LeanAcceptedTurnReceiptV1,
         semantic_validation: BoundSemanticValidationV1 | None = None,
+        reader_validation: Any | None = None,
+        python_qualification: OrdinaryPythonQualificationV1 | None = None,
         acceptance_action: str = "automatic_accept",
+        acceptance_decision_request_sha256: str | None = None,
+        override_feedback_sha256: str | None = None,
     ) -> LeanAcceptedTurnReceiptV1:
         """Accept a same-generation sibling and atomically select it.
 
@@ -1335,6 +1403,8 @@ class LeanSceneStore:
             _validate_candidate_qualification(
                 candidate,
                 semantic_validation,
+                reader_validation,
+                python_qualification,
                 acceptance_action=acceptance_action,
             )
             receipt = existing or _receipt_for_candidate(
@@ -1347,7 +1417,13 @@ class LeanSceneStore:
                     candidate=candidate,
                     receipt=receipt,
                     semantic_validation=semantic_validation,
+                    reader_validation=reader_validation,
+                    python_qualification=python_qualification,
                     acceptance_action=acceptance_action,
+                    acceptance_decision_request_sha256=(
+                        acceptance_decision_request_sha256
+                    ),
+                    override_feedback_sha256=override_feedback_sha256,
                 )
             self._select_receipt(
                 branch_root,
@@ -1364,8 +1440,18 @@ class LeanSceneStore:
         candidate: LeanCandidateV1,
         receipt: LeanAcceptedTurnReceiptV1,
         semantic_validation: BoundSemanticValidationV1 | None,
+        reader_validation: Any | None,
+        python_qualification: OrdinaryPythonQualificationV1 | None,
         acceptance_action: str,
+        acceptance_decision_request_sha256: str | None,
+        override_feedback_sha256: str | None,
     ) -> None:
+        decision_audit = _acceptance_decision_audit_for_candidate(
+            candidate,
+            acceptance_action=acceptance_action,
+            decision_request_sha256=acceptance_decision_request_sha256,
+            override_feedback_sha256=override_feedback_sha256,
+        )
         accepted_root = branch_root / "accepted"
         final_dir = accepted_root / _accepted_object_directory_name(receipt)
         if final_dir.exists():
@@ -1374,6 +1460,11 @@ class LeanSceneStore:
             )
             if stored.receipt_sha256 != receipt.receipt_sha256:
                 raise StateConflictError("accepted object path is occupied")
+            if decision_audit is not None and _load_acceptance_decision_audit(
+                final_dir,
+                accepted=stored,
+            ) != decision_audit:
+                raise StateConflictError("accepted decision audit differs from replay")
             return
         stage = branch_root / f".accept-{uuid4().hex}"
         stage.mkdir(parents=False, exist_ok=False)
@@ -1388,6 +1479,27 @@ class LeanSceneStore:
                         acceptance_action=acceptance_action,
                     ),
                 )
+            if reader_validation is not None:
+                _write_new_json(
+                    stage / "READER_VALIDATION.json",
+                    _reader_validation_artifact(
+                        candidate=candidate,
+                        validation=reader_validation,
+                    ),
+                )
+            if python_qualification is not None:
+                _write_new_json(
+                    stage / "PYTHON_QUALIFICATION.json",
+                    _python_qualification_artifact(
+                        candidate=candidate,
+                        qualification=python_qualification,
+                    ),
+                )
+            if decision_audit is not None:
+                _write_new_json(
+                    stage / "ACCEPTANCE_DECISION_AUDIT.json",
+                    to_primitive(decision_audit),
+                )
             if acceptance_action == "provisional_accept":
                 if semantic_validation is None:  # guarded by qualification
                     raise AssertionError("provisional acceptance lost validation")
@@ -1396,6 +1508,7 @@ class LeanSceneStore:
                     _provisional_canon_artifact(
                         candidate=candidate,
                         validation=semantic_validation,
+                        reader_validation=reader_validation,
                     ),
                 )
             _write_new_json(
@@ -2118,7 +2231,22 @@ class LeanSceneStore:
                     "accepted branch head cache conflicts with receipt hash chain "
                     "or object directory binding"
                 )
-            _verify_semantic_validation_artifact(path.parent, receipt=receipt)
+            reader_validation = _load_reader_validation_artifact(
+                path.parent,
+                receipt=receipt,
+            )
+            semantic_validation = _verify_semantic_validation_artifact(
+                path.parent,
+                receipt=receipt,
+                reader_validation=reader_validation,
+            )
+            _verify_python_qualification_artifact(
+                path.parent,
+                receipt=receipt,
+                semantic_validation=semantic_validation,
+                reader_validation=reader_validation,
+            )
+            _load_acceptance_decision_audit(path.parent, accepted=receipt)
             _load_atomic_adult_promotion(path.parent, accepted=receipt)
             if receipt.receipt_sha256 in seen_hashes:
                 raise StateConflictError("accepted receipt object occurs more than once")
@@ -2594,9 +2722,55 @@ def _receipt_for_candidate(
     )
 
 
+def _acceptance_decision_audit_for_candidate(
+    candidate: LeanCandidateV1,
+    *,
+    acceptance_action: str,
+    decision_request_sha256: str | None,
+    override_feedback_sha256: str | None,
+) -> LeanAcceptanceDecisionAuditV1 | None:
+    if decision_request_sha256 is None:
+        if override_feedback_sha256 is not None:
+            raise ContractValidationError(
+                "override feedback audit lacks a decision-request binding"
+            )
+        return None
+    return LeanAcceptanceDecisionAuditV1(
+        schema_version=LeanAcceptanceDecisionAuditV1.SCHEMA_VERSION,
+        candidate_sha256=candidate.candidate_sha256,
+        acceptance_action=acceptance_action,
+        decision_request_sha256=decision_request_sha256,
+        override_feedback_sha256=override_feedback_sha256,
+    )
+
+
+def _load_acceptance_decision_audit(
+    turn_dir: Path,
+    *,
+    accepted: LeanAcceptedTurnReceiptV1,
+) -> LeanAcceptanceDecisionAuditV1 | None:
+    path = turn_dir / "ACCEPTANCE_DECISION_AUDIT.json"
+    if not path.exists():
+        return None
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("accepted decision audit path is unsafe")
+    try:
+        audit = from_mapping(LeanAcceptanceDecisionAuditV1, _read_json(path))
+    except ContractValidationError as exc:
+        raise StateConflictError("accepted decision audit is invalid") from exc
+    if (
+        audit.candidate_sha256 != accepted.candidate_sha256
+        or audit.acceptance_action != accepted.creator_action
+    ):
+        raise StateConflictError("accepted decision audit changed accepted custody")
+    return audit
+
+
 def _validate_candidate_qualification(
     candidate: LeanCandidateV1,
     validation: BoundSemanticValidationV1 | None,
+    reader_validation: Any | None,
+    python_qualification: OrdinaryPythonQualificationV1 | None,
     *,
     acceptance_action: str,
 ) -> None:
@@ -2617,22 +2791,58 @@ def _validate_candidate_qualification(
             )
         if validation is not None:
             raise ContractValidationError("semantic validation cannot qualify this candidate route")
+        if reader_validation is not None or python_qualification is not None:
+            raise ContractValidationError("ordinary lifecycle checks cannot qualify this route")
         return
     if validation is None:
         raise ContractValidationError("cognition candidate requires a passing semantic validation")
-    expected_verdict = (
-        SemanticVerdict.REJECT
-        if acceptance_action == "provisional_accept"
-        else SemanticVerdict.PASS
+    lifecycle = reader_validation is not None or python_qualification is not None
+    reader_passed = bool(
+        reader_validation is not None and getattr(reader_validation, "passed", False)
     )
-    if validation.verdict.verdict is not expected_verdict:
-        if acceptance_action != "provisional_accept":
+    semantic_passed = validation.verdict.verdict is SemanticVerdict.PASS
+    if lifecycle:
+        if reader_validation is None:
+            raise ContractValidationError("ordinary lifecycle acceptance lacks Reader custody")
+        if acceptance_action == "provisional_accept":
+            if python_qualification is None or (semantic_passed and reader_passed):
+                raise ContractValidationError(
+                    "creator override requires at least one semantic rejection"
+                )
+        elif not semantic_passed or not reader_passed or python_qualification is None:
             raise ContractValidationError(
-                "rejected semantic validation cannot authorize Accept"
+                "ordinary lifecycle Accept requires Luna, Reader, and Python passage"
             )
-        raise ContractValidationError(
-            "semantic validation verdict does not authorize this acceptance action"
+        if (
+            reader_validation.custody.candidate_id != candidate.candidate_id
+            or reader_validation.custody.world_id != candidate.world_id
+            or reader_validation.custody.branch_id != candidate.branch_id
+            or reader_validation.custody.candidate_sha256 != candidate.candidate_sha256
+            or reader_validation.custody.candidate_prose_sha256 != candidate.story_text_sha256
+            or reader_validation.request.exact_candidate_prose != candidate.story_text
+        ):
+            raise ContractValidationError("Reader validation does not bind the exact candidate")
+        if python_qualification is not None and (
+            python_qualification.candidate_sha256 != candidate.candidate_sha256
+            or python_qualification.semantic_validation_sha256 != canonical_sha256(validation)
+            or python_qualification.reader_validation_sha256
+            != reader_validation.binding_sha256
+        ):
+            raise ContractValidationError("Python qualification changed validator custody")
+    else:
+        expected_verdict = (
+            SemanticVerdict.REJECT
+            if acceptance_action == "provisional_accept"
+            else SemanticVerdict.PASS
         )
+        if validation.verdict.verdict is not expected_verdict:
+            if acceptance_action != "provisional_accept":
+                raise ContractValidationError(
+                    "rejected semantic validation cannot authorize Accept"
+                )
+            raise ContractValidationError(
+                "semantic validation verdict does not authorize this acceptance action"
+            )
     custody = validation.custody
     request = validation.request
     if (
@@ -2655,11 +2865,7 @@ def _semantic_validation_artifact(
     validation: BoundSemanticValidationV1,
     acceptance_action: str,
 ) -> dict[str, Any]:
-    _validate_candidate_qualification(
-        candidate,
-        validation,
-        acceptance_action=acceptance_action,
-    )
+    del acceptance_action
     body = {
         "schema_version": "cera.pi_scene.semantic_acceptance.v1",
         "candidate_sha256": candidate.candidate_sha256,
@@ -2672,26 +2878,170 @@ def _provisional_canon_artifact(
     *,
     candidate: LeanCandidateV1,
     validation: BoundSemanticValidationV1,
+    reader_validation: Any | None = None,
 ) -> dict[str, Any]:
-    if validation.verdict.verdict is not SemanticVerdict.REJECT:
+    semantic_rejected = validation.verdict.verdict is SemanticVerdict.REJECT
+    reader_rejected = bool(
+        reader_validation is not None and not getattr(reader_validation, "passed", False)
+    )
+    if not semantic_rejected and not reader_rejected:
         raise ContractValidationError("provisional canon requires a rejected candidate")
     body = {
-        "schema_version": "cera.pi_scene.provisional_canon.v2",
+        "schema_version": "cera.pi_scene.provisional_canon.v3",
         "provisional_canon_id": f"provisional:{candidate.candidate_sha256[:24]}",
         "candidate_id": candidate.candidate_id,
         "candidate_sha256": candidate.candidate_sha256,
         "validation_binding_sha256": validation.binding_sha256,
+        "reader_validation_sha256": (
+            None if reader_validation is None else reader_validation.binding_sha256
+        ),
         "status": "unresolved",
         "resolution_policy": "dependent_cognition_plan_must_bind_true_or_false",
     }
     return {**body, "artifact_sha256": canonical_sha256(body)}
 
 
+def _reader_validation_artifact(
+    *,
+    candidate: LeanCandidateV1,
+    validation: Any,
+) -> dict[str, Any]:
+    if (
+        validation.custody.candidate_sha256 != candidate.candidate_sha256
+        or validation.custody.candidate_prose_sha256 != candidate.story_text_sha256
+    ):
+        raise ContractValidationError("Reader artifact changed candidate custody")
+    body = {
+        "schema_version": "cera.pi_scene.reader_acceptance.v1",
+        "candidate_sha256": candidate.candidate_sha256,
+        "validation": to_primitive(validation),
+    }
+    return {**body, "artifact_sha256": canonical_sha256(body)}
+
+
+def _python_qualification_artifact(
+    *,
+    candidate: LeanCandidateV1,
+    qualification: OrdinaryPythonQualificationV1,
+) -> dict[str, Any]:
+    if qualification.candidate_sha256 != candidate.candidate_sha256:
+        raise ContractValidationError("Python qualification artifact changed candidate custody")
+    body = {
+        "schema_version": "cera.pi_scene.python_acceptance.v1",
+        "candidate_sha256": candidate.candidate_sha256,
+        "qualification": to_primitive(qualification),
+    }
+    return {**body, "artifact_sha256": canonical_sha256(body)}
+
+
+def _load_reader_validation_artifact(
+    turn_dir: Path,
+    *,
+    receipt: LeanAcceptedTurnReceiptV1,
+) -> Any | None:
+    path = turn_dir / "READER_VALIDATION.json"
+    if not path.exists():
+        return None
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("accepted Reader-validation custody is invalid")
+    payload = _read_json(path)
+    expected = {
+        "schema_version",
+        "candidate_sha256",
+        "validation",
+        "artifact_sha256",
+    }
+    body = {key: payload[key] for key in payload if key != "artifact_sha256"}
+    if (
+        set(payload) != expected
+        or payload["schema_version"] != "cera.pi_scene.reader_acceptance.v1"
+        or payload["candidate_sha256"] != receipt.candidate_sha256
+        or payload["artifact_sha256"] != canonical_sha256(body)
+        or not isinstance(payload["validation"], Mapping)
+    ):
+        raise StateConflictError("Reader-validation artifact binding changed")
+    from cera.reader_validation import BoundReaderValidationV1
+
+    validation = _decode_stored(
+        BoundReaderValidationV1,
+        payload["validation"],
+        "Reader validation",
+    )
+    if (
+        validation.custody.world_id != receipt.world_id
+        or validation.custody.branch_id != receipt.branch_id
+        or validation.custody.candidate_sha256 != receipt.candidate_sha256
+        or validation.custody.candidate_prose_sha256
+        != receipt.exact_accepted_prose_sha256
+        or validation.request.exact_candidate_prose != receipt.exact_accepted_prose
+    ):
+        raise StateConflictError("stored Reader validation changed accepted authority")
+    return validation
+
+
+def _verify_python_qualification_artifact(
+    turn_dir: Path,
+    *,
+    receipt: LeanAcceptedTurnReceiptV1,
+    semantic_validation: BoundSemanticValidationV1 | None,
+    reader_validation: Any | None,
+) -> None:
+    path = turn_dir / "PYTHON_QUALIFICATION.json"
+    if reader_validation is None:
+        if path.exists():
+            raise StateConflictError("legacy accepted turn has Python qualification")
+        return
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("qualified ordinary turn lacks Python custody")
+    payload = _read_json(path)
+    expected = {
+        "schema_version",
+        "candidate_sha256",
+        "qualification",
+        "artifact_sha256",
+    }
+    body = {key: payload[key] for key in payload if key != "artifact_sha256"}
+    if (
+        set(payload) != expected
+        or payload["schema_version"] != "cera.pi_scene.python_acceptance.v1"
+        or payload["candidate_sha256"] != receipt.candidate_sha256
+        or payload["artifact_sha256"] != canonical_sha256(body)
+        or not isinstance(payload["qualification"], Mapping)
+    ):
+        raise StateConflictError("Python-qualification artifact binding changed")
+    qualification = _decode_stored(
+        OrdinaryPythonQualificationV1,
+        payload["qualification"],
+        "Python qualification",
+    )
+    if (
+        semantic_validation is None
+        or qualification.candidate_sha256 != receipt.candidate_sha256
+        or qualification.semantic_validation_sha256
+        != canonical_sha256(semantic_validation)
+        or qualification.reader_validation_sha256 != reader_validation.binding_sha256
+        or (
+            receipt.creator_action == "provisional_accept"
+            and semantic_validation.verdict.verdict is SemanticVerdict.PASS
+            and getattr(reader_validation, "passed", False)
+        )
+        or (
+            receipt.creator_action != "provisional_accept"
+            and (
+                semantic_validation.verdict.verdict is not SemanticVerdict.PASS
+                or not getattr(reader_validation, "passed", False)
+            )
+        )
+    ):
+        raise StateConflictError("stored Python qualification changed accepted authority")
+
+
 def _verify_semantic_validation_artifact(
     turn_dir: Path,
     *,
     receipt: LeanAcceptedTurnReceiptV1,
-) -> None:
+    reader_validation: Any | None,
+) -> BoundSemanticValidationV1 | None:
     path = turn_dir / "SEMANTIC_VALIDATION.json"
     requires_validation = (
         receipt.route is SceneRoute.ORDINARY
@@ -2702,7 +3052,7 @@ def _verify_semantic_validation_artifact(
             raise StateConflictError(
                 "accepted turn has an unauthorized semantic-validation artifact"
             )
-        return
+        return None
     if not path.is_file() or path.is_symlink():
         raise StateConflictError("accepted cognition turn lacks semantic-validation custody")
     payload = _read_json(path)
@@ -2729,13 +3079,22 @@ def _verify_semantic_validation_artifact(
     )
     request = validation.request
     custody = validation.custody
-    expected_verdict = (
-        SemanticVerdict.REJECT
-        if receipt.creator_action == "provisional_accept"
-        else SemanticVerdict.PASS
-    )
+    expected_verdict = SemanticVerdict.PASS
+    if receipt.creator_action == "provisional_accept" and reader_validation is None:
+        expected_verdict = SemanticVerdict.REJECT
     if (
-        validation.verdict.verdict is not expected_verdict
+        (
+            receipt.creator_action != "provisional_accept"
+            and validation.verdict.verdict is not expected_verdict
+        )
+        or (
+            receipt.creator_action == "provisional_accept"
+            and validation.verdict.verdict is SemanticVerdict.PASS
+            and (
+                reader_validation is None
+                or getattr(reader_validation, "passed", False)
+            )
+        )
         or custody.world_id != receipt.world_id
         or custody.branch_id != receipt.branch_id
         or custody.accepted_head_sha256 != receipt.parent_accepted_head_sha256
@@ -2750,9 +3109,11 @@ def _verify_semantic_validation_artifact(
             provisional_path,
             receipt=receipt,
             validation=validation,
+            reader_validation=reader_validation,
         )
     elif provisional_path.exists():
         raise StateConflictError("ordinary accepted turn has unauthorized provisional canon")
+    return validation
 
 
 def _verify_provisional_canon_artifact(
@@ -2760,6 +3121,7 @@ def _verify_provisional_canon_artifact(
     *,
     receipt: LeanAcceptedTurnReceiptV1,
     validation: BoundSemanticValidationV1,
+    reader_validation: Any | None,
 ) -> None:
     if not path.is_file() or path.is_symlink():
         raise StateConflictError("provisional acceptance lacks its canon artifact")
@@ -2774,11 +3136,12 @@ def _verify_provisional_canon_artifact(
         "artifact_sha256",
     }
     schema_version = payload.get("schema_version")
-    expected = (
-        common | {"working_assumption"}
-        if schema_version == "cera.pi_scene.provisional_canon.v1"
-        else common | {"resolution_policy"}
-    )
+    if schema_version == "cera.pi_scene.provisional_canon.v1":
+        expected = common | {"working_assumption"}
+    elif schema_version == "cera.pi_scene.provisional_canon.v3":
+        expected = common | {"resolution_policy", "reader_validation_sha256"}
+    else:
+        expected = common | {"resolution_policy"}
     if set(payload) != expected:
         raise StateConflictError("provisional-canon artifact fields changed")
     body = {key: payload[key] for key in payload if key != "artifact_sha256"}
@@ -2787,6 +3150,7 @@ def _verify_provisional_canon_artifact(
         not in {
             "cera.pi_scene.provisional_canon.v1",
             "cera.pi_scene.provisional_canon.v2",
+            "cera.pi_scene.provisional_canon.v3",
         }
         or payload["candidate_id"] != validation.custody.candidate_id
         or payload["candidate_sha256"] != receipt.candidate_sha256
@@ -2795,6 +3159,15 @@ def _verify_provisional_canon_artifact(
         or payload["provisional_canon_id"]
         != f"provisional:{receipt.candidate_sha256[:24]}"
         or payload["artifact_sha256"] != canonical_sha256(body)
+        or (
+            schema_version == "cera.pi_scene.provisional_canon.v3"
+            and payload["reader_validation_sha256"]
+            != (
+                None
+                if reader_validation is None
+                else reader_validation.binding_sha256
+            )
+        )
     ):
         raise StateConflictError("provisional-canon artifact binding changed")
     if schema_version == "cera.pi_scene.provisional_canon.v1":

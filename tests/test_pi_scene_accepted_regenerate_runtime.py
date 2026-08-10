@@ -62,7 +62,12 @@ class PiSceneAcceptedRegenerateRuntimeTests(unittest.TestCase):
                 replacement.accepted_receipt.receipt_sha256,
                 old_receipt.receipt_sha256,
             )
-            self.assertEqual(planner.calls, 2)
+            self.assertEqual(planner.calls, 1)
+            self.assertEqual(
+                replacement.candidate.primary_authority_sha256,
+                original.candidate.primary_authority_sha256,
+            )
+            self.assertEqual(replacement.result.planner_provider_operations, 0)
             self.assertEqual(
                 store.load_head(
                     world_id="world-test", branch_id="branch-main"
@@ -105,7 +110,7 @@ class PiSceneAcceptedRegenerateRuntimeTests(unittest.TestCase):
                 original["cera"]["accepted_receipt_sha256"],
                 regenerated["cera"]["accepted_receipt_sha256"],
             )
-            self.assertEqual(planner.calls, 2)
+            self.assertEqual(planner.calls, 1)
 
             restarted, _, restarted_planner = _runtime(
                 root,

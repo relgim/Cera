@@ -506,6 +506,32 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
         after = service.canonical_status(chain_id=chain.chain_id)
         self.assertEqual(after["status"]["state"], "succeeded")
 
+    def test_input_frozen_restart_prepares_provider_free_then_requires_manual_resume(self) -> None:
+        first = self._service()
+        frozen = first.store.begin(self.scope.identity, self.packet.exact_bytes)
+        first.remember_scope(self.scope)
+        self.assertIs(frozen.phase, ProviderStageRetryPhase.INPUT_FROZEN)
+        self.assertEqual(self.writer_factory.owner_creation_calls, 0)
+        self.assertEqual(self.invocations.calls, 0)
+
+        restarted = self._service()
+        prepared = restarted.recover_incomplete(frozen.chain_id)
+        self.assertIs(prepared.phase, ProviderStageRetryPhase.ATTEMPT_PREPARED)
+        self.assertEqual(self.writer_factory.owner_creation_calls, 1)
+        self.assertEqual(self.invocations.calls, 0)
+        envelope = restarted.canonical_status(chain_id=frozen.chain_id)
+        self.assertEqual(envelope["status"]["state"], "in_progress")
+        self.assertEqual(envelope["status"]["stage_attempts_total"], 1)
+        action = backend_action_from_envelope(envelope)
+        self.assertEqual(action["action_kind"], "resume_prepared")
+
+        resumed = restarted.execute_manual_resume_prepared(action)
+        self.assertIs(resumed.phase, ProviderStageRetryPhase.RESULT_FROZEN)
+        self.assertEqual(self.invocations.calls, 1)
+        replayed = restarted.execute_manual_resume_prepared(action)
+        self.assertEqual(replayed, resumed)
+        self.assertEqual(self.invocations.calls, 1)
+
     def test_cross_process_binder_replay_does_not_duplicate_downstream_effect(self) -> None:
         first = self._service()
         chain = first.start_initial(scope=self.scope, packet=self.packet)

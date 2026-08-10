@@ -12,8 +12,13 @@ from typing import Any, ClassVar
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.provider_stage_retry_contracts_v1 import (
+    ProviderStageRetryStatusEnvelopeV1,
+    validate_provider_stage_retry_status_envelope_v1,
+)
+from cera.reader_validation import BoundReaderValidationV1, ReaderStatus
 from cera.schema import from_mapping
-from cera.semantic_validation import BoundSemanticValidationV1
+from cera.semantic_validation import BoundSemanticValidationV1, SemanticVerdict
 from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, to_primitive
 
 from .contracts import (
@@ -23,7 +28,18 @@ from .contracts import (
     LeanRunResultV1,
     RecordingStatus,
 )
-from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
+from .http_contracts import (
+    LeanSceneRequestControlsV1,
+    LeanSceneRequestControlsV2,
+    LeanSceneRequestControlsV3,
+)
+from .review_lifecycle import (
+    OrdinaryPythonQualificationV1,
+    OrdinaryReviewPhase,
+    OrdinaryValidationFailureV1,
+    OrdinaryValidationInputBindingV1,
+    OrdinaryValidationOwner,
+)
 from .store import LeanSceneStore
 
 
@@ -74,7 +90,9 @@ class LeanSceneTurnInputV1:
     voice_examples: Mapping[str, Mapping[str, Any] | str]
     craft_index: Mapping[str, Any]
     adult_handoff: Mapping[str, Any] | None = None
-    request_controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2 | None = None
+    request_controls: (
+        LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2 | LeanSceneRequestControlsV3 | None
+    ) = None
 
     def __post_init__(self) -> None:
         for field_name in ("world_id", "branch_id", "scene_id", "exact_user_source"):
@@ -85,7 +103,11 @@ class LeanSceneTurnInputV1:
             raise ContractValidationError("turn input requires current accepted state")
         if self.request_controls is not None and not isinstance(
             self.request_controls,
-            (LeanSceneRequestControlsV1, LeanSceneRequestControlsV2),
+            (
+                LeanSceneRequestControlsV1,
+                LeanSceneRequestControlsV2,
+                LeanSceneRequestControlsV3,
+            ),
         ):
             raise ContractValidationError("turn input request controls are invalid")
 
@@ -112,6 +134,13 @@ class LeanReviewRecordV1:
     recording_attempt: LeanRecordingAttemptV1 | None = None
     creator_guidance: CreatorGuidanceV1 | None = None
     semantic_validation: BoundSemanticValidationV1 | None = None
+    review_phase: OrdinaryReviewPhase = OrdinaryReviewPhase.LEGACY
+    validation_input_binding: OrdinaryValidationInputBindingV1 | None = None
+    reader_validation: BoundReaderValidationV1 | None = None
+    python_qualification: OrdinaryPythonQualificationV1 | None = None
+    validation_failures: tuple[OrdinaryValidationFailureV1, ...] = ()
+    luna_provider_stage_retry_status: ProviderStageRetryStatusEnvelopeV1 | None = None
+    reader_provider_stage_retry_status: ProviderStageRetryStatusEnvelopeV1 | None = None
 
     def __post_init__(self) -> None:
         if type(self.created_unix_seconds) is not int or self.created_unix_seconds < 0:
@@ -119,18 +148,140 @@ class LeanReviewRecordV1:
         validation = self.semantic_validation
         if validation is not None:
             candidate = self.candidate
-            custody = validation.custody
+            semantic_custody = validation.custody
             if (
                 candidate.route.value != "ordinary"
                 or candidate.primary_authority_kind != "codex_cognition_plan"
-                or custody.candidate_id != candidate.candidate_id
-                or custody.world_id != candidate.world_id
-                or custody.branch_id != candidate.branch_id
-                or custody.accepted_head_sha256 != candidate.accepted_head_before_sha256
+                or semantic_custody.candidate_id != candidate.candidate_id
+                or semantic_custody.world_id != candidate.world_id
+                or semantic_custody.branch_id != candidate.branch_id
+                or semantic_custody.accepted_head_sha256 != candidate.accepted_head_before_sha256
             ):
                 raise ContractValidationError(
                     "Pi Scene semantic validation changed candidate custody"
                 )
+        reader = self.reader_validation
+        if reader is not None:
+            candidate = self.candidate
+            reader_custody = reader.custody
+            if (
+                candidate.route.value != "ordinary"
+                or candidate.primary_authority_kind != "codex_cognition_plan"
+                or reader_custody.candidate_id != candidate.candidate_id
+                or reader_custody.world_id != candidate.world_id
+                or reader_custody.branch_id != candidate.branch_id
+                or reader_custody.candidate_sha256 != candidate.candidate_sha256
+                or reader_custody.candidate_prose_sha256 != candidate.story_text_sha256
+                or reader_custody.accepted_head_sha256 != candidate.accepted_head_before_sha256
+            ):
+                raise ContractValidationError("Pi Scene Reader changed candidate custody")
+        if type(self.review_phase) is not OrdinaryReviewPhase:
+            raise ContractValidationError("Pi Scene ordinary review phase changed")
+        lifecycle_values = (
+            self.validation_input_binding,
+            self.reader_validation,
+            self.python_qualification,
+            self.validation_failures,
+            self.luna_provider_stage_retry_status,
+            self.reader_provider_stage_retry_status,
+        )
+        if self.review_phase is OrdinaryReviewPhase.LEGACY:
+            if any(value not in (None, ()) for value in lifecycle_values):
+                raise ContractValidationError("legacy Pi Scene review contains lifecycle state")
+            return
+        if self.candidate.route.value != "ordinary":
+            raise ContractValidationError("ordinary review lifecycle changed route")
+        binding = self.validation_input_binding
+        if binding is None or binding.candidate_sha256 != self.candidate.candidate_sha256:
+            raise ContractValidationError("ordinary review lost its validation-input binding")
+        if self.review_phase is OrdinaryReviewPhase.VALIDATION_BLOCKED:
+            if not self.validation_failures:
+                raise ContractValidationError("blocked ordinary validation lacks a failure")
+        elif self.review_phase is not OrdinaryReviewPhase.VALIDATING and self.validation_failures:
+            raise ContractValidationError("ordinary validation failure escaped blocked state")
+        for status in (
+            self.luna_provider_stage_retry_status,
+            self.reader_provider_stage_retry_status,
+        ):
+            if status is not None:
+                validate_provider_stage_retry_status_envelope_v1(status)
+        lane_statuses = (
+            (
+                OrdinaryValidationOwner.LUNA,
+                self.luna_provider_stage_retry_status,
+                binding.luna_chain_id,
+                "semantic_validator",
+                "luna",
+                validation,
+            ),
+            (
+                OrdinaryValidationOwner.READER,
+                self.reader_provider_stage_retry_status,
+                binding.reader_chain_id,
+                "reader",
+                "sol",
+                reader,
+            ),
+        )
+        failed_owners = {failure.owner for failure in self.validation_failures}
+        for owner, envelope, chain_id, stage, model_family, verdict in lane_statuses:
+            if envelope is None:
+                continue
+            lane_status = envelope["status"]
+            if (
+                chain_id is None
+                or lane_status.get("chain_id") != chain_id
+                or lane_status.get("stage") != stage
+                or lane_status.get("provider") != "codex"
+                or lane_status.get("model_family") != model_family
+                or owner not in failed_owners
+                or verdict is not None
+            ):
+                raise ContractValidationError(
+                    "ordinary provider-stage lane status changed durable custody"
+                )
+        if self.review_phase in {
+            OrdinaryReviewPhase.QUALIFIED,
+            OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT,
+            OrdinaryReviewPhase.VALIDATION_REJECTED,
+        }:
+            qualification = self.python_qualification
+            if (
+                validation is None
+                or reader is None
+                or qualification is None
+                or qualification.review_id != self.review_id
+                or qualification.candidate_sha256 != self.candidate.candidate_sha256
+                or qualification.validation_input_binding_sha256 != binding.binding_sha256
+            ):
+                raise ContractValidationError("qualified ordinary review lacks all check receipts")
+            semantic_passed = validation.verdict.verdict is SemanticVerdict.PASS
+            reader_passed = reader.verdict.status is ReaderStatus.ACCEPTED
+            if self.review_phase is OrdinaryReviewPhase.VALIDATION_REJECTED and (
+                validation.verdict.verdict is not SemanticVerdict.REJECT
+                and reader.verdict.status is not ReaderStatus.REJECTED
+            ):
+                raise ContractValidationError(
+                    "rejected ordinary review lacks an actual validator rejection"
+                )
+            if self.review_phase in {
+                OrdinaryReviewPhase.QUALIFIED,
+                OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT,
+            } and not (semantic_passed and reader_passed):
+                raise ContractValidationError(
+                    "passing ordinary review phase contains a rejected validator"
+                )
+            if self.review_phase is OrdinaryReviewPhase.AWAITING_MANUAL_ACCEPT:
+                controls = self.turn_input.request_controls
+                if (
+                    not isinstance(controls, LeanSceneRequestControlsV3)
+                    or controls.review_mode != "manual"
+                ):
+                    raise ContractValidationError(
+                        "manual ordinary review phase lacks manual request custody"
+                    )
+        elif self.python_qualification is not None:
+            raise ContractValidationError("unqualified ordinary review contains Python approval")
 
     @property
     def candidate(self) -> LeanCandidateV1:
@@ -189,7 +340,7 @@ class DurableReviewStateStore:
             for review_id, decision in sorted(decisions.items())
         ]
         body = {
-            "schema_version": "cera.pi_scene.review_state.v5",
+            "schema_version": "cera.pi_scene.review_state.v6",
             "candidate_counter": candidate_counter,
             "reviews": review_values,
             "decisions": decision_values,
@@ -255,18 +406,28 @@ class DurableReviewStateStore:
                         accepted_receipt=accepted,
                         recording_attempt=self.scene_store.load_recording_attempt(accepted),
                     )
+                    decision_action = (
+                        "accept_provisional"
+                        if accepted.creator_action == "provisional_accept"
+                        else "automatic_accept"
+                        if accepted.creator_action == "automatic_accept"
+                        else "accept"
+                    )
+                    decision_audit = self.scene_store.load_acceptance_decision_audit(accepted)
+                    if (
+                        decision_action == "accept_provisional"
+                        and review.review_phase is not OrdinaryReviewPhase.LEGACY
+                        and decision_audit is None
+                    ):
+                        raise StateConflictError(
+                            "accepted override lost its feedback-bound decision audit"
+                        )
                     decisions[review.review_id] = DecisionReplayV1(
-                        action=(
-                            "accept_provisional"
-                            if accepted.creator_action == "provisional_accept"
-                            else "accept"
-                        ),
-                        request_sha256=decision_request_sha256(
-                            action=(
-                                "accept_provisional"
-                                if accepted.creator_action == "provisional_accept"
-                                else "accept"
-                            )
+                        action=decision_action,
+                        request_sha256=(
+                            decision_request_sha256(action=decision_action)
+                            if decision_audit is None
+                            else decision_audit.decision_request_sha256
                         ),
                         result=LeanDecisionResultV1(review=recovered),
                     )
@@ -299,7 +460,7 @@ class DurableReviewStateStore:
                 raise StateConflictError(
                     "Pi Scene review state contains duplicate decision receipts"
                 )
-            if decision.action in {"accept", "accept_provisional"}:
+            if decision.action in {"accept", "automatic_accept", "accept_provisional"}:
                 accepted = decision.result.review.accepted_receipt
                 if accepted is None:
                     raise StateConflictError("Accept decision omitted its receipt")
@@ -372,6 +533,7 @@ class DurableReviewStateStore:
             "cera.pi_scene.review_state.v3",
             "cera.pi_scene.review_state.v4",
             "cera.pi_scene.review_state.v5",
+            "cera.pi_scene.review_state.v6",
         } or payload["state_sha256"] != canonical_sha256(body):
             raise StateConflictError("Pi Scene review state binding changed")
         if (
@@ -380,6 +542,7 @@ class DurableReviewStateStore:
                 "cera.pi_scene.review_state.v3",
                 "cera.pi_scene.review_state.v4",
                 "cera.pi_scene.review_state.v5",
+                "cera.pi_scene.review_state.v6",
             }
         ) != ("decisions" in payload):
             raise StateConflictError("Pi Scene review state schema fields changed")
@@ -405,6 +568,7 @@ def decision_request_sha256(
 ) -> str:
     if action not in {
         "accept",
+        "automatic_accept",
         "decline",
         "regenerate",
         "replan",
@@ -497,6 +661,31 @@ def _review_state_payload(
         "semantic_validation": (
             None if review.semantic_validation is None else to_primitive(review.semantic_validation)
         ),
+        "review_phase": review.review_phase.value,
+        "validation_input_binding": (
+            None
+            if review.validation_input_binding is None
+            else to_primitive(review.validation_input_binding)
+        ),
+        "reader_validation": (
+            None if review.reader_validation is None else to_primitive(review.reader_validation)
+        ),
+        "python_qualification": (
+            None
+            if review.python_qualification is None
+            else to_primitive(review.python_qualification)
+        ),
+        "validation_failures": [to_primitive(failure) for failure in review.validation_failures],
+        "luna_provider_stage_retry_status": (
+            None
+            if review.luna_provider_stage_retry_status is None
+            else to_primitive(review.luna_provider_stage_retry_status)
+        ),
+        "reader_provider_stage_retry_status": (
+            None
+            if review.reader_provider_stage_retry_status is None
+            else to_primitive(review.reader_provider_stage_retry_status)
+        ),
     }
 
 
@@ -520,12 +709,22 @@ def _review_from_state_payload(
     }
     current_fields = transitional_fields | {"created_unix_seconds"}
     qualified_fields = current_fields | {"semantic_validation"}
+    lifecycle_fields = qualified_fields | {
+        "review_phase",
+        "validation_input_binding",
+        "reader_validation",
+        "python_qualification",
+        "validation_failures",
+        "luna_provider_stage_retry_status",
+        "reader_provider_stage_retry_status",
+    }
     value_fields = set(value) if isinstance(value, Mapping) else set()
     if not isinstance(value, Mapping) or value_fields not in (
         legacy_fields,
         transitional_fields,
         current_fields,
         qualified_fields,
+        lifecycle_fields,
     ):
         raise StateConflictError("Pi Scene persisted review fields changed")
     turn_value = value["turn_input"]
@@ -550,6 +749,13 @@ def _review_from_state_payload(
     accepted_value = None if is_legacy else value["accepted_receipt"]
     attempt_value = None if is_legacy else value["recording_attempt"]
     validation_value = value.get("semantic_validation")
+    phase_value = value.get("review_phase", OrdinaryReviewPhase.LEGACY.value)
+    input_binding_value = value.get("validation_input_binding")
+    reader_validation_value = value.get("reader_validation")
+    python_qualification_value = value.get("python_qualification")
+    validation_failures_value = value.get("validation_failures", [])
+    luna_retry_value = value.get("luna_provider_stage_retry_status")
+    reader_retry_value = value.get("reader_provider_stage_retry_status")
     if accepted_value is not None and not isinstance(accepted_value, Mapping):
         raise StateConflictError("Pi Scene persisted accepted receipt is invalid")
     if attempt_value is not None and not isinstance(attempt_value, Mapping):
@@ -562,6 +768,44 @@ def _review_from_state_payload(
         None
         if validation_value is None
         else from_mapping(BoundSemanticValidationV1, validation_value)
+    )
+    try:
+        review_phase = OrdinaryReviewPhase(phase_value)
+    except (TypeError, ValueError) as exc:
+        raise StateConflictError("Pi Scene persisted review phase is invalid") from exc
+    input_binding = (
+        None
+        if input_binding_value is None
+        else from_mapping(OrdinaryValidationInputBindingV1, input_binding_value)
+    )
+    if reader_validation_value is None:
+        reader_validation = None
+    else:
+        from cera.reader_validation import BoundReaderValidationV1
+
+        reader_validation = from_mapping(
+            BoundReaderValidationV1,
+            reader_validation_value,
+        )
+    python_qualification = (
+        None
+        if python_qualification_value is None
+        else from_mapping(OrdinaryPythonQualificationV1, python_qualification_value)
+    )
+    if not isinstance(validation_failures_value, list):
+        raise StateConflictError("Pi Scene persisted validation failures are invalid")
+    validation_failures = tuple(
+        from_mapping(OrdinaryValidationFailureV1, failure) for failure in validation_failures_value
+    )
+    luna_retry_status = (
+        None
+        if luna_retry_value is None
+        else validate_provider_stage_retry_status_envelope_v1(luna_retry_value)
+    )
+    reader_retry_status = (
+        None
+        if reader_retry_value is None
+        else validate_provider_stage_retry_status_envelope_v1(reader_retry_value)
     )
     review_id = value["review_id"]
     session_id = value["pi_session_id"]
@@ -621,6 +865,13 @@ def _review_from_state_payload(
         recording_attempt=attempt,
         creator_guidance=guidance,
         semantic_validation=validation,
+        review_phase=review_phase,
+        validation_input_binding=input_binding,
+        reader_validation=reader_validation,
+        python_qualification=python_qualification,
+        validation_failures=validation_failures,
+        luna_provider_stage_retry_status=luna_retry_status,
+        reader_provider_stage_retry_status=reader_retry_status,
     )
 
 
@@ -677,8 +928,10 @@ def _decision_from_state_payload(
     warnings = value["operational_warnings"]
     if (
         not isinstance(review_id, str)
-        or action not in {
+        or action
+        not in {
             "accept",
+            "automatic_accept",
             "decline",
             "regenerate",
             "replan",
@@ -700,6 +953,7 @@ def _decision_from_state_payload(
     )
     expected_state = {
         "accept": LeanReviewState.ACCEPTED,
+        "automatic_accept": LeanReviewState.ACCEPTED,
         "accept_provisional": LeanReviewState.ACCEPTED,
         "decline": LeanReviewState.DECLINED,
         "regenerate": LeanReviewState.REGENERATED,

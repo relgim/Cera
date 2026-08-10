@@ -17,7 +17,11 @@ from cera.serialization import (
 )
 
 from .contracts import SceneRoute
-from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
+from .http_contracts import (
+    LeanSceneRequestControlsV1,
+    LeanSceneRequestControlsV2,
+    LeanSceneRequestControlsV3,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +98,7 @@ def build_request_binding(
     world_id: str,
     branch_id: str,
     route: SceneRoute,
-    controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2,
+    controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2 | LeanSceneRequestControlsV3,
 ) -> PiSceneRequestBindingV1:
     """Build an identity from exact canonical request bytes and custody fields."""
 

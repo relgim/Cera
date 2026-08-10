@@ -27,6 +27,7 @@ _SUPPORTED_CONTROLS = frozenset(
         "cera_prompt_handling",
         "cera_reasoning_effort",
         "cera_scene_change",
+        "cera_review_mode",
     }
 )
 
@@ -107,6 +108,20 @@ class LeanSceneRequestControlsV2(LeanSceneRequestControlsV1):
         return value
 
 
+@dataclass(frozen=True, slots=True)
+class LeanSceneRequestControlsV3(LeanSceneRequestControlsV2):
+    """Current controls with a per-chat provisional review preference."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.request_controls.v3"
+
+    review_mode: str = "automatic"
+
+    def __post_init__(self) -> None:
+        LeanSceneRequestControlsV2.__post_init__(self)
+        if self.review_mode not in {"automatic", "manual"}:
+            raise ContractValidationError("Pi Scene review-mode control is invalid")
+
+
 def _base_model_visible_controls(
     controls: LeanSceneRequestControlsV1,
 ) -> dict[str, Any]:
@@ -135,7 +150,7 @@ class PiSceneChatRequestV1:
     automatic_route: bool
     messages: tuple[Mapping[str, str], ...]
     exact_user_source: str
-    controls: LeanSceneRequestControlsV2
+    controls: LeanSceneRequestControlsV3
 
 
 def parse_chat_request(
@@ -153,9 +168,7 @@ def parse_chat_request(
         if str(key).startswith("cera_") and key not in _SUPPORTED_CONTROLS
     )
     if unsupported:
-        raise ContractValidationError(
-            "unsupported Pi Scene controls: " + ", ".join(unsupported)
-        )
+        raise ContractValidationError("unsupported Pi Scene controls: " + ", ".join(unsupported))
     model = str(payload.get("model", ""))
     if model == PI_SCENE_AUTO_MODEL:
         # Ordinary is only the bootstrap context shape.  The HTTP adapter
@@ -180,8 +193,8 @@ def parse_chat_request(
         raise ContractValidationError("Pi Scene requires a session identity")
     if expected_session_id is not None and session_id != expected_session_id:
         raise ContractValidationError("Pi Scene rejects session substitution")
-    controls = LeanSceneRequestControlsV2(
-        schema_version=LeanSceneRequestControlsV2.SCHEMA_VERSION,
+    controls = LeanSceneRequestControlsV3(
+        schema_version=LeanSceneRequestControlsV3.SCHEMA_VERSION,
         session_id=session_id,
         scene_depth=_normalized_control(payload, "cera_scene_depth", "auto"),
         regeneration_key=_optional_text_control(payload, "cera_regeneration_key"),
@@ -206,6 +219,11 @@ def parse_chat_request(
             "medium",
         ),
         scene_change=_boolean_control(payload, "cera_scene_change", False),
+        review_mode=_normalized_control(
+            payload,
+            "cera_review_mode",
+            "automatic",
+        ),
     )
     raw_messages = payload.get("messages")
     if not isinstance(raw_messages, list) or not raw_messages:

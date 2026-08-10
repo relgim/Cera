@@ -26,6 +26,11 @@ from typing import Any, ClassVar, Protocol
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.ordinary_review_contracts_v2 import (
+    validate_ordinary_review_decision_v2,
+    validate_ordinary_review_lifecycle_v1,
+    validate_ordinary_review_v2,
+)
 from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryActionV1,
     ProviderStageRetryStatusEnvelopeV1,
@@ -39,6 +44,7 @@ from cera.serialization import (
     to_primitive,
 )
 
+from .http_contracts import PI_SCENE_ORDINARY_MODEL
 from .provider_stage_retry import (
     ProviderStage,
     ProviderStageRetryChainV1,
@@ -174,7 +180,7 @@ class ProviderStageRetryHttpRegistrationV1:
 
 
 class ProviderStageRetryHttpContinuationRegistryV1:
-    """Exhaustive route-specific continuation registry for all six stages."""
+    """Exhaustive route-specific continuation registry for all seven stages."""
 
     def __init__(self, registrations: Iterable[ProviderStageRetryHttpRegistrationV1]) -> None:
         by_stage: dict[ProviderStage, ProviderStageRetryHttpContinuationPort] = {}
@@ -455,6 +461,34 @@ class ProtectedProviderStageRetryHttpCursorStoreV1:
                     if continuation_epoch_sha256 is None
                     else continuation_epoch_sha256
                 ),
+            )
+            self._write_unlocked(updated)
+            return self._read_unlocked(request_sha256)
+
+    def bind_review_validation_member(
+        self,
+        *,
+        request_sha256: str,
+        chain_id: str,
+    ) -> ProviderStageRetryHttpCursorV1:
+        """Authenticate a sibling review lane without changing linear latest."""
+
+        _require_chain_id(chain_id)
+        with self._claim(request_sha256):
+            current = self._read_unlocked(request_sha256)
+            if current.terminal_completion_sha256 is not None:
+                raise StateConflictError(
+                    "provider-stage terminal request cannot gain a validation lane"
+                )
+            if chain_id in current.chain_ids:
+                return current
+            updated = ProviderStageRetryHttpCursorV1(
+                request_identity=current.request_identity,
+                chain_ids=(*current.chain_ids, chain_id),
+                latest_chain_id=current.latest_chain_id,
+                submitted_actions=current.submitted_actions,
+                terminal_completion_sha256=current.terminal_completion_sha256,
+                continuation_epoch_sha256=current.continuation_epoch_sha256,
             )
             self._write_unlocked(updated)
             return self._read_unlocked(request_sha256)
@@ -751,9 +785,14 @@ class ProviderStageRetryHttpControllerV1:
 
         _require_chain_id(chain_id)
         with self._lock:
-            _, identity, _, cursor = self._resolve_request(chain_id)
-            chain = self._runtime.read_chain(cursor.latest_chain_id)
-            port = self._continuations.for_stage(chain.identity.stage)
+            source, identity, source_port, cursor = self._resolve_request(chain_id)
+            lane = _review_validation_lane_binding(source_port, source)
+            chain = source if lane is not None else self._runtime.read_chain(cursor.latest_chain_id)
+            port = (
+                source_port
+                if lane is not None
+                else self._continuations.for_stage(chain.identity.stage)
+            )
             terminal = self._terminal_first(
                 chain_id=chain.chain_id,
                 identity=identity,
@@ -762,16 +801,34 @@ class ProviderStageRetryHttpControllerV1:
             )
             if terminal is not None:
                 return terminal
-            chain, envelope = self._provider_free_status(cursor.latest_chain_id)
+            chain, envelope = self._provider_free_status(chain.chain_id)
             self._terminalize_failure_if_needed(
                 chain=chain,
                 envelope=envelope,
                 port=port,
             )
-            latest = self._validated_latest_chain(
-                source_chain=chain,
-                identity=identity,
-                port=port,
+            if lane is not None and chain.phase is ProviderStageRetryPhase.SUCCEEDED:
+                current_review = getattr(
+                    port,
+                    "review_payload_for_validation_chain",
+                    None,
+                )
+                if not callable(current_review):
+                    raise StateConflictError(
+                        "provider-stage validation lane lacks current review projection"
+                    )
+                return _project_terminal_result(
+                    current_review(chain.chain_id),
+                    identity=identity,
+                )
+            latest = (
+                chain
+                if lane is not None
+                else self._validated_latest_chain(
+                    source_chain=chain,
+                    identity=identity,
+                    port=port,
+                )
             )
             if latest.chain_id != chain.chain_id:
                 cursor = self._cursors.bind_successor(
@@ -819,23 +876,28 @@ class ProviderStageRetryHttpControllerV1:
             )
         with self._lock:
             source, identity, port, cursor = self._resolve_request(chain_id)
+            lane = _review_validation_lane_binding(port, source)
             stored = cursor.action(action_id)
             if stored is not None and stored != action:
                 raise StateConflictError("provider-stage HTTP action replay changed")
 
-            latest = self._validated_latest_chain(
-                source_chain=source,
-                identity=identity,
-                port=port,
+            latest = (
+                source
+                if lane is not None
+                else self._validated_latest_chain(
+                    source_chain=source,
+                    identity=identity,
+                    port=port,
+                )
             )
-            if latest.chain_id != cursor.latest_chain_id:
+            if lane is None and latest.chain_id != cursor.latest_chain_id:
                 cursor = self._cursors.bind_successor(
                     request_sha256=identity.request_sha256,
                     source_chain_id=source.chain_id,
                     successor_chain_id=latest.chain_id,
                 )
 
-            if stored is not None and latest.chain_id != chain_id:
+            if stored is not None and lane is None and latest.chain_id != chain_id:
                 return self._continue_or_status(
                     chain=latest,
                     identity=identity,
@@ -931,6 +993,7 @@ class ProviderStageRetryHttpControllerV1:
         )
         if terminal is not None:
             return terminal
+        validation_lane = _review_validation_lane_binding(port, chain)
         chain, envelope = self._provider_free_status(chain.chain_id)
         if chain.phase is not ProviderStageRetryPhase.SUCCEEDED:
             self._terminalize_failure_if_needed(
@@ -963,6 +1026,8 @@ class ProviderStageRetryHttpControllerV1:
             result=result,
         )
         completion = _project_terminal_result(projected, identity=identity)
+        if validation_lane is not None:
+            return completion
         bound = port.bind_terminal_completion(
             chain_id=chain.chain_id,
             completion=completion,
@@ -972,11 +1037,12 @@ class ProviderStageRetryHttpControllerV1:
             raise StateConflictError(
                 "provider-stage HTTP terminal completion changed during binding"
             )
-        self._cursors.bind_terminal(
-            request_sha256=identity.request_sha256,
-            completion_sha256=canonical_sha256(durable),
-        )
-        if _terminal_result_releases_request(durable):
+        if validation_lane is None:
+            self._cursors.bind_terminal(
+                request_sha256=identity.request_sha256,
+                completion_sha256=canonical_sha256(durable),
+            )
+        if validation_lane is None and _terminal_result_releases_request(durable):
             self.complete_request(
                 request_id=identity.request_id,
                 world_id=identity.world_id,
@@ -1086,11 +1152,17 @@ class ProviderStageRetryHttpControllerV1:
             branch_id=scope.branch_id,
         )
         port = self._continuations.for_stage(chain.identity.stage)
+        validation_lane = _review_validation_lane_binding(port, chain)
         cursor = self._cursors.read_optional(identity.request_sha256)
         if cursor is None:
             cursor = self._cursors.freeze(identity=identity, chain_id=chain_id)
         elif cursor.request_identity != identity:
             raise StateConflictError("provider-stage HTTP cursor changed request identity")
+        elif chain_id not in cursor.chain_ids and validation_lane is not None:
+            cursor = self._cursors.bind_review_validation_member(
+                request_sha256=identity.request_sha256,
+                chain_id=chain_id,
+            )
         elif chain_id not in cursor.chain_ids:
             continuation_epoch_sha256 = self._continuation_epoch_sha256(
                 chain_id=chain_id,
@@ -1311,8 +1383,16 @@ def _project_terminal_result(
     projected = to_primitive(value)
     if not isinstance(projected, dict):
         raise ContractValidationError("provider-stage HTTP terminal result must be an object")
-    if projected.get("schema_version") == "cera.pi_scene.review_decision.v1":
+    if projected.get("schema_version") in {
+        "cera.pi_scene.review_decision.v1",
+        "cera.pi_scene.review_decision.v2",
+    }:
         return _project_review_decision(projected, identity=identity)
+    if projected.get("schema_version") in {
+        "cera.pi_scene.review.v1",
+        "cera.pi_scene.review.v2",
+    }:
+        return _project_review_payload(projected)
     return _project_standard_chat_completion(projected, identity=identity)
 
 
@@ -1321,6 +1401,30 @@ def _project_standard_chat_completion(
     *,
     identity: ProviderStageRetryHttpRequestIdentityV1,
 ) -> dict[str, Any]:
+    result = validate_standard_chat_completion(projected)
+    cera = result["cera"]
+    assert isinstance(cera, dict)
+    prior_request_id = cera.get("request_id")
+    prior_request_sha256 = cera.get("provider_stage_request_sha256")
+    if prior_request_id not in {None, identity.request_id} or prior_request_sha256 not in {
+        None,
+        identity.request_sha256,
+    }:
+        raise StateConflictError(
+            "provider-stage HTTP completion changed protected request identity"
+        )
+    cera["request_id"] = identity.request_id
+    cera["provider_stage_request_sha256"] = identity.request_sha256
+    return result
+
+
+def validate_standard_chat_completion(value: object) -> dict[str, Any]:
+    """Validate and copy the existing exact application completion envelope."""
+
+    primitive = to_primitive(value)
+    if not isinstance(primitive, dict):
+        raise ContractValidationError("provider-stage HTTP terminal result must be an object")
+    projected = primitive
     if set(projected) != {
         "id",
         "object",
@@ -1363,18 +1467,30 @@ def _project_standard_chat_completion(
         raise ContractValidationError(
             "provider-stage HTTP terminal result is not an allowed response"
         )
-    prior_request_id = cera.get("request_id")
-    prior_request_sha256 = cera.get("provider_stage_request_sha256")
-    if prior_request_id not in {None, identity.request_id} or prior_request_sha256 not in {
-        None,
-        identity.request_sha256,
-    }:
-        raise StateConflictError(
-            "provider-stage HTTP completion changed protected request identity"
-        )
-    cera["request_id"] = identity.request_id
-    cera["provider_stage_request_sha256"] = identity.request_sha256
     return dict(projected)
+
+
+def validate_ordinary_successor_completion(value: object) -> dict[str, Any]:
+    """Validate one exact provisional ordinary successor completion."""
+
+    result = validate_standard_chat_completion(value)
+    cera = result["cera"]
+    assert isinstance(cera, dict)
+    lifecycle = validate_ordinary_review_lifecycle_v1(cera.get("review_lifecycle"))
+    if (
+        result["model"] != PI_SCENE_ORDINARY_MODEL
+        or cera.get("route_mode") != "ordinary"
+        or cera.get("provisional") is not True
+        or cera.get("story_state_committed") is not False
+        or cera.get("status") != "review_ready"
+        or cera.get("provisional_review_id") != lifecycle["review_id"]
+        or cera.get("review_url") != lifecycle["review_url"]
+        or cera.get("candidate_sha256") is None
+    ):
+        raise ContractValidationError(
+            "provider-stage HTTP ordinary successor completion changed lifecycle"
+        )
+    return result
 
 
 def _project_review_decision(
@@ -1382,6 +1498,13 @@ def _project_review_decision(
     *,
     identity: ProviderStageRetryHttpRequestIdentityV1,
 ) -> dict[str, Any]:
+    if projected.get("schema_version") == "cera.pi_scene.review_decision.v2":
+        return dict(
+            validate_ordinary_review_decision_v2(
+                projected,
+                successor_validator=validate_ordinary_successor_completion,
+            )
+        )
     base_keys = {
         "schema_version",
         "status",
@@ -1436,7 +1559,7 @@ def _project_review_decision(
             "provider-stage HTTP review decision has an invalid successor"
         )
     result: dict[str, Any] = {
-        "schema_version": "cera.pi_scene.review_decision.v1",
+        "schema_version": projected["schema_version"],
         "status": projected["status"],
         "creator_action": action,
         "story_state_committed": committed,
@@ -1464,6 +1587,8 @@ def _project_review_decision(
 
 def _project_review_payload(value: object) -> dict[str, Any]:
     review = _require_mapping(value, "review-decision review")
+    if review.get("schema_version") == "cera.pi_scene.review.v2":
+        return _project_review_payload_v2(review)
     base_keys = {
         "schema_version",
         "review_id",
@@ -1538,6 +1663,103 @@ def _project_review_payload(value: object) -> dict[str, Any]:
     return dict(review)
 
 
+def _project_review_payload_v2(review: Mapping[str, Any]) -> dict[str, Any]:
+    return dict(validate_ordinary_review_v2(review))
+
+
+def _project_review_checks_v1(value: object) -> None:
+    checks = _require_mapping(value, "review checks")
+    if (
+        set(checks)
+        != {
+            "schema_version",
+            "luna",
+            "reader",
+            "adult_filter",
+            "python",
+        }
+        or checks.get("schema_version") != "cera.pi_scene.review_checks.v1"
+    ):
+        raise ContractValidationError("provider-stage HTTP review checks changed")
+    for name in ("luna", "reader", "adult_filter", "python"):
+        lane = _require_mapping(checks.get(name), f"review check {name}")
+        if set(lane) != {
+            "role",
+            "required",
+            "status",
+            "verdict_sha256",
+            "failures",
+            "provider_stage_retry_status",
+        }:
+            raise ContractValidationError("provider-stage HTTP review check shape changed")
+        failures = lane.get("failures")
+        if (
+            not isinstance(lane.get("role"), str)
+            or type(lane.get("required")) is not bool
+            or lane.get("status")
+            not in {"pending", "pass", "reject", "inconclusive", "not_applicable"}
+            or not (
+                lane.get("verdict_sha256") is None
+                or (
+                    isinstance(lane.get("verdict_sha256"), str)
+                    and re_is_sha256(lane["verdict_sha256"])
+                )
+            )
+            or not isinstance(failures, list)
+            or any(
+                not isinstance(failure, Mapping)
+                or set(failure) != {"code", "concise_explanation"}
+                or not isinstance(failure.get("code"), str)
+                or not isinstance(failure.get("concise_explanation"), str)
+                for failure in failures
+            )
+        ):
+            raise ContractValidationError("provider-stage HTTP review check is invalid")
+        retry = lane.get("provider_stage_retry_status")
+        if retry is not None:
+            validate_provider_stage_retry_status_envelope_v1(retry)
+
+
+def _project_review_acceptance(value: object) -> None:
+    if value is None:
+        return
+    acceptance = _require_mapping(value, "review acceptance")
+    if (
+        set(acceptance) != {"mode", "accepted_turn_id", "accepted_receipt_sha256", "canon_status"}
+        or acceptance.get("mode") not in {"automatic", "manual", "auditable_override"}
+        or not isinstance(acceptance.get("accepted_turn_id"), str)
+        or not isinstance(acceptance.get("accepted_receipt_sha256"), str)
+        or not re_is_sha256(acceptance["accepted_receipt_sha256"])
+        or acceptance.get("canon_status") not in {"accepted", "provisional"}
+    ):
+        raise ContractValidationError("provider-stage HTTP review acceptance changed")
+    if (
+        acceptance["mode"] == "auditable_override" and acceptance["canon_status"] != "provisional"
+    ) or (
+        acceptance["mode"] in {"automatic", "manual"} and acceptance["canon_status"] != "accepted"
+    ):
+        raise ContractValidationError("provider-stage HTTP review canon mode changed")
+
+
+def _project_review_actions(value: object) -> None:
+    actions = _require_mapping(value, "review actions")
+    boolean_fields = {
+        "accept_enabled",
+        "regenerate_enabled",
+        "decline_enabled",
+        "replan_enabled",
+        "auditable_override_enabled",
+        "repair_recording_enabled",
+    }
+    if set(actions) != boolean_fields | {"auditable_override_action"} or any(
+        type(actions.get(name)) is not bool for name in boolean_fields
+    ):
+        raise ContractValidationError("provider-stage HTTP review actions changed")
+    expected_action = "accept_provisional" if actions["auditable_override_enabled"] else None
+    if actions.get("auditable_override_action") != expected_action:
+        raise ContractValidationError("provider-stage HTTP override action changed")
+
+
 def _contains_forbidden_review_key(value: object) -> bool:
     if isinstance(value, Mapping):
         for key, item in value.items():
@@ -1568,7 +1790,10 @@ def _terminal_result_releases_request(value: Mapping[str, Any]) -> bool:
         if not isinstance(cera, Mapping):
             raise StateConflictError("provider-stage terminal completion lost CERA metadata")
         return cera.get("provisional") is not True
-    if value.get("schema_version") == "cera.pi_scene.review_decision.v1":
+    if value.get("schema_version") in {
+        "cera.pi_scene.review_decision.v1",
+        "cera.pi_scene.review_decision.v2",
+    }:
         successor = value.get("successor")
         if successor is None:
             return True
@@ -1587,6 +1812,53 @@ def _status_request_sha256(envelope: Mapping[str, Any]) -> str:
     value = technical.get("request_sha256") if isinstance(technical, dict) else None
     if not isinstance(value, str) or not re_is_sha256(value):
         raise ContractValidationError("provider-stage HTTP status lacks request identity")
+    return value
+
+
+def _review_validation_lane_binding(
+    port: ProviderStageRetryHttpContinuationPort,
+    chain: ProviderStageRetryChainV1,
+) -> dict[str, str] | None:
+    """Validate the narrow review-local exception to the linear HTTP cursor."""
+
+    lookup = getattr(port, "validation_lane_binding_for_chain", None)
+    if not callable(lookup):
+        return None
+    raw = lookup(chain.chain_id)
+    if raw is None:
+        return None
+    value = to_primitive(raw)
+    expected = {
+        "schema_version",
+        "review_id",
+        "lane",
+        "chain_id",
+        "luna_chain_id",
+        "reader_chain_id",
+    }
+    if not isinstance(value, dict) or set(value) != expected:
+        raise StateConflictError("provider-stage validation lane binding changed shape")
+    lane = value.get("lane")
+    expected_lane = {
+        ProviderStage.SEMANTIC_VALIDATOR: "luna",
+        ProviderStage.READER: "reader",
+    }.get(chain.identity.stage)
+    if (
+        value.get("schema_version") != "cera.pi_scene.review_validation_lanes.v1"
+        or not isinstance(value.get("review_id"), str)
+        or re.fullmatch(r"review-[a-f0-9]{28}", value["review_id"]) is None
+        or expected_lane is None
+        or lane != expected_lane
+        or value.get("chain_id") != chain.chain_id
+        or value.get(f"{lane}_chain_id") != chain.chain_id
+        or value.get("luna_chain_id") == value.get("reader_chain_id")
+    ):
+        raise StateConflictError("provider-stage validation lane binding changed identity")
+    for field_name in ("luna_chain_id", "reader_chain_id"):
+        chain_id = value.get(field_name)
+        if not isinstance(chain_id, str):
+            raise StateConflictError("provider-stage validation lane binding is incomplete")
+        _require_chain_id(chain_id)
     return value
 
 

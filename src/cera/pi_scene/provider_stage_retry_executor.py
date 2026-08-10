@@ -338,16 +338,29 @@ class ProviderStageRetryExecutorV1:
     ) -> ProviderStageRetryChainV1:
         """Run only the initial attempt, or replay already-durable chain state."""
 
+        prepared, dispatch_owned = self.prepare_initial(
+            scope=scope,
+            packet=packet,
+            owner=owner,
+        )
+        if not dispatch_owned:
+            return prepared
+        return self.dispatch_prepared_initial(prepared, owner=owner)
+
+    def prepare_initial(
+        self,
+        *,
+        scope: ProviderStageRetryOccurrenceScopeV1,
+        packet: ProviderStageFrozenPacketV1,
+        owner: ProviderStageAttemptOwnerPort,
+    ) -> tuple[ProviderStageRetryChainV1, bool]:
+        """Persist one lazy initial owner without authorizing provider dispatch."""
+
         self._require_scope_packet(scope, packet)
         with self._begin_lock(scope.identity.chain_id):
             chain = self._store.begin(scope.identity, packet.exact_bytes)
-        if chain.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED:
-            # A duplicate initial request may observe this owner, but only the
-            # exact backend-issued manual resume_prepared action may authorize
-            # its first provider-dispatch claim.
-            return chain
         if chain.phase is not ProviderStageRetryPhase.INPUT_FROZEN:
-            return chain
+            return chain, False
         try:
             prepared = self._store.prepare_attempt(
                 chain.chain_id,
@@ -357,9 +370,21 @@ class ProviderStageRetryExecutorV1:
         except StateConflictError:
             concurrent = self._store.read(chain.chain_id)
             if concurrent.phase is not ProviderStageRetryPhase.INPUT_FROZEN:
-                return concurrent
+                return concurrent, False
             raise
-        return self._execute_prepared(prepared, owner)
+        return prepared, True
+
+    def dispatch_prepared_initial(
+        self,
+        chain: ProviderStageRetryChainV1,
+        *,
+        owner: ProviderStageAttemptOwnerPort,
+    ) -> ProviderStageRetryChainV1:
+        """Dispatch only the exact owner that won initial preparation."""
+
+        if chain.phase is not ProviderStageRetryPhase.ATTEMPT_PREPARED:
+            return self._store.read(chain.chain_id)
+        return self._execute_prepared(chain, owner)
 
     def execute_manual_retry(
         self,

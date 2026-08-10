@@ -276,7 +276,7 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
             accepted = coordinator.start_ordinary(turn())
             self.assertEqual(coordinator.provider_operation_attempts(accepted), (accepted,))
 
-    def test_regenerate_reruns_the_logic_owner_before_the_writer(self) -> None:
+    def test_regenerate_reuses_frozen_logic_authority_and_runs_writer_only(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             validator = _SemanticValidator(SemanticVerdict.REJECT)
@@ -286,11 +286,35 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
 
             decision = coordinator.regenerate(first.review_id)
             assert decision.successor is not None
-            self.assertEqual(planner.calls, 2)
+            self.assertEqual(planner.calls, 1)
             self.assertEqual(
                 decision.successor.result.regenerated_from_candidate_id,
                 first.candidate.candidate_id,
             )
+            self.assertEqual(
+                decision.successor.result.planner_provider_operations,
+                0,
+            )
+            self.assertEqual(
+                decision.successor.candidate.primary_authority_sha256,
+                first.candidate.primary_authority_sha256,
+            )
+
+    def test_replan_remains_the_only_creator_action_that_reruns_planner(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _, planner = _runtime(
+                Path(temporary),
+                _SemanticValidator(SemanticVerdict.REJECT),
+            )
+            first = coordinator.start_ordinary(turn())
+            self.assertEqual(planner.calls, 1)
+            decision = coordinator.replan(
+                first.review_id,
+                feedback="Change the planned decision, not merely its prose.",
+            )
+            self.assertEqual(planner.calls, 2)
+            self.assertIsNotNone(decision.successor)
+            assert decision.successor is not None
             self.assertGreater(
                 decision.successor.result.planner_provider_operations,
                 0,

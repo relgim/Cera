@@ -7,20 +7,25 @@ import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import nullcontext
+from contextvars import Context, ContextVar, copy_context
 from dataclasses import dataclass, replace
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import RLock
+from threading import RLock, Thread
 from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, ErrorCode, StateConflictError
-from cera.semantic_validation import SemanticVerdict
+from cera.generated.ordinary_review_contracts_v2 import (
+    validate_ordinary_review_decision_v2,
+)
+from cera.reader_validation import BoundReaderValidationV1
+from cera.semantic_validation import BoundSemanticValidationV1, SemanticVerdict
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
-from .contracts import SceneRoute
+from .contracts import RecordingStatus, SceneRoute
 from .full_model_controller import (
     AcceptedAdultTurnV1,
     FullModelSceneController,
@@ -41,20 +46,24 @@ from .http_contracts import (
     PI_SCENE_PROFILE,
     LeanSceneRequestControlsV1,
     LeanSceneRequestControlsV2,
+    LeanSceneRequestControlsV3,
     PiSceneChatRequestV1,
     parse_chat_request,
 )
 from .ordinary_http import (
+    _ordinary_review_payload_for_detached_hash,
     attach_debug_path,
     ordinary_completion_payload,
     ordinary_review_payload,
 )
+from .provider_stage_retry import ProviderStage
 from .provider_stage_retry_adult_actions import AdultProviderStageReviewActionRuntimeV1
 from .provider_stage_retry_http import (
     ProviderStageRetryHttpControllerV1,
     ProviderStageRetryHttpNotFoundError,
     provider_stage_retry_action_identity,
     provider_stage_retry_chain_id,
+    validate_ordinary_successor_completion,
 )
 from .provider_stage_retry_ordinary import (
     OrdinaryProviderStageRetryRuntimeV1,
@@ -76,6 +85,7 @@ from .request_journal import (
     TransportRetryNotFoundError,
     build_request_binding,
 )
+from .review_lifecycle import OrdinaryReviewPhase
 from .review_store import (
     LeanDecisionResultV1,
     LeanReviewRecordV1,
@@ -115,6 +125,10 @@ LogicRouteResolver = Callable[[LeanSceneTurnInputV1], SceneRoute]
 
 class PiSceneCommittedStateError(RuntimeError):
     """Reporting/delivery failed after authoritative Accept already committed."""
+
+
+class PiSceneReviewDecisionNotFoundError(LookupError):
+    """No durable terminal decision exists for the requested review."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +215,7 @@ class PiSceneHttpAdapter:
             )
         if ordinary_stage_retry_runtime is not None and (
             type(ordinary_stage_retry_runtime) is not OrdinaryProviderStageRetryRuntimeV1
-            or coordinator.ordinary_stage_retry is not ordinary_stage_retry_runtime
+            or id(coordinator.ordinary_stage_retry) != id(ordinary_stage_retry_runtime)
             or not callable(getattr(ordinary_planner_retrieval, "capture", None))
         ):
             raise ContractValidationError("Pi Scene ordinary stage Retry assembly changed")
@@ -216,6 +230,12 @@ class PiSceneHttpAdapter:
         # This binds global Sol ledger appends to one exact request and also
         # prevents two manual POSTs from dispatching the same retry.
         self._provider_request_lock = RLock()
+        self._provider_dispatch_claim_held: ContextVar[bool] = ContextVar(
+            f"cera_provider_dispatch_claim_{id(self):x}",
+            default=False,
+        )
+        self._background_review_lock = RLock()
+        self._background_review_ids: set[str] = set()
         if self.full_model_controller is not None and self.logic_route_resolver is None:
             raise ContractValidationError(
                 "full-model HTTP requires accepted logic-route resolution"
@@ -223,6 +243,7 @@ class PiSceneHttpAdapter:
 
     @property
     def status(self) -> dict[str, Any]:
+        reader_required = self.coordinator.reader_validator is not None
         return {
             "mode": "pi_scene_full_model",
             "active": True,
@@ -237,11 +258,19 @@ class PiSceneHttpAdapter:
             "creator_review_required": False,
             "creator_review_available_on_reject": True,
             "validator_required": True,
-            "reader_required": False,
+            "reader_required": reader_required,
+            "adult_reader_required": False,
+            "python_gate_required": reader_required,
             "ted_restrictions": "warn_only",
             "writer_session": "accepted_lineage_or_fresh_rehydration",
             "python_accepted_state_authoritative": True,
-            "automatic_accept_after_semantic_pass": True,
+            "automatic_accept_after_semantic_pass": False,
+            "automatic_accept_after_all_checks_pass": reader_required,
+            "manual_review_mode_available": reader_required,
+            "review_mode_default": "automatic",
+            "ordinary_acceptance_checks": (
+                ["luna", "reader", "python"] if reader_required else ["legacy_luna_only"]
+            ),
             "automatic_retry": False,
             "maximum_critical_complete_repairs": 1,
             "fallback": False,
@@ -337,6 +366,7 @@ class PiSceneHttpAdapter:
                 else ordinary_retry.bind_request(ordinary_context)
             )
             retained_review_id: str | None = None
+            background_context: Context | None = None
             try:
                 with request_scope:
                     response = self._complete_claimed_request(
@@ -348,12 +378,20 @@ class PiSceneHttpAdapter:
                     retained_review_id = self._provisional_review_id(response)
                     if ordinary_route and retained_review_id is not None:
                         assert ordinary_retry is not None
-                        review = self.coordinator.get_review(retained_review_id)
+                        # This is still the original in-process dispatch path.
+                        # Provider-free reconciliation here would misclassify
+                        # the freshly frozen lanes as an interrupted restart.
+                        review = self.coordinator.get_review(
+                            retained_review_id,
+                            reconcile=False,
+                        )
                         identity = ordinary_retry.bind_review_request(review)
                         if identity.request_id != binding.request_id:
                             raise StateConflictError(
                                 "Pi Scene provisional review changed HTTP request custody"
                             )
+                        if review.review_phase is OrdinaryReviewPhase.WRITER_FROZEN:
+                            background_context = copy_context()
             except ProviderStageRetryPendingError as exc:
                 if stage_retry is not None:
                     stage_retry.capture_pending(exc.envelope)
@@ -380,7 +418,64 @@ class PiSceneHttpAdapter:
                     world_id=binding.world_id,
                     branch_id=binding.branch_id,
                 )
+            if retained_review_id is not None and background_context is not None:
+                self._start_background_review_validation(
+                    retained_review_id,
+                    context=background_context,
+                )
             return response
+
+    def _start_background_review_validation(
+        self,
+        review_id: str,
+        *,
+        context: Context,
+    ) -> None:
+        """Start the sole original-request validator worker after durable display."""
+
+        with self._background_review_lock:
+            if review_id in self._background_review_ids:
+                return
+            self._background_review_ids.add(review_id)
+        worker = Thread(
+            target=context.run,
+            args=(self._background_review_validation, review_id),
+            name=f"cera-review-{review_id[-8:]}",
+            daemon=True,
+        )
+        try:
+            worker.start()
+        except Exception:
+            with self._background_review_lock:
+                self._background_review_ids.discard(review_id)
+            self.coordinator.block_background_ordinary_validation(review_id)
+            raise
+
+    def _background_review_validation(self, review_id: str) -> None:
+        try:
+            try:
+                review = self.coordinator.begin_ordinary_validation(review_id)
+            except ProviderStageRetryPendingError as exc:
+                stage_retry = self.provider_stage_retry_http
+                if stage_retry is not None:
+                    stage_retry.capture_pending(exc.envelope)
+                return
+            stage_retry = self.provider_stage_retry_http
+            if stage_retry is not None:
+                for envelope in (
+                    review.luna_provider_stage_retry_status,
+                    review.reader_provider_stage_retry_status,
+                ):
+                    if envelope is not None:
+                        stage_retry.capture_pending(envelope)
+            self._release_completed_ordinary_review(review)
+        except Exception:
+            # Provider diagnostics and exception text never cross into review
+            # state. The coordinator records a fixed, safe blocked projection.
+            self.coordinator.block_background_ordinary_validation(review_id)
+        finally:
+            with self._background_review_lock:
+                self._background_review_ids.discard(review_id)
 
     def _resolve_generic_unresolved_before_request(
         self,
@@ -389,15 +484,11 @@ class PiSceneHttpAdapter:
         turn: LeanSceneTurnInputV1,
         binding: PiSceneRequestBindingV1,
     ) -> None:
-        """Resolve the sole generic unresolved-review case before retrieval.
+        """Block new lifecycle turns until the existing review is explicitly resolved.
 
-        With all ordinary generic stages installed, PASS is accepted and
-        recorded inside its original request.  The only review that may remain
-        unresolved is the final semantic REJECT after one bounded repair.  A
-        later prompt declines that review without provider work or head
-        movement, then freezes its Planner-readable ACTIVE+DERIVED manifest.
-        Any other unresolved state fails closed instead of guessing a new
-        generation or borrowing the new request's custody.
+        Only the pre-lifecycle LEGACY semantic-reject flow retains its historic
+        provider-free decline behavior. Luna/Reader rejection, technical lane
+        recovery, and manual review are all creator-visible branch barriers.
         """
 
         ordinary_retry = self.ordinary_stage_retry_runtime
@@ -417,6 +508,10 @@ class PiSceneHttpAdapter:
             and current.turn_input.request_controls == turn.request_controls
         ):
             return
+        if current.review_phase is not OrdinaryReviewPhase.LEGACY:
+            raise StateConflictError(
+                "Pi Scene provisional review requires explicit lifecycle resolution"
+            )
         validation = current.semantic_validation
         if validation is None or validation.verdict.verdict is not SemanticVerdict.REJECT:
             raise StateConflictError(
@@ -554,7 +649,17 @@ class PiSceneHttpAdapter:
         )
         if current is not None and current.review_id == retained_review_id:
             return
-        if review.state != "declined" or review.accepted_receipt is not None:
+        if review.accepted_receipt is not None:
+            if (
+                self.coordinator.store.recording_status(review.accepted_receipt)
+                is RecordingStatus.COMPLETE
+            ):
+                self._release_completed_ordinary_review(review)
+                return
+            raise StateConflictError(
+                "Pi Scene accepted prior review still requires recording repair"
+            )
+        if review.state != "declined":
             raise StateConflictError(
                 "Pi Scene prior provisional request is not safely reconcilable"
             )
@@ -933,37 +1038,80 @@ class PiSceneHttpAdapter:
             != canonical_sha256(normalized)
         ):
             raise StateConflictError("Pi Scene review action changed protected identity")
+        if self._provider_dispatch_claim_held.get():
+            return self._resume_review_action_claimed(
+                ordinary_retry=ordinary_retry,
+                action_identity=action_identity,
+                review_id=review_id,
+                normalized=normalized,
+            )
         with self._provider_request_lock:
             with self._durable_request_journal().provider_dispatch_claim():
-                result = self._safe_review_decision_result(
-                    self._decide_locked(review_id, normalized)
-                )
-                self._require_review_decision(result)
-                self._bind_ordinary_decision_successor(
-                    review_id=review_id,
-                    result=result,
-                )
-                response_receipt = ordinary_retry.bind_review_action_response(
-                    action_id=action_identity.action_id,
-                    response=result,
-                )
-                finalized_identity, request_receipt = ordinary_retry.finalize_review_action(
-                    action_identity.action_id
-                )
-                if (
-                    finalized_identity != action_identity
-                    or response_receipt.response_sha256 != canonical_sha256(result)
-                ):
-                    raise StateConflictError(
-                        "Pi Scene continued review action changed terminal custody"
+                token = self._provider_dispatch_claim_held.set(True)
+                try:
+                    return self._resume_review_action_claimed(
+                        ordinary_retry=ordinary_retry,
+                        action_identity=action_identity,
+                        review_id=review_id,
+                        normalized=normalized,
                     )
-            if not request_receipt.branch_barrier_active:
-                self._release_provider_stage_request(
-                    request_id=action_identity.request_id,
-                    world_id=action_identity.world_id,
-                    branch_id=action_identity.branch_id,
+                finally:
+                    self._provider_dispatch_claim_held.reset(token)
+
+    def _resume_review_action_claimed(
+        self,
+        *,
+        ordinary_retry: OrdinaryProviderStageRetryRuntimeV1,
+        action_identity: ProtectedOrdinaryReviewActionIdentityV1,
+        review_id: str,
+        normalized: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Finish one exact action while the global provider claim is held."""
+
+        if normalized.get("action") == "repair_recording":
+            review = self.coordinator.get_review(review_id)
+            accepted = review.accepted_receipt
+            if (
+                accepted is None
+                or self.coordinator.store.recording_status(accepted) is not RecordingStatus.COMPLETE
+            ):
+                raise StateConflictError(
+                    "continued Recorder repair did not complete its accepted review"
                 )
-            return result
+            decision = LeanDecisionResultV1(review=review)
+            result = self.decision_payload("repair_recording", decision)
+        else:
+            result = self._safe_review_decision_result(self._decide_locked(review_id, normalized))
+        self._require_review_decision(result)
+        successor_background = self._bind_ordinary_decision_successor(
+            review_id=review_id,
+            result=result,
+        )
+        response_receipt = ordinary_retry.bind_review_action_response(
+            action_id=action_identity.action_id,
+            response=result,
+        )
+        finalized_identity, request_receipt = ordinary_retry.finalize_review_action(
+            action_identity.action_id
+        )
+        if (
+            finalized_identity != action_identity
+            or response_receipt.response_sha256 != canonical_sha256(result)
+        ):
+            raise StateConflictError("Pi Scene continued review action changed terminal custody")
+        if successor_background is not None:
+            successor_review_id, successor_context = successor_background
+            self._start_background_review_validation(
+                successor_review_id,
+                context=successor_context,
+            )
+        if not request_receipt.branch_barrier_active:
+            self._release_provider_stage_request(
+                request_id=action_identity.request_id,
+                world_id=action_identity.world_id,
+                branch_id=action_identity.branch_id,
+            )
+        return result
 
     def durable_result_for_request(
         self,
@@ -972,7 +1120,9 @@ class PiSceneHttpAdapter:
         branch_id: str,
         turn_context_sha256: str,
         exact_user_source: str,
-        request_controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2,
+        request_controls: (
+            LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2 | LeanSceneRequestControlsV3
+        ),
     ) -> LeanReviewRecordV1 | None:
         return self.coordinator.durable_result_for_request(
             world_id=world_id,
@@ -981,6 +1131,44 @@ class PiSceneHttpAdapter:
             exact_user_source=exact_user_source,
             request_controls=request_controls,
         )
+
+    def validation_lane_binding_for_chain(
+        self,
+        chain_id: str,
+    ) -> Mapping[str, str] | None:
+        """Authenticate one review-local Luna/Reader chain for generic HTTP."""
+
+        return self.coordinator.validation_lane_binding_for_chain(chain_id)
+
+    def review_payload_for_validation_chain(self, chain_id: str) -> dict[str, Any]:
+        """Project the current durable review, never a stale per-lane snapshot."""
+
+        binding = self.coordinator.validation_lane_binding_for_chain(chain_id)
+        if binding is None:
+            raise StateConflictError("ordinary validation chain lost its review")
+        review = self.coordinator.get_review(binding["review_id"])
+        self._release_completed_ordinary_review(review)
+        return self.review_payload(review)
+
+    def resume_ordinary_validation_lane(
+        self,
+        *,
+        chain_id: str,
+        stage: ProviderStage,
+        result: BoundSemanticValidationV1 | BoundReaderValidationV1,
+    ) -> dict[str, Any]:
+        """Join one recovered verdict without replaying Request A or its peer lane."""
+
+        if stage not in {ProviderStage.SEMANTIC_VALIDATOR, ProviderStage.READER}:
+            raise StateConflictError("ordinary validation continuation changed stage")
+        with self._provider_request_lock:
+            review = self.coordinator.resume_ordinary_validation_lane(
+                chain_id=chain_id,
+                lane=("luna" if stage is ProviderStage.SEMANTIC_VALIDATOR else "reader"),
+                result=result,
+            )
+            self._release_completed_ordinary_review(review)
+            return self.review_payload(review)
 
     def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
         return self.coordinator.repair_recording(review_id)
@@ -1538,6 +1726,9 @@ class PiSceneHttpAdapter:
         response = self._completion_payload(
             review,
             provider_attempts=self.coordinator.provider_operation_attempts(review),
+            validation_provider_operation_attempts=(
+                self.coordinator.validation_provider_operation_attempts(review)
+            ),
         )
         if self.readable_debug is not None:
             try:
@@ -1595,7 +1786,90 @@ class PiSceneHttpAdapter:
             return adult_review_payload(self.full_model_controller.get_adult_review(review_id))
         if ordinary is None:
             raise StateConflictError("unknown Pi Scene review")
+        self._release_completed_ordinary_review(ordinary)
         return self.review_payload(ordinary)
+
+    def _release_completed_ordinary_review(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> None:
+        """Provider-free idempotent release after Accept and Recorder COMPLETE."""
+
+        accepted = review.accepted_receipt
+        ordinary_retry = self.ordinary_stage_retry_runtime
+        if accepted is None or ordinary_retry is None:
+            return
+        if self.coordinator.store.recording_status(accepted) is not RecordingStatus.COMPLETE:
+            return
+        ordinary_barrier = ordinary_retry.branch_barrier(
+            world_id=accepted.world_id,
+            branch_id=accepted.branch_id,
+        )
+        stage_retry = self.provider_stage_retry_http
+        http_barrier = (
+            None
+            if stage_retry is None
+            else stage_retry.active_request_for_branch(
+                world_id=accepted.world_id,
+                branch_id=accepted.branch_id,
+            )
+        )
+        if ordinary_barrier is None and http_barrier is None:
+            return
+        if ordinary_barrier is not None:
+            request_id = ordinary_barrier.request_id
+        else:
+            assert http_barrier is not None
+            request_id = http_barrier.request_id
+        assert isinstance(request_id, str)
+        if (
+            ordinary_barrier is not None
+            and http_barrier is not None
+            and ordinary_barrier.request_id != http_barrier.request_id
+        ):
+            raise StateConflictError("Pi Scene completed review barriers diverged")
+        evidence_sha256 = canonical_sha256(
+            {
+                "schema_version": "cera.pi_scene.completed_review_release.v1",
+                "request_id": request_id,
+                "review_id": review.review_id,
+                "accepted_turn_id": accepted.accepted_turn_id,
+                "accepted_receipt_sha256": accepted.receipt_sha256,
+                "recording_status": RecordingStatus.COMPLETE.value,
+            }
+        )
+        if ordinary_barrier is not None:
+            _, context, _ = ordinary_retry.pending_request_for_review(review.review_id)
+            if context.binding.request_id != request_id:
+                raise StateConflictError("Pi Scene completed review changed request custody")
+            receipt = ordinary_retry.retire_review_request(
+                review.review_id,
+                terminal_evidence_sha256=evidence_sha256,
+            )
+            if receipt.branch_barrier_active:
+                raise StateConflictError("Pi Scene completed review retained its barrier")
+        if http_barrier is not None:
+            assert stage_retry is not None
+            stage_retry.complete_request(
+                request_id=request_id,
+                world_id=accepted.world_id,
+                branch_id=accepted.branch_id,
+            )
+
+    def terminal_decision_payload(self, review_id: str) -> dict[str, Any]:
+        """Replay one exact durable review decision without provider work."""
+
+        replay = self.coordinator.terminal_decision_replay(review_id)
+        if replay is None:
+            raise PiSceneReviewDecisionNotFoundError("Pi Scene terminal decision is unavailable")
+        payload = self.decision_payload(replay.action, replay.result)
+        projected_review = payload.get("review")
+        if (
+            not isinstance(projected_review, Mapping)
+            or projected_review.get("review_id") != review_id
+        ):
+            raise StateConflictError("Pi Scene terminal decision changed review identity")
+        return payload
 
     def decide(self, review_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         normalized_action = self._normalize_review_action(payload)
@@ -1614,10 +1888,14 @@ class PiSceneHttpAdapter:
                         request_id=dispatch_intent.request_id,
                     )
                 try:
-                    return self._decide_with_stage_custody(
-                        review_id,
-                        normalized_action,
-                    )
+                    token = self._provider_dispatch_claim_held.set(True)
+                    try:
+                        return self._decide_with_stage_custody(
+                            review_id,
+                            normalized_action,
+                        )
+                    finally:
+                        self._provider_dispatch_claim_held.reset(token)
                 except ProviderStageRetryPendingError as exc:
                     stage_retry = self.provider_stage_retry_http
                     if stage_retry is not None:
@@ -1662,13 +1940,33 @@ class PiSceneHttpAdapter:
             raise StateConflictError("CERA public review identity is ambiguous")
         action = normalized_action.get("action")
         ordinary_retry = self.ordinary_stage_retry_runtime
+        if (
+            ordinary is not None
+            and ordinary.review_phase is not OrdinaryReviewPhase.LEGACY
+            and action == "accept_provisional"
+            and (
+                not isinstance(normalized_action.get("feedback"), str)
+                or not normalized_action["feedback"].strip()
+            )
+        ):
+            raise ContractValidationError(
+                "auditable override requires nonempty bounded creator feedback"
+            )
         if ordinary is not None and ordinary_retry is not None:
+            if (
+                action == "repair_recording"
+                and ordinary.review_phase is not OrdinaryReviewPhase.LEGACY
+            ):
+                return self._decide_ordinary_recording_repair(
+                    review=ordinary,
+                    normalized_action=normalized_action,
+                    ordinary_retry=ordinary_retry,
+                )
             if action in {
                 "accept",
                 "accept_provisional",
                 "regenerate",
                 "replan",
-                "repair_recording",
             }:
                 with ordinary_retry.bind_review_action(
                     review_id=review_id,
@@ -1678,7 +1976,7 @@ class PiSceneHttpAdapter:
                         self._decide_locked(review_id, normalized_action)
                     )
                     self._require_review_decision(result)
-                    self._bind_ordinary_decision_successor(
+                    successor_background = self._bind_ordinary_decision_successor(
                         review_id=review_id,
                         result=result,
                     )
@@ -1696,6 +1994,12 @@ class PiSceneHttpAdapter:
                         raise StateConflictError(
                             "Pi Scene ordinary review action changed during terminalization"
                         )
+                if successor_background is not None:
+                    successor_review_id, successor_context = successor_background
+                    self._start_background_review_validation(
+                        successor_review_id,
+                        context=successor_context,
+                    )
                 if not request_receipt.branch_barrier_active:
                     self._release_provider_stage_request(
                         request_id=action_identity.request_id,
@@ -1787,6 +2091,81 @@ class PiSceneHttpAdapter:
             )
         return result
 
+    def _decide_ordinary_recording_repair(
+        self,
+        *,
+        review: LeanReviewRecordV1,
+        normalized_action: Mapping[str, Any],
+        ordinary_retry: OrdinaryProviderStageRetryRuntimeV1,
+    ) -> dict[str, Any]:
+        """Execute only the Recorder authority actually bound to this review."""
+
+        accepted = review.accepted_receipt
+        if (
+            review.state != "accepted"
+            or accepted is None
+            or self.coordinator.store.recording_status(accepted) is RecordingStatus.COMPLETE
+        ):
+            raise StateConflictError(
+                "recording repair requires an accepted review with pending recording"
+            )
+        resolution = ordinary_retry.recorder_review_resolution(
+            review_id=review.review_id,
+            accepted=accepted,
+        )
+        if resolution.kind == "chain_active":
+            raise StateConflictError(
+                "Recorder chain already has its exact generic recovery authority"
+            )
+        if resolution.kind == "initial_start":
+            with ordinary_retry.bind_review_action(
+                review_id=review.review_id,
+                normalized_action=normalized_action,
+            ) as action_identity:
+                try:
+                    self.coordinator.repair_recording(review.review_id)
+                except ProviderStageRetryPendingError as exc:
+                    ordinary_retry.bind_recorder_pending(
+                        chain_id=exc.chain_id,
+                        review_id=review.review_id,
+                        accepted=accepted,
+                    )
+                    raise
+            return self._resume_review_action_claimed(
+                ordinary_retry=ordinary_retry,
+                action_identity=action_identity,
+                review_id=review.review_id,
+                normalized=normalized_action,
+            )
+
+        action = resolution.repair_action
+        if action is None or resolution.parent_chain_id is None:
+            raise StateConflictError("Recorder repair lost its backend-issued action")
+        parent_action = ordinary_retry.review_action_for_chain(resolution.parent_chain_id)
+        if parent_action is None:
+            with ordinary_retry.bind_review_action(
+                review_id=review.review_id,
+                normalized_action=normalized_action,
+            ):
+                projection = ordinary_retry.execute_recording_repair(
+                    action,
+                    continuation=self,
+                )
+        else:
+            projection = ordinary_retry.execute_recording_repair(
+                action,
+                continuation=self,
+            )
+        if not projection.result_ready:
+            raise ProviderStageRetryPendingError(projection.envelope)
+        result = ordinary_retry.resume_succeeded_chain(
+            projection.chain_id,
+            continuation=self,
+        )
+        if not isinstance(result, Mapping):
+            raise StateConflictError("Recorder repair continuation returned no decision")
+        return dict(result)
+
     @staticmethod
     def _safe_review_decision_result(result: Mapping[str, Any]) -> dict[str, Any]:
         projected = to_primitive(result)
@@ -1825,7 +2204,10 @@ class PiSceneHttpAdapter:
 
     @staticmethod
     def _require_review_decision(result: Mapping[str, Any]) -> None:
-        if result.get("schema_version") != "cera.pi_scene.review_decision.v1":
+        if result.get("schema_version") not in {
+            "cera.pi_scene.review_decision.v1",
+            "cera.pi_scene.review_decision.v2",
+        }:
             raise StateConflictError("Pi Scene review decision response changed identity")
 
     def _bind_ordinary_decision_successor(
@@ -1833,26 +2215,31 @@ class PiSceneHttpAdapter:
         *,
         review_id: str,
         result: Mapping[str, Any],
-    ) -> None:
+    ) -> tuple[str, Context] | None:
         result_review = result.get("review")
         if not isinstance(result_review, Mapping) or result_review.get("review_id") != review_id:
             raise StateConflictError("Pi Scene review decision changed original review identity")
         successor = result.get("successor")
         if successor is None:
-            return
+            return None
         if not isinstance(successor, Mapping):
             raise StateConflictError("Pi Scene review decision successor changed shape")
         successor_review_id = self._provisional_review_id(successor)
         if successor_review_id is None:
-            return
+            return None
         ordinary_retry = self.ordinary_stage_retry_runtime
         if ordinary_retry is None:
             raise StateConflictError("Pi Scene review successor lacks ordinary custody")
-        identity = ordinary_retry.bind_review_request(
-            self.coordinator.get_review(successor_review_id)
+        successor_review = self.coordinator.get_review(
+            successor_review_id,
+            reconcile=False,
         )
+        identity = ordinary_retry.bind_review_request(successor_review)
         if identity.review_id != successor_review_id:
             raise StateConflictError("Pi Scene review successor changed protected identity")
+        if successor_review.review_phase is OrdinaryReviewPhase.WRITER_FROZEN:
+            return successor_review_id, copy_context()
+        return None
 
     @staticmethod
     def _decision_releases_request(result: Mapping[str, Any]) -> bool:
@@ -1936,6 +2323,7 @@ class PiSceneHttpAdapter:
                     review_id,
                     allow_replay=True,
                     acceptance_action="provisional_accept",
+                    override_feedback=feedback,
                 )
             elif action == "decline":
                 decision = self.coordinator.decline(review_id, allow_replay=True)
@@ -1968,7 +2356,9 @@ class PiSceneHttpAdapter:
                 debug_entry = self.readable_debug.write(
                     stage="creator-decision",
                     identity=review_id,
-                    protected=decision.review.candidate.route is SceneRoute.ADULT,
+                    protected=(
+                        decision.review.candidate.route is SceneRoute.ADULT or feedback is not None
+                    ),
                     sections={
                         "Creator action": action,
                         "Creator feedback": feedback,
@@ -2063,35 +2453,100 @@ class PiSceneHttpAdapter:
 
     def _ordinary_review_optional(self, review_id: str) -> LeanReviewRecordV1 | None:
         try:
-            return self.coordinator.get_review(review_id)
+            with self._background_review_lock:
+                background_active = review_id in self._background_review_ids
+            return self.coordinator.get_review(
+                review_id,
+                reconcile=not background_active,
+            )
         except StateConflictError as exc:
             if exc.args == ("unknown Pi Scene review",):
                 return None
             raise
 
-    def review_payload(self, review: LeanReviewRecordV1) -> dict[str, Any]:
+    def review_payload(
+        self,
+        review: LeanReviewRecordV1,
+        *,
+        include_terminal_decision: bool = True,
+    ) -> dict[str, Any]:
+        return self._review_payload(
+            review,
+            include_terminal_decision=include_terminal_decision,
+            detached_hash_basis=False,
+        )
+
+    def _review_payload(
+        self,
+        review: LeanReviewRecordV1,
+        *,
+        include_terminal_decision: bool,
+        detached_hash_basis: bool,
+    ) -> dict[str, Any]:
         status = (
             None
             if review.accepted_receipt is None
             else self.coordinator.store.recording_status(review.accepted_receipt).value
         )
-        return ordinary_review_payload(
-            review,
-            recording_status=status,
-            provider_attempts=self.coordinator.provider_operation_attempts(review),
+        recording_repair_authorized = False
+        if (
+            review.review_phase is not OrdinaryReviewPhase.LEGACY
+            and review.accepted_receipt is not None
+            and status != RecordingStatus.COMPLETE.value
+        ):
+            ordinary_retry = self.ordinary_stage_retry_runtime
+            if ordinary_retry is not None:
+                recorder_resolution = ordinary_retry.recorder_review_resolution(
+                    review_id=review.review_id,
+                    accepted=review.accepted_receipt,
+                )
+                recording_repair_authorized = recorder_resolution.kind in {
+                    "initial_start",
+                    "repair_required",
+                }
+        terminal_decision = None
+        if include_terminal_decision:
+            replay = self.coordinator.terminal_decision_replay(review.review_id)
+            if replay is not None:
+                decision = self._decision_payload(
+                    replay.action,
+                    replay.result,
+                    include_terminal_decision=False,
+                )
+                terminal_decision = {
+                    "decision_sha256": canonical_sha256(decision),
+                    "url": (f"/v1/cera/reviews/{review.review_id}/terminal-decision"),
+                }
+        projector = (
+            _ordinary_review_payload_for_detached_hash
+            if detached_hash_basis and review.review_phase is not OrdinaryReviewPhase.LEGACY
+            else ordinary_review_payload
         )
+        projector_kwargs: dict[str, Any] = {
+            "recording_status": status,
+            "provider_attempts": self.coordinator.provider_operation_attempts(review),
+            "validation_provider_operation_attempts": (
+                self.coordinator.validation_provider_operation_attempts(review)
+            ),
+            "recording_repair_authorized": recording_repair_authorized,
+        }
+        if not detached_hash_basis or review.review_phase is OrdinaryReviewPhase.LEGACY:
+            projector_kwargs["terminal_decision"] = terminal_decision
+        return projector(review, **projector_kwargs)
 
     @staticmethod
     def _completion_payload(
         review: LeanReviewRecordV1,
         *,
         provider_attempts: Sequence[LeanReviewRecordV1] | None = None,
+        validation_provider_operation_attempts: (Sequence[Mapping[str, int] | None] | None) = None,
     ) -> dict[str, Any]:
         """Compatibility wrapper over the pure ordinary HTTP projection."""
 
         return ordinary_completion_payload(
             review,
             provider_attempts=provider_attempts,
+            validation_provider_operation_attempts=(validation_provider_operation_attempts),
         )
 
     def decision_payload(
@@ -2099,8 +2554,25 @@ class PiSceneHttpAdapter:
         action: str,
         decision: LeanDecisionResultV1,
     ) -> dict[str, Any]:
+        return self._decision_payload(
+            action,
+            decision,
+            include_terminal_decision=True,
+        )
+
+    def _decision_payload(
+        self,
+        action: str,
+        decision: LeanDecisionResultV1,
+        *,
+        include_terminal_decision: bool,
+    ) -> dict[str, Any]:
         body = {
-            "schema_version": "cera.pi_scene.review_decision.v1",
+            "schema_version": (
+                "cera.pi_scene.review_decision.v2"
+                if decision.review.review_phase is not OrdinaryReviewPhase.LEGACY
+                else "cera.pi_scene.review_decision.v1"
+            ),
             "status": (
                 "story_committed"
                 if decision.review.accepted_receipt is not None
@@ -2109,7 +2581,11 @@ class PiSceneHttpAdapter:
             "creator_action": action,
             "story_state_committed": decision.review.accepted_receipt is not None,
             "retry_mode": "not_applicable",
-            "review": self.review_payload(decision.review),
+            "review": self._review_payload(
+                decision.review,
+                include_terminal_decision=include_terminal_decision,
+                detached_hash_basis=not include_terminal_decision,
+            ),
             "successor": (
                 None
                 if decision.successor is None
@@ -2118,6 +2594,9 @@ class PiSceneHttpAdapter:
                     provider_attempts=self.coordinator.provider_operation_attempts(
                         decision.successor
                     ),
+                    validation_provider_operation_attempts=(
+                        self.coordinator.validation_provider_operation_attempts(decision.successor)
+                    ),
                 )
             ),
             "operational_warnings": list(decision.operational_warnings),
@@ -2125,6 +2604,17 @@ class PiSceneHttpAdapter:
         if decision.review.accepted_receipt is not None:
             body["accepted_receipt_sha256"] = decision.review.accepted_receipt.receipt_sha256
             body["accepted_turn_id"] = decision.review.accepted_receipt.accepted_turn_id
+        if body["schema_version"] == "cera.pi_scene.review_decision.v2":
+            if not include_terminal_decision:
+                # This exact non-public intermediate is used solely to derive
+                # the detached terminal-decision hash.
+                return body
+            return dict(
+                validate_ordinary_review_decision_v2(
+                    body,
+                    successor_validator=validate_ordinary_successor_completion,
+                )
+            )
         return body
 
     def _parse_chat_request(
@@ -2446,6 +2936,15 @@ def build_pi_scene_server(
                     TransportRetryNotFoundError("Pi Scene transport retry identity is unavailable")
                 )
                 return
+            terminal_decision_review_id = _review_id(
+                path,
+                suffix="/terminal-decision",
+            )
+            if terminal_decision_review_id is not None:
+                self._guarded(
+                    lambda: adapter.terminal_decision_payload(terminal_decision_review_id)
+                )
+                return
             review_id = _review_id(path)
             if review_id is not None:
                 self._guarded(lambda: adapter.get_review(review_id))
@@ -2615,6 +3114,14 @@ def build_pi_scene_server(
                 committed = False
                 retry_mode = "not_applicable"
                 next_action = "check_provider_stage_retry_identity"
+                technical_detail = None
+            elif isinstance(exc, PiSceneReviewDecisionNotFoundError):
+                status = HTTPStatus.NOT_FOUND
+                code = "CERA_REVIEW_DECISION_NOT_FOUND"
+                message = "The terminal review decision is unavailable."
+                committed = False
+                retry_mode = "not_applicable"
+                next_action = "check_current_review"
                 technical_detail = None
             elif isinstance(exc, StateConflictError):
                 status = HTTPStatus.CONFLICT
