@@ -125,7 +125,7 @@ from .provider_stage_retry_runtime import (
 )
 from .provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
 from .review_store import LeanSceneTurnInputV1
-from .runtime import ProviderStageRetryPendingError
+from .runtime import OrdinarySemanticValidatorPort, ProviderStageRetryPendingError
 from .store import LeanSceneStore
 
 _ORDINARY_STAGES = frozenset(
@@ -174,7 +174,7 @@ class OrdinaryStageProviderPortsV1:
     planner_active_thread_sha256: Callable[[LeanSceneTurnInputV1], str | None]
     retire_planner_thread: Callable[[LeanSceneTurnInputV1, str], None]
     planner_provider_result: Callable[[LeanSceneTurnInputV1], ContinuousProviderResultV1]
-    semantic_validator: object
+    semantic_validator: OrdinarySemanticValidatorPort
     luna_provider_result: Callable[[], ContinuousProviderResultV1]
 
     def __post_init__(self) -> None:
@@ -973,6 +973,7 @@ class _LateBoundOrdinaryHttpContinuationV1:
         cera = completion.get("cera")
         retains_review_custody = isinstance(cera, Mapping) and cera.get("provisional") is True
         if retains_review_custody:
+            assert isinstance(cera, Mapping)
             review_id = cera.get("provisional_review_id")
             if not isinstance(review_id, str) or not review_id.strip():
                 raise StateConflictError("ordinary provisional completion lost its review identity")
@@ -982,7 +983,7 @@ class _LateBoundOrdinaryHttpContinuationV1:
                 or canonical_sha256(review_context.context_payload()) != identity.context_sha256
             ):
                 raise StateConflictError("ordinary provisional completion changed request custody")
-        receipt = self._ordinary.bind_terminal_response_for_chain(
+        terminal_receipt = self._ordinary.bind_terminal_response_for_chain(
             chain_id=chain_id,
             response=completion,
         )
@@ -990,7 +991,7 @@ class _LateBoundOrdinaryHttpContinuationV1:
             self._ordinary.redact_pending_request(
                 identity.request_id,
                 disposition="completed",
-                terminal_evidence_sha256=receipt.response_sha256,
+                terminal_evidence_sha256=terminal_receipt.response_sha256,
             )
         return self._completions.bind(chain_id, completion)
 
@@ -1091,15 +1092,26 @@ class _LateBoundAdultHttpContinuationV1:
 
     def resume_succeeded_chain(self, chain_id: str) -> object:
         action = self._actions.review_action_for_chain(chain_id)
-        callback = (
-            None
-            if action is None
-            else lambda scope, packet: self._actions.bind_stage_dispatch(
-                scope=scope,
-                packet=packet,
-                source_chain_id=chain_id,
-            )
-        )
+        callback: (
+            Callable[
+                [ProviderStageRetryOccurrenceScopeV1, ProviderStageFrozenPacketV1],
+                None,
+            ]
+            | None
+        ) = None
+        if action is not None:
+
+            def bind_stage_dispatch(
+                scope: ProviderStageRetryOccurrenceScopeV1,
+                packet: ProviderStageFrozenPacketV1,
+            ) -> None:
+                self._actions.bind_stage_dispatch(
+                    scope=scope,
+                    packet=packet,
+                    source_chain_id=chain_id,
+                )
+
+            callback = bind_stage_dispatch
         progress = self._continuation.resume_succeeded_chain(
             chain_id,
             before_stage_dispatch=callback,
@@ -1119,7 +1131,7 @@ class _LateBoundAdultHttpContinuationV1:
             request_id=source.prepared.request_id,
             candidate_id=source.prepared.candidate_id,
         ).prepared
-        if prepared != source.prepared:
+        if _adult_pipeline_input(prepared) != source.prepared:
             raise StateConflictError("adult Retry operation custody changed")
         turn = self._turn_store.load(prepared)
         controller = self._require_controller()
@@ -1254,7 +1266,7 @@ class ProviderStageOperatorRecoveryV1:
         scope = self._runtime.scope_for_chain(chain_id)
         head = self._scene_store.load_head(world_id=scope.world_id, branch_id=scope.branch_id)
         if chain.identity.stage in _ORDINARY_STAGES:
-            current = canonical_sha256(
+            current: str = canonical_sha256(
                 {
                     "schema_version": "cera.provider_stage_accepted_head_state.v1",
                     "world_id": head.world_id,
@@ -1268,12 +1280,13 @@ class ProviderStageOperatorRecoveryV1:
                 }
             )
         else:
-            current = head.accepted_head_sha256
-            if current is None:
-                current = domain_sha256(
+            adult_current = head.accepted_head_sha256
+            if adult_current is None:
+                adult_current = domain_sha256(
                     "cera.adult_provider_stage_unaccepted_root.v1",
                     {"world_id": scope.world_id, "branch_id": scope.branch_id},
                 )
+            current = adult_current
         if current != scope.accepted_state_sha256:
             raise StateConflictError("operator recovery accepted head changed")
         body = {
@@ -1422,18 +1435,30 @@ class ProviderStageRetryProductionAssemblyV1:
             role_context=context,
             accepted_parent_session=None,
         )
+        before_stage_dispatch: (
+            Callable[
+                [ProviderStageRetryOccurrenceScopeV1, ProviderStageFrozenPacketV1],
+                None,
+            ]
+            | None
+        ) = None
+        if action_identity is not None:
+
+            def bind_stage_dispatch(
+                scope: ProviderStageRetryOccurrenceScopeV1,
+                packet: ProviderStageFrozenPacketV1,
+            ) -> None:
+                self.adult_stage_retry_actions.bind_stage_dispatch(
+                    scope=scope,
+                    packet=packet,
+                )
+
+            before_stage_dispatch = bind_stage_dispatch
         return _execute_adult_stage_retry(
             continuation=self.adult,
             prepared=prepared,
             source=source,
-            before_stage_dispatch=(
-                None
-                if action_identity is None
-                else lambda scope, packet: self.adult_stage_retry_actions.bind_stage_dispatch(
-                    scope=scope,
-                    packet=packet,
-                )
-            ),
+            before_stage_dispatch=before_stage_dispatch,
         )
 
 

@@ -428,7 +428,19 @@ class AdultProviderStageReviewActionRuntimeV1:
             "stage_input_sha256": scope.stage_input_sha256,
         }
         chain_identity = AdultProviderStageReviewActionChainIdentityV1(
-            **body,
+            schema_version=AdultProviderStageReviewActionChainIdentityV1.SCHEMA_VERSION,
+            chain_id=scope.identity.chain_id,
+            stage=scope.stage,
+            action_id=identity.action_id,
+            review_id=identity.review_id,
+            request_id=identity.request_id,
+            normalized_action_sha256=identity.normalized_action_sha256,
+            action_scope_sha256=identity.action_scope_sha256,
+            successor_operation_sha256=successor.successor_operation_sha256,
+            request_sha256=scope.request_sha256,
+            accepted_state_sha256=scope.accepted_state_sha256,
+            authority_sha256=scope.authority_sha256,
+            stage_input_sha256=scope.stage_input_sha256,
             chain_binding_sha256=domain_sha256(
                 "cera.adult_provider_stage_review_action_chain_binding.v1",
                 to_primitive(body),
