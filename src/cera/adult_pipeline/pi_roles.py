@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 from uuid import uuid4
 
-from cera.errors import ContractValidationError, StateConflictError
+from cera.errors import ContractValidationError, ErrorCode, StateConflictError
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.pi_adapter import (
     MAX_TOOL_CALLS_PER_INVOCATION,
@@ -27,7 +27,6 @@ from cera.pi_scene.pi_adapter import (
     PiSceneInvocationV1,
     _parse_pi_json_stream,
     _prepare_control_dir,
-    _validate_pi_completion,
 )
 from cera.pi_scene.store import AcceptedPiSessionV1
 from cera.pi_scene.writer_view import (
@@ -39,6 +38,10 @@ from cera.pi_scene.writer_view import (
 from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
+)
+from cera.providers.models import (
+    ProviderRetryableFailureCategory,
+    ProviderTransportError,
 )
 from cera.schema import from_mapping
 from cera.serialization import canonical_json, canonical_sha256, text_sha256
@@ -117,6 +120,45 @@ class StructuredAdultRoleResultV1:
     provider_operations: int
     finish_status: str
     request_binding_sha256: str
+    invocation_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.invocation_id, str) or not self.invocation_id.strip():
+            raise ContractValidationError("adult structured role invocation ID is empty")
+
+
+@dataclass(frozen=True, slots=True)
+class AdultSceneRoleExecutionV1:
+    """Protected Scene result plus the exact Pi invocation ledger locator."""
+
+    invocation: AdultSceneInvocationV1
+    session_binding: AdultSceneSessionBindingV1
+    provider_invocation_id: str
+
+    def __post_init__(self) -> None:
+        if self.session_binding.provider_receipt_sha256 != canonical_sha256(
+            self.invocation.receipt
+        ):
+            raise ContractValidationError("adult Scene role execution changed its receipt")
+        if not self.provider_invocation_id.strip():
+            raise ContractValidationError("adult Scene role execution lost its invocation ID")
+
+
+@dataclass(frozen=True, slots=True)
+class AdultFilterRoleExecutionV1:
+    """Protected Filter result plus the exact Pi invocation ledger locator."""
+
+    invocation: AdultFilterInvocationV1
+    execution_binding: AdultFilterExecutionBindingV1
+    provider_invocation_id: str
+
+    def __post_init__(self) -> None:
+        if self.execution_binding.provider_receipt_sha256 != canonical_sha256(
+            self.invocation.receipt
+        ):
+            raise ContractValidationError("adult Filter role execution changed its receipt")
+        if not self.provider_invocation_id.strip():
+            raise ContractValidationError("adult Filter role execution lost its invocation ID")
 
 
 class StructuredAdultRoleTransport(Protocol):
@@ -138,6 +180,106 @@ class StructuredAdultRoleTransport(Protocol):
 
 class WriterViewMaterializationPort(Protocol):
     def materialize(self, source: WriterViewInputV1) -> MaterializedWriterViewV1: ...
+
+
+def _adult_provider_failure(
+    category: ProviderRetryableFailureCategory,
+    *,
+    diagnostic: str,
+    provider_calls_observed: int,
+) -> ProviderTransportError:
+    """Create one closed Adult Pi boundary failure without inspecting messages."""
+
+    return ProviderTransportError(
+        ErrorCode.COMPOSER_UNAVAILABLE,
+        "Pi adult role did not return an accepted provider envelope",
+        safe_diagnostics=(diagnostic,),
+        external_provider_calls_observed=provider_calls_observed,
+        retryable_failure_category=category,
+    )
+
+
+def _parse_adult_pi_stream(stdout: str) -> Any:
+    """Separate incomplete streams from deterministic invalid JSON envelopes."""
+
+    if not isinstance(stdout, str):
+        raise _adult_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            diagnostic="provider_envelope:non_text_stream",
+            provider_calls_observed=1,
+        )
+    saw_session = False
+    saw_provider_completion = False
+    for raw_line in stdout.splitlines():
+        if not raw_line.strip():
+            continue
+        try:
+            event = json.loads(raw_line)
+        except json.JSONDecodeError:
+            raise _adult_provider_failure(
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                diagnostic="provider_envelope:non_json_event",
+                provider_calls_observed=1,
+            ) from None
+        if not isinstance(event, Mapping):
+            raise _adult_provider_failure(
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                diagnostic="provider_envelope:non_object_event",
+                provider_calls_observed=1,
+            )
+        if event.get("type") == "session":
+            session_id = event.get("id")
+            if not isinstance(session_id, str) or not session_id.strip():
+                raise _adult_provider_failure(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                    diagnostic="provider_envelope:invalid_session_header",
+                    provider_calls_observed=1,
+                )
+            saw_session = True
+        elif event.get("type") == "message_end":
+            message = event.get("message")
+            if (
+                isinstance(message, Mapping)
+                and message.get("role") == "assistant"
+                and isinstance(message.get("usage"), Mapping)
+            ):
+                saw_provider_completion = True
+    if not saw_session or not saw_provider_completion:
+        raise _adult_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_STREAM_INCOMPLETE,
+            diagnostic="provider_stream:missing_terminal_evidence",
+            provider_calls_observed=1,
+        )
+    try:
+        return _parse_pi_json_stream(stdout)
+    except (ContractValidationError, StateConflictError) as exc:
+        raise _adult_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            diagnostic=f"provider_envelope:{type(exc).__name__}",
+            provider_calls_observed=1,
+        ) from None
+
+
+def _validate_adult_pi_completion(parsed: Any) -> None:
+    """Classify protocol invalidity separately from incomplete completion."""
+
+    if (
+        parsed.tool_call_count != MAX_TOOL_CALLS_PER_INVOCATION
+        or parsed.failed_tool_call_count
+        or parsed.completed_context_tool_calls != MAX_TOOL_CALLS_PER_INVOCATION
+        or parsed.tool_protocol_error_count
+    ):
+        raise _adult_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            diagnostic="provider_protocol:context_contract_invalid",
+            provider_calls_observed=1,
+        )
+    if parsed.finish_status.casefold() != "stop":
+        raise _adult_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE,
+            diagnostic="provider_completion:non_stop",
+            provider_calls_observed=1,
+        )
 
 
 class LazyProtectedWriterViewMaterializer:
@@ -231,11 +373,41 @@ class PiStructuredAdultRoleTransport:
                 self.adapter.timeout_seconds,
                 lambda line: self.adapter.operation_ledger.observe_line(invocation_id, line),
             )
-        except BaseException as exc:
+        except ProviderTransportError as exc:
+            duration_ms = max(0, round((time.perf_counter() - started) * 1000))
             self.adapter.operation_ledger.finish(
                 invocation_id,
                 status="failed",
                 failure_type=type(exc).__name__,
+                duration_ms=duration_ms,
+                failure_category=(
+                    None
+                    if exc.retryable_failure_category is None
+                    else exc.retryable_failure_category.value
+                ),
+            )
+            raise
+        except OSError as exc:
+            duration_ms = max(0, round((time.perf_counter() - started) * 1000))
+            self.adapter.operation_ledger.finish(
+                invocation_id,
+                status="failed",
+                failure_type=type(exc).__name__,
+                duration_ms=duration_ms,
+                failure_category=(ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED.value),
+            )
+            raise _adult_provider_failure(
+                ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED,
+                diagnostic=f"process_start:{type(exc).__name__}",
+                provider_calls_observed=0,
+            ) from None
+        except BaseException as exc:
+            duration_ms = max(0, round((time.perf_counter() - started) * 1000))
+            self.adapter.operation_ledger.finish(
+                invocation_id,
+                status="failed",
+                failure_type=type(exc).__name__,
+                duration_ms=duration_ms,
             )
             raise
         duration_ms = max(0, round((time.perf_counter() - started) * 1000))
@@ -244,31 +416,57 @@ class PiStructuredAdultRoleTransport:
                 invocation_id,
                 status="failed",
                 failure_type=f"process_exit_{process.returncode}",
+                duration_ms=duration_ms,
+                failure_category=(ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED.value),
             )
-            raise StateConflictError(
-                "Pi adult role process failed "
-                f"(exit={process.returncode}, stderr_sha256={text_sha256(process.stderr)})"
+            raise _adult_provider_failure(
+                ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED,
+                diagnostic=(
+                    f"process_exit:{process.returncode}:stderr_sha256:{text_sha256(process.stderr)}"
+                ),
+                provider_calls_observed=1,
             )
         try:
-            parsed = _parse_pi_json_stream(process.stdout)
-            _validate_pi_completion(parsed)
+            parsed = _parse_adult_pi_stream(process.stdout)
+            _validate_adult_pi_completion(parsed)
             self.adapter.operation_ledger.assert_completed(
                 invocation_id,
                 parsed_operations=parsed.provider_operations,
             )
             raw_json = parsed.output_text.strip()
-            _json_object(raw_json, f"{role.value} output")
+            if not raw_json:
+                raise _adult_provider_failure(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                    diagnostic="provider_envelope:empty_output",
+                    provider_calls_observed=1,
+                )
+            try:
+                _json_object(raw_json, f"{role.value} output")
+            except (ContractValidationError, StateConflictError) as exc:
+                raise _adult_provider_failure(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                    diagnostic=f"provider_envelope:{type(exc).__name__}",
+                    provider_calls_observed=1,
+                ) from None
         except BaseException as exc:
             self.adapter.operation_ledger.finish(
                 invocation_id,
                 status="failed",
                 failure_type=type(exc).__name__,
+                duration_ms=duration_ms,
+                failure_category=(
+                    exc.retryable_failure_category.value
+                    if isinstance(exc, ProviderTransportError)
+                    and exc.retryable_failure_category is not None
+                    else None
+                ),
             )
             raise
         self.adapter.operation_ledger.finish(
             invocation_id,
             status="completed",
             output_sha256=text_sha256(raw_json),
+            duration_ms=duration_ms,
         )
         if self.adapter.readable_debug is not None and self.adapter.readable_debug.enabled:
             self.adapter.readable_debug.write(
@@ -297,6 +495,7 @@ class PiStructuredAdultRoleTransport:
             provider_operations=parsed.provider_operations,
             finish_status=parsed.finish_status,
             request_binding_sha256=request_binding,
+            invocation_id=invocation_id,
         )
 
 
@@ -323,6 +522,9 @@ class PiDeepSeekAdultScenePort:
         return is_external_provider_boundary(self.transport)
 
     def generate_adult_scene(self, request: AdultSceneRequestV1) -> AdultSceneInvocationV1:
+        return self.execute_adult_scene(request).invocation
+
+    def execute_adult_scene(self, request: AdultSceneRequestV1) -> AdultSceneRoleExecutionV1:
         assert_provider_dispatch_allowed(
             "adult_pipeline.scene.pi",
             external_provider_boundary=self.external_provider_boundary,
@@ -334,9 +536,7 @@ class PiDeepSeekAdultScenePort:
                 primary=request,
                 exact_source=request.exact_current_source,
                 craft_index={
-                    "adult_craft_selection": _craft_provider_projection(
-                        request.retrieved_craft
-                    )
+                    "adult_craft_selection": _craft_provider_projection(request.retrieved_craft)
                 },
             )
         )
@@ -350,7 +550,14 @@ class PiDeepSeekAdultScenePort:
             prompt=_SCENE_PROMPT,
             accepted_parent_session=self.accepted_parent_session,
         )
-        output = _decode_scene_output(result.raw_json)
+        try:
+            output = _decode_scene_output(result.raw_json)
+        except (ContractValidationError, StateConflictError) as exc:
+            raise _adult_provider_failure(
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                diagnostic=f"provider_scene_output:{type(exc).__name__}",
+                provider_calls_observed=1,
+            ) from None
         receipt = _receipt(
             result,
             role=AdultProviderRole.SCENE,
@@ -372,9 +579,14 @@ class PiDeepSeekAdultScenePort:
             self.session_root / "ADULT_SCENE_SESSION_BINDING.json",
             binding,
         )
-        return AdultSceneInvocationV1(
+        invocation = AdultSceneInvocationV1(
             output=output,
             receipt=receipt,
+        )
+        return AdultSceneRoleExecutionV1(
+            invocation=invocation,
+            session_binding=binding,
+            provider_invocation_id=result.invocation_id,
         )
 
     def accepted_session_candidate(self, *, accepted_turn_id: str) -> AcceptedPiSessionV1:
@@ -414,6 +626,9 @@ class PiDeepSeekAdultFilterPort:
         return is_external_provider_boundary(self.transport)
 
     def validate_and_stage(self, request: AdultFilterRequestV1) -> AdultFilterInvocationV1:
+        return self.execute_adult_filter(request).invocation
+
+    def execute_adult_filter(self, request: AdultFilterRequestV1) -> AdultFilterRoleExecutionV1:
         assert_provider_dispatch_allowed(
             "adult_pipeline.filter.pi",
             external_provider_boundary=self.external_provider_boundary,
@@ -443,7 +658,14 @@ class PiDeepSeekAdultFilterPort:
             prompt=_FILTER_PROMPT,
             accepted_parent_session=None,
         )
-        decision = _decode_filter_decision(result.raw_json, request)
+        try:
+            decision = _decode_filter_decision(result.raw_json, request)
+        except (ContractValidationError, StateConflictError) as exc:
+            raise _adult_provider_failure(
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                diagnostic=f"provider_filter_output:{type(exc).__name__}",
+                provider_calls_observed=1,
+            ) from None
         receipt = _receipt(
             result,
             role=AdultProviderRole.FILTER,
@@ -465,9 +687,14 @@ class PiDeepSeekAdultFilterPort:
             self.session_root / "ADULT_FILTER_EXECUTION_BINDING.json",
             binding,
         )
-        return AdultFilterInvocationV1(
+        invocation = AdultFilterInvocationV1(
             decision=decision,
             receipt=receipt,
+        )
+        return AdultFilterRoleExecutionV1(
+            invocation=invocation,
+            execution_binding=binding,
+            provider_invocation_id=result.invocation_id,
         )
 
     def filter_execution_binding(self) -> AdultFilterExecutionBindingV1:
@@ -603,9 +830,7 @@ def _decode_filter_decision(
             verdict=AdultFilterVerdict.REJECT,
             passed=None,
             conflict=AdultFilterConflictV1(
-                conflict_class=AdultFilterConflictClass(
-                    _string(conflict, "conflict_class")
-                ),
+                conflict_class=AdultFilterConflictClass(_string(conflict, "conflict_class")),
                 concise_explanation=_string(conflict, "concise_explanation"),
                 decision_key=_nullable_string(conflict, "decision_key"),
                 exact_quote=_nullable_string(conflict, "exact_quote"),
@@ -686,7 +911,13 @@ def _decode_filter_decision(
 def _decode_protected_event(value: Mapping[str, Any]) -> AdultProtectedEventV1:
     _keys(
         value,
-        {"event_key", "protected_summary", "character_ids", "durable_effects", "knowledge_owner_ids"},
+        {
+            "event_key",
+            "protected_summary",
+            "character_ids",
+            "durable_effects",
+            "knowledge_owner_ids",
+        },
         "adult protected event",
     )
     return AdultProtectedEventV1(
@@ -863,8 +1094,10 @@ def _objects(
     required: bool = False,
 ) -> tuple[dict[str, Any], ...]:
     items = value.get(key)
-    if not isinstance(items, list) or (required and not items) or not all(
-        isinstance(item, dict) for item in items
+    if (
+        not isinstance(items, list)
+        or (required and not items)
+        or not all(isinstance(item, dict) for item in items)
     ):
         raise ContractValidationError(f"{key} must be an object array")
     return tuple(cast(dict[str, Any], item) for item in items)

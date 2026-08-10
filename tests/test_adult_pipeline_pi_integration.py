@@ -36,6 +36,10 @@ from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.writer_view import WriterViewInputV1, WriterViewMaterializer
 from cera.provider_dispatch_guard import PROVIDER_DISPATCH_DISABLED_ENV
+from cera.providers.models import (
+    ProviderRetryableFailureCategory,
+    ProviderTransportError,
+)
 from cera.schema import from_mapping
 from cera.serialization import canonical_json, canonical_sha256, text_sha256
 
@@ -144,6 +148,7 @@ class _FakeStructuredTransport:
             provider_operations=2 if role is AdultProviderRole.SCENE else 3,
             finish_status="stop",
             request_binding_sha256=text_sha256(f"binding-{role.value}"),
+            invocation_id=f"piop-test-{role.value}",
         )
 
 
@@ -354,10 +359,11 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 provider_operations=1,
                 finish_status="stop",
                 request_binding_sha256=text_sha256("binding"),
+                invocation_id="piop-test-filter-extra-field",
             )
 
         transport.invoke_structured_role = invoke_with_filter_custody  # type: ignore[method-assign]
-        with self.assertRaisesRegex(ContractValidationError, "field set changed"):
+        with self.assertRaises(ProviderTransportError) as raised:
             integration.execute(
                 request_id="request:adult-test",
                 candidate_id="candidate:adult-test",
@@ -366,6 +372,10 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 accepted_head_sha256=None,
                 scene_request=request,
             )
+        self.assertIs(
+            raised.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
 
     def test_catalog_off_on_ex_are_bounded_and_never_have_route_authority(self) -> None:
         retrieval = CatalogAdultCraftRetrieval(
