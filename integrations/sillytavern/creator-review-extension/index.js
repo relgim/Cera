@@ -14,10 +14,12 @@ import {
     updateMessageBlock,
 } from '../../../../script.js';
 import { oai_settings } from '../../../../scripts/openai.js';
+import { normalizeOrdinaryReviewDecisionV2 } from './generated/ordinary-review-contracts-v2.mjs';
 import {
     completionIdentity,
     normalizeCompletionMetadata,
     normalizeCreatorTrace,
+    normalizeReviewPayloadV2,
     validReviewId,
 } from './completion-metadata.js';
 import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel.js';
@@ -48,9 +50,13 @@ const TERMINAL_REVIEW_STATES = Object.freeze([
     'accepted',
     'rejected',
     'declined',
+    'regenerated',
+    'replanned',
     'awaiting_feedback',
 ]);
 const CONTROL_STORAGE_KEY = 'cera_creator_controls_v1';
+const REVIEW_MODE_STORAGE_KEY = 'cera_review_modes_v1';
+const REVIEW_MODE_STORE_SCHEMA = 'cera.sillytavern.review_modes.v1';
 const TRANSPORT_RETRY_STORAGE_KEY = 'cera_transport_retry_receipts_v1';
 const TRANSPORT_RETRY_STORE_SCHEMA_V1 = 'cera.sillytavern.transport_retry_store.v1';
 const TRANSPORT_RETRY_STORE_SCHEMA_V2 = 'cera.sillytavern.transport_retry_store.v2';
@@ -66,6 +72,20 @@ const PROVIDER_STAGE_RETRY_STORE_SCHEMA_V2 = 'cera.sillytavern.provider_stage_re
 const PROVIDER_STAGE_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.provider_stage_retry_completion.v1';
 const PROVIDER_STAGE_REQUEST_SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const PROVIDER_STAGE_REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
+const REVIEW_CHECK_LANES = Object.freeze(['luna', 'reader', 'adult_filter', 'python']);
+const SHA256_K = Object.freeze([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+    0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+    0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+    0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+    0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+    0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
 const READABILITY_KEY = 'vera_cast_readability';
 const DEFAULT_SPEAKER_COLORS = Object.freeze({
     hana: '#E7A6B2',
@@ -95,7 +115,10 @@ let providerStageRetryLastSubmittedAction = null;
 let providerStageRetryContinuation = null;
 let providerStageRetryInFlight = false;
 
-window.ceraCreatorControls = () => ({ ...readControls() });
+window.ceraCreatorControls = () => ({
+    ...readControls(),
+    cera_review_mode: currentReviewMode(),
+});
 window.ceraCaptureCompletionMetadata = value => captureCompletionMetadata(value);
 window.ceraCaptureTransportFailure = value => captureTransportFailure(value);
 window.ceraCaptureProviderStageRetryStatus = value => captureProviderStageRetryStatus(value);
@@ -138,9 +161,15 @@ async function attachPendingMetadata(messageId, { resume = true } = {}) {
     message.extra[META_KEY] = {
         review_id: reviewId,
         candidate_id: metadata.candidate_id,
+        candidate_sha256: metadata.candidate_sha256,
+        displayed_story_sha256: sha256Utf8(message.mes),
         state: metadata.status,
         provisional: Boolean(metadata.provisional && reviewId),
         completion: structuredClone(metadata),
+        review_status: metadata.review_lifecycle
+            ? structuredClone(metadata.review_lifecycle)
+            : null,
+        review_check_actions: {},
     };
     await saveChatConditional();
     renderStoredCompletionMetadata(messageId);
@@ -642,6 +671,7 @@ function appendProviderStageFailureContent(panel, critical, { attached }) {
     const stageLabels = {
         planner: 'Planner',
         semantic_validator: 'Semantic Validator',
+        reader: 'Reader',
         writer: 'Writer',
         recorder: 'Recorder',
         adult_scene: 'Adult Scene',
@@ -697,6 +727,7 @@ function providerStageLabels(status) {
     const stages = {
         planner: 'Planner',
         semantic_validator: 'Semantic Validator',
+        reader: 'Reader',
         writer: 'Writer',
         recorder: 'Recorder',
         adult_scene: 'Adult Scene',
@@ -833,7 +864,13 @@ function appendProviderStageRetryTechnicalDetails(panel, envelope) {
     summary.textContent = 'Technical details';
     const facts = document.createElement('dl');
     facts.className = 'cera-trace-facts';
-    const browserCount = transportRetryState?.retry_actions_dispatched;
+    const lastSubmitted = normalizeProviderStageRetryAction(
+        providerStageRetryLastSubmittedAction,
+    );
+    const browserCount = (
+        lastSubmitted?.chain_id === status.chain_id
+        && lastSubmitted.consumes_retry_action
+    ) ? lastSubmitted.retry_action_ordinal : null;
     const values = [
         ['Envelope schema', envelope.schema_version],
         ['Status schema', status.schema_version],
@@ -1847,6 +1884,7 @@ function isTransportRetryNotFound(error) {
 }
 
 eventSource.on(event_types.CHAT_CHANGED, () => {
+    syncReviewModeControl();
     for (let index = 0; index < chat.length; index += 1) {
         renderStoredCompletionMetadata(index);
         renderStoredSpeakerMarks(index);
@@ -1885,13 +1923,30 @@ async function poll(messageId, reviewId) {
         let review;
         try {
             review = await requestJson(`/v1/cera/reviews/${encodeURIComponent(reviewId)}`);
+            if (review?.schema_version === 'cera.pi_scene.review.v2') {
+                const normalized = normalizeReviewPayloadV2(review);
+                if (!normalized || !reviewMatchesDisplayedCandidate(messageId, normalized)) {
+                    renderInvalidReviewProjection(
+                        messageId,
+                        normalized
+                            ? normalized.state === 'accepted'
+                                ? 'CERA acceptance evidence did not match this provisional message.'
+                                : 'CERA review evidence did not match this provisional message.'
+                            : undefined,
+                    );
+                    await saveChatConditional();
+                    return;
+                }
+                review = normalized;
+            }
+            if (await recoverTerminalDecision(messageId, review)) return;
         } catch (error) {
             renderTransportError(messageId, reviewId, error);
             return;
         }
         updateStoredState(messageId, review);
         renderReview(messageId, review);
-        if (TERMINAL_REVIEW_STATES.includes(review.state)) {
+        if (reviewPollingStops(review)) {
             await saveChatConditional();
             return;
         }
@@ -1902,9 +1957,18 @@ async function poll(messageId, reviewId) {
 function renderPending(messageId) {
     const panel = panelFor(messageId);
     if (!panel) return;
-    panel.innerHTML = `
-        <div class="cera-review-badge">CERA - PROVISIONAL</div>
-        <div class="cera-review-status">Preparing creator review...</div>`;
+    const lifecycle = chat[messageId]?.extra?.[META_KEY]?.completion?.review_lifecycle;
+    panel.innerHTML = '';
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge';
+    badge.textContent = 'CERA - PROVISIONAL';
+    const status = document.createElement('div');
+    status.className = 'cera-review-status';
+    status.textContent = lifecycle?.gate_status === 'blocked'
+        ? 'A required review check needs manual technical recovery.'
+        : 'Writer prose is visible. Independent review checks are running.';
+    panel.append(badge, status);
+    if (lifecycle?.checks) appendReviewChecks(panel, lifecycle, messageId);
     appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
 }
 
@@ -1921,6 +1985,17 @@ function renderStoredCompletionMetadata(messageId) {
     }
     if (stored.provisional && validReviewId(stored.review_id)) {
         if (!panel.querySelector('.cera-trace-details')) appendCreatorTrace(panel, completion);
+        return;
+    }
+    const acceptedReview = normalizeReviewPayloadV2(stored.review_status);
+    if (acceptedReview?.state === 'accepted'
+        && acceptedReview.acceptance?.mode === 'auditable_override') {
+        renderAcceptedOverrideAudit(messageId, acceptedReview, panel);
+        return;
+    }
+    if (acceptedReview?.state === 'accepted'
+        && acceptedReview.actions.repair_recording_enabled) {
+        renderAcceptedRecordingRepair(messageId, acceptedReview, panel);
         return;
     }
     renderCompletionPanel(
@@ -1958,10 +2033,26 @@ async function refreshReviewStatus(messageId, reviewId) {
         const review = await requestJson(
             `/v1/cera/reviews/${encodeURIComponent(reviewId)}`,
         );
+        if (review?.schema_version === 'cera.pi_scene.review.v2') {
+            const normalized = normalizeReviewPayloadV2(review);
+            if (!normalized || !reviewMatchesDisplayedCandidate(messageId, normalized)) {
+                renderInvalidReviewProjection(
+                    messageId,
+                    normalized
+                        ? normalized.state === 'accepted'
+                            ? 'CERA acceptance evidence did not match this provisional message.'
+                            : 'CERA review evidence did not match this provisional message.'
+                        : undefined,
+                );
+                await saveChatConditional();
+                return;
+            }
+        }
+        if (await recoverTerminalDecision(messageId, review)) return;
         updateStoredState(messageId, review);
         renderReview(messageId, review);
         await saveChatConditional();
-        if (!TERMINAL_REVIEW_STATES.includes(review.state)) {
+        if (!reviewPollingStops(review)) {
             await resumeReview(messageId);
         }
     } catch (error) {
@@ -2001,6 +2092,42 @@ class CeraReviewRequestError extends Error {
 function renderReview(messageId, review) {
     const panel = panelFor(messageId);
     if (!panel) return;
+    if (review?.schema_version === 'cera.pi_scene.review.v2') {
+        const normalized = normalizeReviewPayloadV2(review);
+        if (!normalized) {
+            renderInvalidReviewProjection(messageId);
+            return;
+        }
+        if (!reviewMatchesDisplayedCandidate(messageId, normalized)) {
+            renderInvalidReviewProjection(
+                messageId,
+                'CERA review evidence did not match this provisional message.',
+            );
+            return;
+        }
+        if (normalized.state === 'accepted') {
+            if (!authoritativeAcceptanceMatchesMessage(messageId, normalized)) {
+                renderInvalidReviewProjection(messageId, 'CERA acceptance evidence did not match this provisional message.');
+                return;
+            }
+            markCanonical(messageId, normalized, {
+                canonStatus: normalized.acceptance.canon_status,
+            });
+            if (normalized.acceptance.mode === 'auditable_override') {
+                renderAcceptedOverrideAudit(messageId, normalized, panelFor(messageId));
+            } else if (normalized.actions.repair_recording_enabled) {
+                renderAcceptedRecordingRepair(messageId, normalized, panelFor(messageId));
+            }
+            return;
+        }
+        if (normalized.state === 'declined') {
+            panel.remove();
+            removeProvisionalMessage(messageId);
+            return;
+        }
+        renderReviewV2(messageId, normalized, panel);
+        return;
+    }
     if (review.state === 'accepted') {
         markCanonical(messageId, review, {
             canonStatus: review.canon_status === 'provisional' ? 'provisional' : 'accepted',
@@ -2017,6 +2144,461 @@ function renderReview(messageId, review) {
         return;
     }
     renderLegacyReview(messageId, review, panel);
+}
+
+function renderInvalidReviewProjection(messageId, detail = 'CERA returned an invalid review lifecycle. No action was enabled.') {
+    const panel = panelFor(messageId);
+    if (!panel) return;
+    panel.innerHTML = '';
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge cera-review-error';
+    badge.textContent = 'CERA - PROVISIONAL';
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = 'REVIEW RECONCILIATION BLOCKED';
+    const reason = document.createElement('div');
+    reason.className = 'cera-review-reason cera-review-severity-error';
+    reason.textContent = detail;
+    panel.append(badge, heading, reason);
+}
+
+function authoritativeAcceptanceMatchesMessage(messageId, review) {
+    return Boolean(
+        reviewMatchesDisplayedCandidate(messageId, review)
+        && review.state === 'accepted'
+        && review.acceptance
+        && typeof review.acceptance.accepted_turn_id === 'string'
+        && PROVIDER_STAGE_REQUEST_SHA256_PATTERN.test(
+            review.acceptance.accepted_receipt_sha256,
+        )
+    );
+}
+
+function reviewMatchesDisplayedCandidate(messageId, review) {
+    const message = chat[messageId];
+    const metadata = message?.extra?.[META_KEY];
+    return Boolean(
+        metadata
+        && review.route === 'ordinary'
+        && review.review_id === metadata.review_id
+        && review.candidate_id === metadata.candidate_id
+        && review.candidate_sha256 === metadata.candidate_sha256
+        && PROVIDER_STAGE_REQUEST_SHA256_PATTERN.test(metadata.displayed_story_sha256)
+        && sha256Utf8(message.mes) === metadata.displayed_story_sha256
+        && review.story_text === message.mes
+    );
+}
+
+function reviewPollingStops(review) {
+    return TERMINAL_REVIEW_STATES.includes(review?.state)
+        || review?.gate_status === 'blocked';
+}
+
+function renderReviewV2(messageId, review, panel) {
+    panel.innerHTML = '';
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge';
+    badge.textContent = 'CERA - PROVISIONAL';
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = 'LUNA + CODEX READER REVIEW';
+    const result = document.createElement('div');
+    result.className = `cera-review-result cera-review-severity-${reviewGateSeverity(review.gate_status)}`;
+    result.textContent = reviewGateSummary(review);
+    panel.append(badge, heading, result);
+    appendReviewChecks(panel, review, messageId);
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+    appendReviewV2Actions(panel, messageId, review);
+}
+
+function renderAcceptedOverrideAudit(messageId, review, panel) {
+    if (!panel) return;
+    panel.innerHTML = '';
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge cera-review-accepted';
+    badge.textContent = 'CERA - ACCEPTED OVERRIDE';
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = 'CREATOR OVERRIDE RECORDED';
+    const result = document.createElement('div');
+    result.className = 'cera-review-result cera-review-severity-concern';
+    result.textContent = 'The backend accepted this candidate by auditable creator override. Original check failures remain attached below.';
+    panel.append(badge, heading, result);
+    appendReviewChecks(panel, review, messageId);
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+    if (review.actions.repair_recording_enabled) {
+        appendAcceptedRecordingRepair(messageId, review, panel);
+    }
+}
+
+function renderAcceptedRecordingRepair(messageId, review, panel) {
+    if (!panel) return;
+    panel.innerHTML = '';
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge cera-review-accepted';
+    badge.textContent = 'CERA - ACCEPTED';
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = 'RECORDING REPAIR REQUIRED';
+    const result = document.createElement('div');
+    result.className = 'cera-review-result cera-review-severity-concern';
+    result.textContent = 'The story is already accepted. Only its derived recording still needs repair.';
+    panel.append(badge, heading, result);
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+    appendAcceptedRecordingRepair(messageId, review, panel, { includeExplanation: false });
+}
+
+function appendAcceptedRecordingRepair(
+    messageId,
+    review,
+    panel,
+    { includeExplanation = true } = {},
+) {
+    if (includeExplanation) {
+        const heading = document.createElement('div');
+        heading.className = 'cera-review-heading';
+        heading.textContent = 'RECORDING REPAIR REQUIRED';
+        const result = document.createElement('div');
+        result.className = 'cera-review-result cera-review-severity-concern';
+        result.textContent = 'The accepted story remains intact. Its derived recording still needs repair.';
+        panel.append(heading, result);
+    }
+    const generic = normalizeProviderStageRetryStatusEnvelope(providerStageRetryEnvelope);
+    const genericRecorderRepair = generic?.status.stage === 'recorder'
+        && generic?.actions[0]?.action_kind === 'repair_recording';
+    if (!genericRecorderRepair) {
+        const actions = document.createElement('div');
+        actions.className = 'cera-review-actions';
+        actions.append(actionButton(
+            'Repair Recording',
+            false,
+            () => decide(messageId, review, 'repair_recording'),
+        ));
+        panel.appendChild(actions);
+    }
+}
+
+function reviewGateSeverity(gateStatus) {
+    if (gateStatus === 'pass') return 'good';
+    if (['reject', 'inconclusive', 'blocked'].includes(gateStatus)) return 'concern';
+    return 'pending';
+}
+
+function reviewGateSummary(review) {
+    if (review.gate_status === 'blocked') {
+        return 'A required check is blocked. Use only its backend-issued technical action.';
+    }
+    if (review.gate_status === 'reject') {
+        return 'A required check rejected this candidate. It remains noncanonical.';
+    }
+    if (review.gate_status === 'inconclusive') {
+        return 'A required check was inconclusive. This candidate remains noncanonical with no acceptance action.';
+    }
+    if (review.gate_status === 'pass' && review.review_mode === 'manual') {
+        return 'All required checks passed. Manual Review is waiting for your decision.';
+    }
+    if (review.gate_status === 'pass') {
+        return 'All required checks passed. CERA is finalizing authoritative acceptance.';
+    }
+    return 'Writer prose is visible. Independent review checks are still running.';
+}
+
+function appendReviewChecks(panel, review, messageId) {
+    const list = document.createElement('div');
+    list.className = 'cera-review-checks';
+    for (const lane of REVIEW_CHECK_LANES) {
+        const check = review.checks?.[lane];
+        if (!check?.required) continue;
+        list.appendChild(renderReviewCheck(messageId, review, lane, check));
+    }
+    if (list.children.length) panel.appendChild(list);
+}
+
+function renderReviewCheck(messageId, review, lane, check) {
+    const row = document.createElement('section');
+    row.className = `cera-review-check cera-review-check-${check.status}`;
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-check-heading';
+    heading.textContent = `${reviewCheckLabel(lane)} - ${reviewCheckStatusLabel(check)}`;
+    row.appendChild(heading);
+    for (const failure of check.failures) {
+        const reason = document.createElement('div');
+        reason.className = 'cera-review-reason';
+        reason.textContent = failure.concise_explanation;
+        row.appendChild(reason);
+    }
+    if (check.provider_stage_retry_status) {
+        appendReviewCheckProviderControl(row, messageId, review, lane, check);
+    }
+    return row;
+}
+
+function reviewCheckLabel(lane) {
+    return {
+        luna: 'Luna semantic check',
+        reader: 'Codex Reader',
+        adult_filter: 'Adult Filter',
+        python: 'Python deterministic checks',
+    }[lane] ?? 'Required check';
+}
+
+function reviewCheckStatusLabel(check) {
+    if (check.provider_stage_retry_status) return 'technical recovery required';
+    return {
+        pending: 'pending',
+        pass: 'passed',
+        reject: 'rejected',
+        inconclusive: 'inconclusive',
+        not_applicable: 'not applicable',
+    }[check.status] ?? 'unknown';
+}
+
+function appendReviewV2Actions(panel, messageId, review) {
+    if (!validReviewId(review.review_id) || review.state !== 'review_ready') return;
+    const actions = document.createElement('div');
+    actions.className = 'cera-review-actions';
+    if (review.actions.accept_enabled) {
+        actions.append(actionButton('Accept', false, () => decide(messageId, review, 'accept')));
+    }
+    if (review.actions.regenerate_enabled) {
+        actions.append(actionButton('Regenerate', false, () => decide(messageId, review, 'regenerate')));
+    }
+    if (review.actions.auditable_override_enabled) {
+        actions.append(actionButton(
+            'Override',
+            false,
+            () => feedbackDecision(
+                messageId,
+                review,
+                review.actions.auditable_override_action,
+            ),
+        ));
+    }
+    if (review.actions.decline_enabled) {
+        actions.append(actionButton('Decline', false, () => decide(messageId, review, 'decline')));
+    }
+    if (actions.children.length) panel.appendChild(actions);
+}
+
+function appendReviewCheckProviderControl(row, messageId, review, lane, check) {
+    const envelope = normalizeProviderStageRetryStatusEnvelope(
+        check.provider_stage_retry_status,
+    );
+    if (!envelope) return;
+    const status = document.createElement('div');
+    status.className = 'cera-review-status';
+    status.textContent = providerStageRetryStatusText(envelope.status);
+    row.appendChild(status);
+    appendProviderStageRetryTechnicalDetails(row, envelope);
+    const controls = document.createElement('div');
+    controls.className = 'cera-review-actions';
+    const action = envelope.actions[0] ?? null;
+    const prior = storedReviewCheckAction(messageId, lane, envelope);
+    if (action?.action_kind === 'check_status' || envelope.status.state === 'blocked_ambiguous') {
+        controls.append(actionButton(
+            'Check Status',
+            false,
+            () => reconcileReviewCheckProviderStage(messageId, review, lane, envelope),
+        ));
+    } else if (action && ['provider_retry', 'resume_prepared'].includes(action.action_kind)) {
+        controls.append(actionButton(
+            prior ? 'Continue' : action.action_kind === 'provider_retry' ? 'Retry' : 'Resume',
+            false,
+            () => submitReviewCheckProviderAction(messageId, review, lane, envelope, action),
+        ));
+    } else if (envelope.status.state === 'succeeded' && prior) {
+        controls.append(actionButton(
+            'Continue',
+            false,
+            () => submitReviewCheckProviderAction(
+                messageId,
+                review,
+                lane,
+                envelope,
+                prior.action,
+            ),
+        ));
+    } else if (['eligible', 'in_progress', 'succeeded'].includes(envelope.status.state)) {
+        controls.append(actionButton(
+            'Check Status',
+            false,
+            () => reconcileReviewCheckProviderStage(messageId, review, lane, envelope),
+        ));
+    }
+    if (controls.children.length) row.appendChild(controls);
+}
+
+function storedReviewCheckAction(messageId, lane, envelope) {
+    const value = chat[messageId]?.extra?.[META_KEY]?.review_check_actions?.[lane];
+    if (
+        !value
+        || typeof value !== 'object'
+        || Array.isArray(value)
+        || Object.keys(value).sort().join(',') !== 'action,request_sha256'
+        || value.request_sha256 !== envelope.status.technical_details.request_sha256
+    ) return null;
+    const action = normalizeProviderStageRetryAction(value.action);
+    if (
+        !action
+        || action.chain_id !== envelope.status.chain_id
+        || action.expected_chain_sha256 !== envelope.status.technical_details.chain_sha256
+    ) return null;
+    return { action, request_sha256: value.request_sha256 };
+}
+
+async function persistReviewCheckAction(messageId, lane, envelope, action) {
+    const normalized = normalizeProviderStageRetryAction(action);
+    const metadata = chat[messageId]?.extra?.[META_KEY];
+    if (
+        !metadata
+        || !REVIEW_CHECK_LANES.includes(lane)
+        || !normalized
+        || normalized.chain_id !== envelope.status.chain_id
+        || normalized.expected_chain_sha256 !== envelope.status.technical_details.chain_sha256
+    ) throw new CeraReviewRequestError(
+        'identity_conflict',
+        'The backend-issued review-check action no longer matches this check.',
+    );
+    metadata.review_check_actions ??= {};
+    metadata.review_check_actions[lane] = {
+        action: structuredClone(normalized),
+        request_sha256: envelope.status.technical_details.request_sha256,
+    };
+    await saveChatConditional();
+    return normalized;
+}
+
+async function submitReviewCheckProviderAction(messageId, review, lane, envelope, action) {
+    const chatKey = currentTransportRetryChatKey();
+    const requestSha256 = envelope.status.technical_details.request_sha256;
+    try {
+        const normalizedAction = await persistReviewCheckAction(
+            messageId,
+            lane,
+            envelope,
+            action,
+        );
+        disablePanel(messageId, true);
+        const result = await requestJson(
+            `/v1/cera/provider-stage-retries/${encodeURIComponent(normalizedAction.chain_id)}`
+                + `/actions/${encodeURIComponent(normalizedAction.action_id)}`,
+            { method: 'POST', body: normalizedAction },
+        );
+        if (currentTransportRetryChatKey() !== chatKey) return null;
+        return await applyReviewCheckProviderResult(
+            messageId,
+            review,
+            lane,
+            requestSha256,
+            result,
+        );
+    } catch (error) {
+        if (currentTransportRetryChatKey() !== chatKey) return null;
+        const reconciled = await reconcileReviewCheckProviderStage(
+            messageId,
+            review,
+            lane,
+            envelope,
+        );
+        if (reconciled) return reconciled;
+        statusText(messageId, `The action result remains unknown after Check Status: ${String(error)}`);
+        return null;
+    }
+}
+
+async function reconcileReviewCheckProviderStage(messageId, review, lane, envelope) {
+    const chatKey = currentTransportRetryChatKey();
+    disablePanel(messageId, true);
+    try {
+        const result = await requestJson(
+            `/v1/cera/provider-stage-retries/${encodeURIComponent(envelope.status.chain_id)}`,
+        );
+        if (currentTransportRetryChatKey() !== chatKey) return null;
+        return await applyReviewCheckProviderResult(
+            messageId,
+            review,
+            lane,
+            envelope.status.technical_details.request_sha256,
+            result,
+        );
+    } catch (error) {
+        if (currentTransportRetryChatKey() === chatKey) {
+            statusText(messageId, `Check Status failed: ${String(error)}`);
+            disablePanel(messageId, false);
+        }
+        return null;
+    }
+}
+
+async function applyReviewCheckProviderResult(
+    messageId,
+    priorReview,
+    lane,
+    requestSha256,
+    result,
+) {
+    const nextReview = normalizeReviewPayloadV2(result);
+    if (nextReview) {
+        if (
+            nextReview.review_id !== priorReview.review_id
+            || nextReview.candidate_id !== priorReview.candidate_id
+            || nextReview.candidate_sha256 !== priorReview.candidate_sha256
+            || !reviewMatchesDisplayedCandidate(messageId, nextReview)
+        ) throw new CeraReviewRequestError(
+            'identity_conflict',
+            'The reconciled review does not match the displayed candidate.',
+        );
+        updateStoredState(messageId, nextReview);
+        renderReview(messageId, nextReview);
+        await saveChatConditional();
+        return nextReview;
+    }
+    const envelope = normalizeProviderStageRetryStatusEnvelope(result);
+    const expectedStage = { luna: 'semantic_validator', reader: 'reader', adult_filter: 'adult_filter' }[lane];
+    if (
+        !envelope
+        || envelope.status.stage !== expectedStage
+        || envelope.status.technical_details.request_sha256 !== requestSha256
+    ) throw new CeraReviewRequestError(
+        'identity_conflict',
+        'The reconciled provider-stage status does not match this review check.',
+    );
+    const metadata = chat[messageId]?.extra?.[META_KEY];
+    const storedReview = normalizeReviewPayloadV2(metadata?.review_status);
+    if (!storedReview || storedReview.review_id !== priorReview.review_id) {
+        throw new CeraReviewRequestError(
+            'identity_conflict',
+            'The protected review state is unavailable for reconciliation.',
+        );
+    }
+    storedReview.checks[lane].status = 'inconclusive';
+    storedReview.checks[lane].verdict_sha256 = null;
+    storedReview.checks[lane].provider_stage_retry_status = envelope;
+    storedReview.gate_status = 'blocked';
+    storedReview.state = 'checks_pending';
+    storedReview.actions = noReviewActionsV2();
+    const blockedReview = normalizeReviewPayloadV2(storedReview);
+    if (!blockedReview) throw new CeraReviewRequestError(
+        'invalid_response',
+        'The exact provider-stage status could not be rebound to its review lane.',
+    );
+    metadata.review_status = blockedReview;
+    metadata.state = blockedReview.state;
+    renderReviewV2(messageId, blockedReview, panelFor(messageId));
+    await saveChatConditional();
+    return envelope;
+}
+
+function noReviewActionsV2() {
+    return {
+        accept_enabled: false,
+        auditable_override_action: null,
+        auditable_override_enabled: false,
+        decline_enabled: false,
+        regenerate_enabled: false,
+        repair_recording_enabled: false,
+        replan_enabled: false,
+    };
 }
 
 function renderPiSceneReview(messageId, review, panel) {
@@ -2180,6 +2762,7 @@ async function feedbackDecision(messageId, review, action) {
         deepseek_rewrite: 'Describe what the prose realization should change.',
         codex_replan: 'Describe what the causal SequencePlan got wrong.',
         replan: 'Describe what the causal sequence should change.',
+        accept_provisional: 'Explain why this rejected candidate should be accepted as an auditable override.',
     };
     renderFeedbackEditor(messageId, review, action, labels[action]);
 }
@@ -2236,6 +2819,25 @@ async function decide(messageId, review, action, feedback = null) {
             `/v1/cera/reviews/${encodeURIComponent(review.review_id)}/decision`,
             { method: 'POST', body: { action, feedback } },
         );
+        const pending = providerStageRetryEnvelopeFrom(result);
+        if (
+            pending
+            && ['accept', 'accept_provisional', 'regenerate', 'replan', 'repair_recording']
+                .includes(action)
+            && captureProviderStageRetryStatus(
+                pending,
+                currentTransportRetryChatKey(),
+                { continuation: { review_id: review.review_id, action } },
+            )
+        ) {
+            statusText(
+                messageId,
+                action === 'repair_recording'
+                    ? 'The exact recording repair is paused at its backend-authenticated Recorder stage. Use the CERA Retry panel to continue it.'
+                    : 'The exact creator action is paused at one provider stage. Use the CERA Retry panel to continue it.',
+            );
+            return null;
+        }
         return await applyDecisionResult(messageId, review, action, result);
     } catch (error) {
         const pending = providerStageRetryEnvelopeFrom(error?.payload);
@@ -2264,8 +2866,64 @@ async function decide(messageId, review, action, feedback = null) {
 }
 
 async function applyDecisionResult(messageId, review, action, result) {
-    const acceptsCandidate = ['accept', 'false_positive'].includes(action);
+    if (result?.schema_version === 'cera.pi_scene.review_decision.v2') {
+        const decision = normalizeOrdinaryReviewDecisionV2(result, {
+            successorValidator: normalizeReviewDecisionSuccessor,
+        });
+        if (!decision) {
+            renderInvalidReviewProjection(
+                messageId,
+                'CERA returned an invalid durable creator decision.',
+            );
+            return null;
+        }
+        result = decision;
+    }
+    if (
+        result?.schema_version === 'cera.pi_scene.review_decision.v2'
+        && result.creator_action !== action
+    ) {
+        renderInvalidReviewProjection(
+            messageId,
+            'CERA returned a durable decision for a different creator action.',
+        );
+        return null;
+    }
     const resolvedReview = result?.review ?? result;
+    if (resolvedReview?.schema_version === 'cera.pi_scene.review.v2') {
+        const normalized = normalizeReviewPayloadV2(resolvedReview);
+        if (!normalized) {
+            renderInvalidReviewProjection(messageId);
+            return null;
+        }
+        if (!reviewMatchesDisplayedCandidate(messageId, normalized)) {
+            renderInvalidReviewProjection(
+                messageId,
+                'CERA review evidence did not match this provisional message.',
+            );
+            return null;
+        }
+        if (result?.successor !== null && result?.successor !== undefined) {
+            const installed = await installReviewSuccessorV2(
+                messageId,
+                normalized,
+                result.successor,
+            );
+            if (!installed) {
+                renderInvalidReviewProjection(
+                    messageId,
+                    'CERA returned a successor that did not match its frozen review lifecycle.',
+                );
+                return null;
+            }
+            return result;
+        }
+        updateStoredState(messageId, normalized);
+        renderReview(messageId, normalized);
+        await saveChatConditional();
+        return result;
+    }
+    const acceptsCandidate = ['accept', 'false_positive'].includes(action);
     if (acceptsCandidate) {
         markCanonical(messageId, result);
         await saveChatConditional();
@@ -2293,8 +2951,13 @@ async function applyDecisionResult(messageId, review, action, result) {
             chat[messageId].extra[META_KEY] = {
                 review_id: successorReviewId,
                 candidate_id: successor.cera.candidate_id,
+                candidate_sha256: successor.cera.candidate_sha256,
+                displayed_story_sha256: sha256Utf8(successorText),
                 state: 'review_ready',
                 provisional: true,
+                completion: normalizeCompletionMetadata(successor.cera),
+                review_status: successor.cera.review_lifecycle ?? null,
+                review_check_actions: {},
             };
             updateMessageBlock(messageId, chat[messageId]);
             const nextReview = await requestJson(
@@ -2321,11 +2984,87 @@ async function applyDecisionResult(messageId, review, action, result) {
         return result;
 }
 
+function normalizeReviewDecisionSuccessor(value) {
+    const storyText = value?.choices?.[0]?.message?.content;
+    const completion = normalizeCompletionMetadata(value?.cera);
+    const lifecycle = completion?.review_lifecycle;
+    if (
+        !value
+        || typeof value !== 'object'
+        || Array.isArray(value)
+        || typeof storyText !== 'string'
+        || !storyText.trim()
+        || !completion
+        || !lifecycle
+        || !completion.provisional
+        || completion.story_state_committed !== false
+        || completion.route_mode !== 'ordinary'
+        || completion.status !== 'checks_pending'
+        || lifecycle.state !== 'checks_pending'
+        || lifecycle.review_id !== completion.provisional_review_id
+    ) {
+        throw new TypeError('CERA ordinary decision successor is invalid');
+    }
+    return structuredClone(value);
+}
+
+async function installReviewSuccessorV2(messageId, predecessor, successor) {
+    if (!['regenerated', 'replanned'].includes(predecessor.state)) return false;
+    const storyText = successor?.choices?.[0]?.message?.content;
+    const completion = normalizeCompletionMetadata(successor?.cera);
+    const lifecycle = completion?.review_lifecycle;
+    if (
+        typeof storyText !== 'string'
+        || !storyText.trim()
+        || !lifecycle
+        || !completion.provisional
+        || !validReviewId(completion.provisional_review_id)
+        || lifecycle.review_id !== completion.provisional_review_id
+        || typeof completion.candidate_id !== 'string'
+        || !completion.candidate_id
+        || !PROVIDER_STAGE_REQUEST_SHA256_PATTERN.test(completion.candidate_sha256)
+        || completion.route_mode !== 'ordinary'
+        || completion.story_state_committed !== false
+        || lifecycle.state !== 'checks_pending'
+        || lifecycle.acceptance !== null
+        || lifecycle.terminal_decision !== null
+    ) return false;
+    chat[messageId].mes = storyText;
+    chat[messageId].extra[META_KEY] = {
+        review_id: lifecycle.review_id,
+        candidate_id: completion.candidate_id,
+        candidate_sha256: completion.candidate_sha256,
+        displayed_story_sha256: sha256Utf8(storyText),
+        state: lifecycle.state,
+        provisional: true,
+        completion,
+        review_status: structuredClone(lifecycle),
+        review_check_actions: {},
+    };
+    updateMessageBlock(messageId, chat[messageId]);
+    const nextReview = await requestJson(
+        `/v1/cera/reviews/${encodeURIComponent(lifecycle.review_id)}`,
+    );
+    const normalizedNext = normalizeReviewPayloadV2(nextReview);
+    if (
+        !normalizedNext
+        || normalizedNext.review_id !== lifecycle.review_id
+        || normalizedNext.candidate_id !== completion.candidate_id
+        || normalizedNext.candidate_sha256 !== completion.candidate_sha256
+        || normalizedNext.story_text !== storyText
+    ) return false;
+    updateStoredState(messageId, normalizedNext);
+    renderReview(messageId, normalizedNext);
+    await saveChatConditional();
+    return true;
+}
+
 async function reconcileDecisionAfterError(messageId, reviewId) {
     try {
         const persisted = await requestJson(
             `/v1/cera/reviews/${encodeURIComponent(reviewId)}`,
         );
+        if (await recoverTerminalDecision(messageId, persisted)) return persisted;
         updateStoredState(messageId, persisted);
         renderReview(messageId, persisted);
         await saveChatConditional();
@@ -2337,8 +3076,40 @@ async function reconcileDecisionAfterError(messageId, reviewId) {
     }
 }
 
+async function recoverTerminalDecision(messageId, review) {
+    const normalized = normalizeReviewPayloadV2(review);
+    if (!normalized || !['regenerated', 'replanned'].includes(normalized.state)) return false;
+    if (!reviewMatchesDisplayedCandidate(messageId, normalized)) {
+        throw new CeraReviewRequestError(
+            'identity_conflict',
+            'The persisted review did not match the displayed candidate.',
+        );
+    }
+    const terminal = normalized.terminal_decision;
+    if (!terminal) return false;
+    const result = await requestJson(terminal.url);
+    const expectedAction = normalized.state === 'regenerated' ? 'regenerate' : 'replan';
+    if (
+        result?.schema_version !== 'cera.pi_scene.review_decision.v2'
+        || result.creator_action !== expectedAction
+        || result.review?.review_id !== normalized.review_id
+        || result.review?.terminal_decision?.decision_sha256 !== terminal.decision_sha256
+        || result.review?.terminal_decision?.url !== terminal.url
+    ) throw new CeraReviewRequestError(
+        'identity_conflict',
+        'The terminal creator decision did not match the persisted review.',
+    );
+    await applyDecisionResult(messageId, normalized, expectedAction, result);
+    return true;
+}
+
 function markCanonical(messageId, result = null, { canonStatus = 'accepted' } = {}) {
     const metadata = chat[messageId]?.extra?.[META_KEY];
+    const acceptance = result?.acceptance ?? result?.review?.acceptance ?? null;
+    const acceptedTurnId = result?.accepted_turn_id ?? acceptance?.accepted_turn_id ?? null;
+    const acceptedReceiptSha256 = result?.accepted_receipt_sha256
+        ?? acceptance?.accepted_receipt_sha256
+        ?? null;
     if (metadata) {
         metadata.provisional = false;
         metadata.state = 'accepted';
@@ -2346,9 +3117,9 @@ function markCanonical(messageId, result = null, { canonStatus = 'accepted' } = 
         delete metadata.action_outcome;
         if (result?.artifact_id) metadata.artifact_id = result.artifact_id;
         if (result?.generation) metadata.generation = result.generation;
-        if (result?.accepted_turn_id) metadata.accepted_turn_id = result.accepted_turn_id;
-        if (result?.accepted_receipt_sha256) {
-            metadata.accepted_receipt_sha256 = result.accepted_receipt_sha256;
+        if (acceptedTurnId) metadata.accepted_turn_id = acceptedTurnId;
+        if (acceptedReceiptSha256) {
+            metadata.accepted_receipt_sha256 = acceptedReceiptSha256;
         }
         if (metadata.completion) {
             metadata.completion.provisional = false;
@@ -2357,12 +3128,15 @@ function markCanonical(messageId, result = null, { canonStatus = 'accepted' } = 
             metadata.completion.canon_status = canonStatus;
             if (result?.artifact_id) metadata.completion.artifact_id = result.artifact_id;
             if (result?.generation) metadata.completion.generation = result.generation;
-            if (result?.accepted_turn_id) {
-                metadata.completion.accepted_turn_id = result.accepted_turn_id;
+            if (acceptedTurnId) {
+                metadata.completion.accepted_turn_id = acceptedTurnId;
             }
-            if (result?.accepted_receipt_sha256) {
-                metadata.completion.accepted_receipt_sha256 = result.accepted_receipt_sha256;
+            if (acceptedReceiptSha256) {
+                metadata.completion.accepted_receipt_sha256 = acceptedReceiptSha256;
             }
+        }
+        if (result?.schema_version === 'cera.pi_scene.review.v2') {
+            metadata.review_status = structuredClone(result);
         }
     }
     void saveChatConditional();
@@ -2434,6 +3208,24 @@ function removeProvisionalMessage(messageId) {
 function updateStoredState(messageId, review) {
     const metadata = chat[messageId]?.extra?.[META_KEY];
     if (!metadata) return;
+    const reviewV2 = review?.schema_version === 'cera.pi_scene.review.v2'
+        ? normalizeReviewPayloadV2(review)
+        : null;
+    if (review?.schema_version === 'cera.pi_scene.review.v2' && !reviewV2) return;
+    if (reviewV2) {
+        if (!reviewMatchesDisplayedCandidate(messageId, reviewV2)) return;
+        metadata.review_id = reviewV2.review_id;
+        metadata.candidate_id = reviewV2.candidate_id;
+        metadata.candidate_sha256 = reviewV2.candidate_sha256;
+        metadata.review_status = structuredClone(reviewV2);
+        if (reviewV2.state !== 'accepted') metadata.provisional = true;
+        metadata.review_check_actions ??= {};
+        for (const lane of REVIEW_CHECK_LANES) {
+            if (reviewV2.checks[lane].provider_stage_retry_status === null) {
+                delete metadata.review_check_actions[lane];
+            }
+        }
+    }
     metadata.state = review.state;
     metadata.prepared_package_id = review.prepared_package_id;
     if (metadata.completion) {
@@ -2641,6 +3433,70 @@ function delay(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+function sha256Utf8(value) {
+    if (typeof value !== 'string') return null;
+    const source = new TextEncoder().encode(value);
+    const paddedLength = Math.ceil((source.length + 9) / 64) * 64;
+    const bytes = new Uint8Array(paddedLength);
+    bytes.set(source);
+    bytes[source.length] = 0x80;
+    const bitLength = source.length * 8;
+    const view = new DataView(bytes.buffer);
+    view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000));
+    view.setUint32(paddedLength - 4, bitLength >>> 0);
+    const hash = new Uint32Array([
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+    ]);
+    const words = new Uint32Array(64);
+    for (let offset = 0; offset < bytes.length; offset += 64) {
+        for (let index = 0; index < 16; index += 1) {
+            words[index] = view.getUint32(offset + index * 4);
+        }
+        for (let index = 16; index < 64; index += 1) {
+            const prior15 = words[index - 15];
+            const prior2 = words[index - 2];
+            const sigma0 = rotateRight(prior15, 7)
+                ^ rotateRight(prior15, 18)
+                ^ (prior15 >>> 3);
+            const sigma1 = rotateRight(prior2, 17)
+                ^ rotateRight(prior2, 19)
+                ^ (prior2 >>> 10);
+            words[index] = (words[index - 16] + sigma0 + words[index - 7] + sigma1) >>> 0;
+        }
+        let [a, b, c, d, e, f, g, h] = hash;
+        for (let index = 0; index < 64; index += 1) {
+            const sum1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+            const choice = (e & f) ^ (~e & g);
+            const temporary1 = (h + sum1 + choice + SHA256_K[index] + words[index]) >>> 0;
+            const sum0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+            const majority = (a & b) ^ (a & c) ^ (b & c);
+            const temporary2 = (sum0 + majority) >>> 0;
+            h = g;
+            g = f;
+            f = e;
+            e = (d + temporary1) >>> 0;
+            d = c;
+            c = b;
+            b = a;
+            a = (temporary1 + temporary2) >>> 0;
+        }
+        hash[0] = (hash[0] + a) >>> 0;
+        hash[1] = (hash[1] + b) >>> 0;
+        hash[2] = (hash[2] + c) >>> 0;
+        hash[3] = (hash[3] + d) >>> 0;
+        hash[4] = (hash[4] + e) >>> 0;
+        hash[5] = (hash[5] + f) >>> 0;
+        hash[6] = (hash[6] + g) >>> 0;
+        hash[7] = (hash[7] + h) >>> 0;
+    }
+    return [...hash].map(word => word.toString(16).padStart(8, '0')).join('');
+}
+
+function rotateRight(value, bits) {
+    return (value >>> bits) | (value << (32 - bits));
+}
+
 function readControls() {
     try {
         const value = JSON.parse(localStorage.getItem(CONTROL_STORAGE_KEY) ?? '{}');
@@ -2664,6 +3520,65 @@ function readControls() {
     } catch {
         return { ...DEFAULT_CONTROLS };
     }
+}
+
+function readReviewModeEntries() {
+    try {
+        const value = JSON.parse(localStorage.getItem(REVIEW_MODE_STORAGE_KEY) ?? '{}');
+        if (
+            !value
+            || typeof value !== 'object'
+            || Array.isArray(value)
+            || Object.keys(value).sort().join(',') !== 'entries,schema_version'
+            || value.schema_version !== REVIEW_MODE_STORE_SCHEMA
+            || !Array.isArray(value.entries)
+            || value.entries.length > 128
+        ) return [];
+        const entries = [];
+        for (const entry of value.entries) {
+            if (
+                !entry
+                || typeof entry !== 'object'
+                || Array.isArray(entry)
+                || Object.keys(entry).sort().join(',') !== 'chat_key,review_mode'
+                || typeof entry.chat_key !== 'string'
+                || entry.chat_key.length < 1
+                || entry.chat_key.length > 520
+                || /[\u0000-\u001f\u007f]/.test(entry.chat_key)
+                || !['automatic', 'manual'].includes(entry.review_mode)
+                || entries.some(item => item.chat_key === entry.chat_key)
+            ) return [];
+            entries.push({ chat_key: entry.chat_key, review_mode: entry.review_mode });
+        }
+        return entries;
+    } catch {
+        return [];
+    }
+}
+
+function currentReviewMode() {
+    const chatKey = currentTransportRetryChatKey();
+    if (!chatKey) return 'automatic';
+    return readReviewModeEntries().find(entry => entry.chat_key === chatKey)?.review_mode
+        ?? 'automatic';
+}
+
+function writeCurrentReviewMode(reviewMode) {
+    if (!['automatic', 'manual'].includes(reviewMode)) return false;
+    const chatKey = currentTransportRetryChatKey();
+    if (!chatKey) return false;
+    const entries = readReviewModeEntries().filter(entry => entry.chat_key !== chatKey);
+    if (reviewMode === 'manual') entries.push({ chat_key: chatKey, review_mode: reviewMode });
+    localStorage.setItem(REVIEW_MODE_STORAGE_KEY, JSON.stringify({
+        schema_version: REVIEW_MODE_STORE_SCHEMA,
+        entries: entries.slice(-128),
+    }));
+    return true;
+}
+
+function syncReviewModeControl() {
+    const select = document.querySelector('#cera_review_mode_control');
+    if (select) select.value = currentReviewMode();
 }
 
 function installControlBar() {
@@ -2691,6 +3606,9 @@ function installControlBar() {
         controlSelect('Sol', 'cera_reasoning_effort_control', [
             ['medium', 'M'], ['high', 'H'], ['xhigh', 'Ex'],
         ], controls.reasoning_effort),
+        controlSelect('Ordinary Review', 'cera_review_mode_control', [
+            ['automatic', 'Automatic'], ['manual', 'Manual'],
+        ], currentReviewMode()),
     );
     sendForm.parentElement?.insertBefore(bar, sendForm);
     bar.addEventListener('change', () => {
@@ -2701,6 +3619,9 @@ function installControlBar() {
             prompt_handling: bar.querySelector('#cera_prompt_control')?.value,
             reasoning_effort: bar.querySelector('#cera_reasoning_effort_control')?.value,
         }));
+        writeCurrentReviewMode(
+            bar.querySelector('#cera_review_mode_control')?.value ?? 'automatic',
+        );
     });
 }
 

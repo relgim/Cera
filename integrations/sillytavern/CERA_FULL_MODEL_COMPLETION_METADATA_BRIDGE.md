@@ -5,6 +5,19 @@ SillyTavern's `public/scripts/openai.js`. It is intentionally separate from
 the installed SillyTavern tree so a provider-free source freeze does not
 silently mutate the creator's installation.
 
+The authorized request bridge must read the closed extension controls and copy
+the review preference under its exact backend field name:
+
+```javascript
+const ceraControls = window.ceraCreatorControls?.();
+requestBody.cera_review_mode = ceraControls?.cera_review_mode ?? 'automatic';
+```
+
+Only `automatic` and `manual` are valid. The extension stores this ordinary
+review preference per SillyTavern chat; Automatic is the default. It does not
+change Adult Filter's synchronous path. It is a requested presentation policy,
+not client acceptance authority.
+
 The existing provisional-only block must be replaced, at an explicitly
 authorized installation-sync boundary, with:
 
@@ -53,6 +66,57 @@ completions. A rejected candidate receives durable buttons only when the
 backend supplies a review ID matching `review-[a-f0-9]{28}`. The client never
 derives or repairs a review ID.
 
+An initial ordinary provisional completion may carry the closed
+`cera.pi_scene.review_lifecycle.v1` summary. The extension immediately shows
+the exact Writer message and then reconciles the durable
+`cera.pi_scene.review.v2` resource. The v2 `checks` object contains exact
+`luna`, `reader`, `adult_filter`, and `python` lanes. Each provider-backed lane
+has its own optional complete generated Retry envelope; Python has no provider
+action. Ordinary requires Luna, Reader, and Python, while Adult Filter is
+`not_applicable`. This v2 resource is ordinary-only. It does not enable Adult
+background/manual review: Adult Filter remains synchronous on the existing v1
+creator-review path, the deterministic Python gate remains backend-enforced,
+and no Adult Reader operation or status exists.
+
+Only `state=accepted` with a non-null exact acceptance receipt/turn identity,
+and matching review, candidate, and displayed-message bindings removes the
+provisional marker. `acceptance.canon_status` is the sole v2 canon authority;
+there is no duplicate top-level committed or canon field. After every required
+check passes, Manual Review exposes Accept, Regenerate, and Decline. A semantic
+Luna/Reader rejection shows concise frozen failures plus backend-authorized
+Regenerate, Decline, and optional auditable Override. Legacy v1 retains its
+existing Replan path; v2 does not expose Replan in this release.
+Blocked technical lanes and the reserved inconclusive gate expose no acceptance
+or override action in this release. Python failure is never overrideable.
+When one semantic lane has already rejected but another required lane remains
+pending, v2 may report `state=checks_pending` with `gate_status=reject`. The
+known concise failure is shown, polling continues, and every creator action
+remains false until the backend publishes the joined `review_ready` result.
+An accepted override retains the rejected semantic checks for audit. Reload and
+restart use GET reconciliation; the client never invents a verdict, action,
+receipt, provider retry identity, or canonical state.
+
+`creator_guidance` is null or the exact safe three-field
+`cera.pi_scene.creator_guidance_projection.v1` reference containing only the
+creator action and `text_sha256`. Auditable Override requires nonempty creator
+feedback, but that text is submitted once and is never persisted or replayed by
+the extension. The v2 projection never carries raw feedback.
+
+The ordinary-review v2 JSON schemas are the readable source of truth. A
+deterministic `--check` generator owns the Python and staged JavaScript
+normalizers used by the backend, relay, and extension. Those consumers do not
+duplicate the v2 shape or cross-field invariants in handwritten validators.
+
+Every resolved v2 review carries a hash-only `terminal_decision` pointer. A
+lost Regenerate POST response (or a durable recovery-only Replan result) is
+recovered with provider-free GET
+`/v1/cera/reviews/:reviewId/terminal-decision`, which replays the exact durable
+`review_decision.v2` and its successor completion. The relay fixes and validates
+that path; the browser does not retain raw feedback, repost the creator action,
+or infer a successor.
+The output-only `automatic_accept` decision may also be verified through that
+GET, but is never exposed or submitted as a browser action.
+
 The authoritative provider-stage UI boundary is
 `cera.provider_stage_retry_status_envelope.v1`. It contains the generated
 `cera.provider_stage_retry_status.v1` object and an `actions` array of length
@@ -69,14 +133,20 @@ POST /v1/cera/provider-stage-retries/:chainId/actions/:actionId
 ```
 
 `blocked_ambiguous` carries only `check_status`, and the UI performs the GET;
-it never posts that action. `recording_repair_required` carries only
-`repair_recording`, but the UI routes it through the existing review decision
-authority instead of the provider-stage POST. The immutable repair envelope is
-cleared only when that separate authority returns `recording_status=complete`;
-the UI does not fabricate completion through a generic GET. A known non-Retry
+it never posts that action. `recording_repair_required` alone does not authorize
+a UI repair button. The bound accepted review must separately expose
+`actions.repair_recording_enabled=true`; the UI then posts that exact
+parent-authenticated review action instead of deriving eligibility locally.
+The repair response may be a generic Recorder-stage status for the single
+explicit successor occurrence, which retains its exact backend-issued manual
+controls and cannot recursively authorize another repair. The immutable repair
+state is cleared only when that separate authority returns
+`recording_status=complete`; the UI does not fabricate completion through a
+generic GET. A known non-Retry
 terminal carries read-only `recovery_required` with no generic action; it never
 offers or redispatches provider Retry. Regenerate and Replan remain separate
-review actions and cannot validate as provider-stage actions. The legacy
+review identities and cannot validate as provider-stage actions; only legacy
+v1 currently exposes the Replan button. The legacy
 `transport_retry` contract below is a Planner compatibility adapter, not the
 generic source of counters or identity.
 
@@ -154,8 +224,8 @@ flags. It strips the outer message, trace, request-local diagnostics, details,
 debug path, and any provider/story prose before browser delivery.
 
 The legacy exhausted projection has no successor or Retry button. Generic
-`attempts_exhausted` and known non-Retry `recovery_required` expose only an
-explicit-recovery identity, never provider Retry. The extension stores their
+`attempts_exhausted` and known non-Retry `recovery_required` are read-only and
+expose no recovery or provider-Retry action. The extension stores their
 hash/count-only projection per SillyTavern chat, restores a red critical panel
 after reload, and keeps normal sending disabled only for that chat/branch.
 Switching to an unrelated chat does not leak or discard the failure. Retryable

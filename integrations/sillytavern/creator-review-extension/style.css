@@ -46,6 +46,24 @@
 }
 .cera-review-feedback-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
+.cera-review-checks {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.65rem;
+}
+
+.cera-review-check {
+    padding: 0.55rem 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--SmartThemeBodyColor) 24%, transparent);
+    border-radius: 0.4rem;
+}
+
+.cera-review-check-heading { font-weight: 700; }
+.cera-review-check-pass { border-color: color-mix(in srgb, #8ed6a8 58%, transparent); }
+.cera-review-check-reject,
+.cera-review-check-inconclusive { border-color: color-mix(in srgb, #f6c177 68%, transparent); }
+.cera-review-check-pending { border-color: color-mix(in srgb, #e6b450 52%, transparent); }
+
 .cera-trace-details {
     margin-top: 0.65rem;
     border-top: 1px solid color-mix(in srgb, var(--SmartThemeBodyColor) 24%, transparent);

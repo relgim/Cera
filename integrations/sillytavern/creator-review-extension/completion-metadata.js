@@ -1,5 +1,11 @@
 /** Closed, bounded projection of backend completion metadata for SillyTavern. */
 
+import { normalizeProviderStageRetryStatusEnvelopeV1 } from './generated/provider-stage-retry-contracts-v1.mjs';
+import {
+    normalizeOrdinaryReviewLifecycleV1,
+    normalizeOrdinaryReviewV2,
+} from './generated/ordinary-review-contracts-v2.mjs';
+
 export function validReviewId(value) {
     return typeof value === 'string' && /^review-[a-f0-9]{28}$/.test(value);
 }
@@ -17,6 +23,7 @@ export function normalizeCompletionMetadata(value) {
     if (!plainObject(value)) return null;
     const profileId = boundedText(value.profile_id, 160);
     if (!profileId?.startsWith('cera.pi_scene.')) return null;
+    const routeMode = enumText(value.route_mode ?? value.route, ['ordinary', 'adult']);
     const provisionalReviewId = validReviewId(value.provisional_review_id)
         ? value.provisional_review_id
         : validReviewId(value.review_id)
@@ -27,9 +34,10 @@ export function normalizeCompletionMetadata(value) {
         profile_id: profileId,
         request_id: boundedText(value.request_id, 240),
         candidate_id: boundedText(value.candidate_id, 240),
+        candidate_sha256: sha256Text(value.candidate_sha256),
         accepted_turn_id: boundedText(value.accepted_turn_id, 240),
         accepted_receipt_sha256: sha256Text(value.accepted_receipt_sha256),
-        route_mode: enumText(value.route_mode ?? value.route, ['ordinary', 'adult']),
+        route_mode: routeMode,
         logic_owner: boundedText(value.logic_owner, 160),
         provisional: value.provisional === true,
         provisional_review_id: provisionalReviewId,
@@ -43,9 +51,37 @@ export function normalizeCompletionMetadata(value) {
         return_to_codex: optionalBoolean(value.return_to_codex),
         debug_log_path: boundedText(value.debug_log_path, 2_000),
         provider_operations: normalizeProviderOperations(value.provider_operations),
+        review_lifecycle: normalizeReviewLifecycle(value.review_lifecycle, routeMode),
         creator_trace: normalizeCreatorTrace(creatorTraceInput(value), value),
     };
+    if (normalized.review_lifecycle && !completionMatchesLifecycle(normalized)) return null;
     return completionIdentity(normalized) ? normalized : null;
+}
+
+/** Closed v2 lifecycle carried by the initial Writer completion. */
+export function normalizeReviewLifecycle(value, route = 'ordinary') {
+    return route === 'ordinary'
+        ? normalizeOrdinaryReviewLifecycleV1(value)
+        : null;
+}
+
+/** Closed browser projection of the durable review lifecycle. */
+export function normalizeReviewPayloadV2(value) {
+    return normalizeOrdinaryReviewV2(value);
+}
+
+function completionMatchesLifecycle(completion) {
+    const lifecycle = completion.review_lifecycle;
+    if (lifecycle.state === 'accepted') {
+        return completion.provisional_review_id === null
+            && completion.provisional === false
+            && completion.accepted_turn_id === lifecycle.acceptance?.accepted_turn_id
+            && completion.accepted_receipt_sha256
+                === lifecycle.acceptance?.accepted_receipt_sha256;
+    }
+    return lifecycle.review_id === completion.provisional_review_id
+        && completion.provisional === true
+        && completion.provisional_review_id !== null;
 }
 
 function creatorTraceInput(value) {
@@ -336,7 +372,7 @@ function normalizeProviderOperations(value) {
     if (!plainObject(value)) return null;
     const normalized = {};
     for (const key of [
-        'planner', 'writer', 'luna', 'validator', 'adult_scene', 'adult_filter', 'recorder', 'total',
+        'planner', 'writer', 'luna', 'validator', 'reader', 'adult_scene', 'adult_filter', 'recorder', 'total',
     ]) {
         const count = nonNegativeInteger(value[key]);
         if (count !== null) normalized[key] = count;

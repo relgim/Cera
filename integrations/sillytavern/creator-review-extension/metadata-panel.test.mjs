@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
+
+import { validateOrdinaryReviewV2 } from './generated/ordinary-review-contracts-v2.mjs';
 
 const sourceRoot = path.dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/, value => value.slice(1)));
 
@@ -156,6 +159,26 @@ function elementText(element) {
     return [element.textContent, ...element.children.map(elementText)].join(' ');
 }
 
+function bindDetachedDecisionHash(value) {
+    const decision = structuredClone(value);
+    const detached = structuredClone(decision);
+    detached.review.terminal_decision = null;
+    decision.review.terminal_decision.decision_sha256 = createHash('sha256')
+        .update(canonicalJson(detached), 'utf8')
+        .digest('hex');
+    return decision;
+}
+
+function canonicalJson(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(key => (
+            `${JSON.stringify(key)}:${canonicalJson(value[key])}`
+        )).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
 async function loadExtension({
     initialStorage = {},
     initialChat = [],
@@ -237,6 +260,13 @@ export function updateMessageBlock() {}
         path.join(extension, 'generated', 'provider-stage-retry-contracts-v1.mjs'),
         await readFile(
             path.join(sourceRoot, 'generated', 'provider-stage-retry-contracts-v1.mjs'),
+            'utf8',
+        ),
+    );
+    await writeFile(
+        path.join(extension, 'generated', 'ordinary-review-contracts-v2.mjs'),
+        await readFile(
+            path.join(sourceRoot, 'generated', 'ordinary-review-contracts-v2.mjs'),
             'utf8',
         ),
     );
@@ -592,6 +622,208 @@ function creatorDecision(reviewId, action) {
         result.accepted_receipt_sha256 = '3'.repeat(64);
     }
     return result;
+}
+
+function lifecycleCheck({
+    role,
+    required,
+    status,
+    retry = null,
+    failures = [],
+    digest = '8',
+    hasVerdict = ['pass', 'reject'].includes(status),
+}) {
+    return {
+        role,
+        required,
+        status,
+        verdict_sha256: hasVerdict ? digest.repeat(64) : null,
+        failures,
+        provider_stage_retry_status: retry,
+    };
+}
+
+function lifecycleStageEnvelope(stage, state = 'eligible', chainCharacter = 'b') {
+    const envelope = providerStageRetryEnvelope(state, { chainCharacter });
+    const owner = {
+        semantic_validator: ['codex', 'luna'],
+        reader: ['codex', 'sol'],
+        adult_filter: ['deepseek', 'deepseek_v4'],
+    }[stage];
+    envelope.status.stage = stage;
+    [envelope.status.provider, envelope.status.model_family] = owner;
+    envelope.status.story_state_committed = false;
+    return envelope;
+}
+
+function lifecycleReview({
+    reviewId = `review-${'a'.repeat(28)}`,
+    candidateId = `candidate-${'b'.repeat(28)}`,
+    candidateSha256 = '1'.repeat(64),
+    storyText = 'Exact Writer prose.',
+    mode = 'automatic',
+    state = 'checks_pending',
+    gate = 'pending',
+    checks = null,
+    actions = null,
+    acceptance = null,
+    creatorGuidance = null,
+    recordingStatus = null,
+} = {}) {
+    const projectedChecks = checks ?? {
+        luna: lifecycleCheck({
+            role: 'luna_semantic_validator', required: true, status: 'pending',
+        }),
+        reader: lifecycleCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pending',
+        }),
+        adult_filter: lifecycleCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: lifecycleCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pending',
+        }),
+    };
+    const resolved = ['accepted', 'declined', 'regenerated', 'replanned'].includes(state);
+    const disposition = reviewAttemptDisposition(gate, projectedChecks);
+    const attemptOperations = {
+        planner: 1,
+        writer: 1,
+        validator: projectedChecks.luna.status === 'pending' ? 0 : 1,
+        reader: projectedChecks.reader.status === 'pending' ? 0 : 1,
+    };
+    const recorderOperations = recordingStatus === 'pending_repair'
+        ? 3
+        : recordingStatus === 'complete'
+            ? 1
+            : 0;
+    return {
+        schema_version: 'cera.pi_scene.review.v2',
+        review_id: reviewId,
+        state,
+        route: 'ordinary',
+        story_text: storyText,
+        candidate_id: candidateId,
+        candidate_sha256: candidateSha256,
+        primary_authority_kind: 'codex_cognition_plan',
+        primary_authority_sha256: '2'.repeat(64),
+        warnings: [],
+        recording_status: recordingStatus,
+        terminal_decision: resolved ? {
+            decision_sha256: '5'.repeat(64),
+            url: `/v1/cera/reviews/${reviewId}/terminal-decision`,
+        } : null,
+        request_controls: requestControls(mode),
+        creator_guidance: creatorGuidance,
+        provider_attempts: [{
+            attempt_number: 1,
+            candidate_id: candidateId,
+            disposition,
+            provider_operations: attemptOperations,
+        }],
+        provider_operations: {
+            ...attemptOperations, recorder: recorderOperations,
+        },
+        review_mode: mode,
+        gate_status: gate,
+        checks: { schema_version: 'cera.pi_scene.review_checks.v1', ...projectedChecks },
+        acceptance,
+        actions: actions ?? {
+            accept_enabled: false,
+            auditable_override_action: null,
+            auditable_override_enabled: false,
+            decline_enabled: false,
+            regenerate_enabled: false,
+            repair_recording_enabled: false,
+            replan_enabled: false,
+        },
+    };
+}
+
+function requestControls(reviewMode) {
+    return {
+        schema_version: 'cera.pi_scene.request_controls.v3',
+        session_id: 'manual-review-test',
+        scene_depth: 'auto',
+        regeneration_key: null,
+        character_autonomy: 'both',
+        prompt_handling: 'adjustment',
+        reasoning_effort: 'medium',
+        scene_change: false,
+        adult_craft_mode: 'off',
+        review_mode: reviewMode,
+    };
+}
+
+function reviewAttemptDisposition(gate, checks) {
+    if (gate === 'blocked') return 'checks_blocked';
+    if (gate === 'pass') return 'checks_passed';
+    if (gate === 'reject') {
+        const luna = checks.luna.status === 'reject';
+        const reader = checks.reader.status === 'reject';
+        if (luna && reader) return 'luna_reader_rejected';
+        if (luna) return 'luna_rejected';
+        if (reader) return 'reader_rejected';
+    }
+    return 'checks_pending';
+}
+
+function lifecycleSummary(review) {
+    return {
+        schema_version: 'cera.pi_scene.review_lifecycle.v1',
+        review_id: review.review_id,
+        review_mode: review.review_mode,
+        state: review.state,
+        gate_status: review.gate_status,
+        checks: structuredClone(review.checks),
+        acceptance: structuredClone(review.acceptance),
+        actions: structuredClone(review.actions),
+        terminal_decision: structuredClone(review.terminal_decision),
+        review_url: `/v1/cera/reviews/${review.review_id}`,
+    };
+}
+
+function lifecycleSuccessorCompletion(review, storyText) {
+    return {
+        id: 'chatcmpl-v2-successor',
+        choices: [{ message: { content: storyText } }],
+        cera: {
+            profile_id: 'cera.pi_scene.lean.v1',
+            request_id: `request-${'6'.repeat(64)}`,
+            candidate_id: review.candidate_id,
+            candidate_sha256: review.candidate_sha256,
+            route_mode: review.route,
+            provisional: true,
+            provisional_review_id: review.review_id,
+            status: review.state,
+            story_state_committed: false,
+            review_lifecycle: lifecycleSummary(review),
+        },
+    };
+}
+
+function lifecycleCompletion(review, visibleStory = 'Exact Writer prose.') {
+    return {
+        profile_id: 'cera.pi_scene.lean.v1',
+        request_id: `request-${'4'.repeat(64)}`,
+        candidate_id: review.candidate_id,
+        candidate_sha256: review.candidate_sha256,
+        route_mode: review.route,
+        provisional: true,
+        provisional_review_id: review.review_id,
+        status: review.state,
+        story_state_committed: false,
+        visible_story_for_test: visibleStory,
+    };
+}
+
+async function attachLifecycleCompletion(environment, review, visibleStory = 'Exact Writer prose.') {
+    environment.scriptModule.chat[0].mes = visibleStory;
+    assert.equal(window.ceraCaptureCompletionMetadata(lifecycleCompletion(review)), true);
+    await environment.scriptModule.eventSource.emit(
+        environment.scriptModule.event_types.CHARACTER_MESSAGE_RENDERED,
+        0,
+    );
 }
 
 function jsonResponse(payload, status = 200) {
@@ -1462,7 +1694,9 @@ test('creator decision Retry survives reload and returns its exact decision fami
                     return jsonResponse(review);
                 }
                 if (options.method === 'POST' && url.endsWith(`/reviews/${reviewId}/decision`)) {
-                    return jsonResponse(pending, 409);
+                    return scenario.action === 'regenerate'
+                        ? jsonResponse(pending)
+                        : jsonResponse(pending, 409);
                 }
                 throw new Error(`unexpected first creator-action request: ${options.method} ${url}`);
             },
@@ -2445,5 +2679,875 @@ test('provisional acceptance is backend-gated and reprojection stays unaccepted'
         }), null);
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('Manual Review is automatic by default and persists only for its SillyTavern chat', async () => {
+    const environment = await loadExtension();
+    try {
+        await environment.scriptModule.eventSource.emit(
+            environment.scriptModule.event_types.APP_READY,
+        );
+        assert.equal(window.ceraCreatorControls().cera_review_mode, 'automatic');
+        const selector = environment.testDocument.querySelector('#cera_review_mode_control');
+        const bar = environment.testDocument.querySelector('#cera_creator_controls');
+        selector.value = 'manual';
+        for (const handler of bar.listeners.get('change') ?? []) await handler({ target: selector });
+        assert.equal(window.ceraCreatorControls().cera_review_mode, 'manual');
+        environment.scriptModule.__setChatId('second-chat');
+        await environment.scriptModule.eventSource.emit(
+            environment.scriptModule.event_types.CHAT_CHANGED,
+        );
+        assert.equal(window.ceraCreatorControls().cera_review_mode, 'automatic');
+        assert.equal(selector.value, 'automatic');
+        environment.scriptModule.__setChatId('test-chat');
+        await environment.scriptModule.eventSource.emit(
+            environment.scriptModule.event_types.CHAT_CHANGED,
+        );
+        assert.equal(window.ceraCreatorControls().cera_review_mode, 'manual');
+        assert.equal(selector.value, 'manual');
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('ordinary Manual Review exposes creator actions only after Luna Reader and Python pass', async () => {
+    const review = lifecycleReview({
+        mode: 'manual',
+        state: 'review_ready',
+        gate: 'pass',
+        checks: {
+            luna: lifecycleCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+            reader: lifecycleCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+        actions: {
+            accept_enabled: true,
+            auditable_override_action: null,
+            auditable_override_enabled: false,
+            decline_enabled: true,
+            regenerate_enabled: true,
+            repair_recording_enabled: false,
+            replan_enabled: false,
+        },
+    });
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        assert.doesNotThrow(() => validateOrdinaryReviewV2(review));
+        await attachLifecycleCompletion(environment, review);
+        assert.ok(buttonByText(environment.testDocument, 'Accept'));
+        assert.ok(buttonByText(environment.testDocument, 'Regenerate'));
+        assert.ok(buttonByText(environment.testDocument, 'Decline'));
+        assert.equal(buttonByText(environment.testDocument, 'Override'), null);
+        assert.match(
+            elementText(environment.testDocument.body.querySelector('.cera-creator-review')),
+            /All required checks passed/,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('known rejection stays provisional and actionless until every required check joins', async () => {
+    const rejectingLuna = lifecycleCheck({
+        role: 'luna_semantic_validator',
+        required: true,
+        status: 'reject',
+        failures: [{
+            code: 'semantic_conflict',
+            concise_explanation: 'Luna found a frozen continuity conflict.',
+        }],
+    });
+    const pending = lifecycleReview({
+        state: 'checks_pending',
+        gate: 'reject',
+        checks: {
+            luna: rejectingLuna,
+            reader: lifecycleCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'pending',
+            }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pending',
+            }),
+        },
+    });
+    const ready = lifecycleReview({
+        state: 'review_ready',
+        gate: 'reject',
+        checks: {
+            luna: rejectingLuna,
+            reader: lifecycleCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'pass',
+            }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+        actions: {
+            accept_enabled: false,
+            auditable_override_action: 'accept_provisional',
+            auditable_override_enabled: true,
+            decline_enabled: true,
+            regenerate_enabled: true,
+            repair_recording_enabled: false,
+            replan_enabled: false,
+        },
+    });
+    let environment = null;
+    let reads = 0;
+    environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => {
+            reads += 1;
+            if (reads === 1) return jsonResponse(pending);
+            const panel = environment.testDocument.body.querySelector('.cera-creator-review');
+            assert.match(elementText(panel), /Luna found a frozen continuity conflict/);
+            assert.match(elementText(panel), /Codex Reader - pending/);
+            for (const action of ['Accept', 'Regenerate', 'Decline', 'Override']) {
+                assert.equal(buttonByText(environment.testDocument, action), null);
+            }
+            assert.equal(
+                environment.scriptModule.chat[0].extra.cera_creator_review.provisional,
+                true,
+            );
+            return jsonResponse(ready);
+        },
+    });
+    try {
+        assert.doesNotThrow(() => validateOrdinaryReviewV2(pending));
+        await attachLifecycleCompletion(environment, pending);
+        assert.equal(reads, 2);
+        assert.ok(buttonByText(environment.testDocument, 'Regenerate'));
+        assert.ok(buttonByText(environment.testDocument, 'Decline'));
+        assert.ok(buttonByText(environment.testDocument, 'Override'));
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('auditable Override requires feedback, posts once, and retains only its hash projection', async () => {
+    const checks = {
+        luna: lifecycleCheck({
+            role: 'luna_semantic_validator', required: true, status: 'reject',
+            failures: [{ code: 'semantic_conflict', concise_explanation: 'Frozen conflict.' }],
+        }),
+        reader: lifecycleCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pass',
+        }),
+        adult_filter: lifecycleCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: lifecycleCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const rejected = lifecycleReview({
+        state: 'review_ready',
+        gate: 'reject',
+        checks,
+        actions: {
+            accept_enabled: false,
+            auditable_override_action: 'accept_provisional',
+            auditable_override_enabled: true,
+            decline_enabled: true,
+            regenerate_enabled: true,
+            repair_recording_enabled: false,
+            replan_enabled: false,
+        },
+    });
+    const accepted = lifecycleReview({
+        state: 'accepted',
+        gate: 'reject',
+        checks,
+        creatorGuidance: {
+            schema_version: 'cera.pi_scene.creator_guidance_projection.v1',
+            action: 'regenerate',
+            text_sha256: '6'.repeat(64),
+        },
+        acceptance: {
+            mode: 'auditable_override',
+            accepted_turn_id: 'turn-override-action',
+            accepted_receipt_sha256: '7'.repeat(64),
+            canon_status: 'provisional',
+        },
+    });
+    const decision = bindDetachedDecisionHash({
+        schema_version: 'cera.pi_scene.review_decision.v2',
+        status: 'story_committed',
+        creator_action: 'accept_provisional',
+        story_state_committed: true,
+        retry_mode: 'not_applicable',
+        review: accepted,
+        successor: null,
+        operational_warnings: [],
+        accepted_receipt_sha256: '7'.repeat(64),
+        accepted_turn_id: 'turn-override-action',
+    });
+    const calls = [];
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async (url, options = {}) => {
+            calls.push({ url: String(url), method: options.method ?? 'GET', body: options.body });
+            return jsonResponse((options.method ?? 'GET') === 'POST' ? decision : rejected);
+        },
+    });
+    try {
+        await attachLifecycleCompletion(environment, rejected);
+        await buttonByText(environment.testDocument, 'Override').click();
+        assert.equal(calls.filter(call => call.method === 'POST').length, 0);
+        await buttonByText(environment.testDocument, 'Submit').click();
+        assert.equal(calls.filter(call => call.method === 'POST').length, 0);
+        const sentinel = 'Creator audit reason sentinel 28491.';
+        environment.testDocument.querySelector('.cera-review-feedback-input').value = sentinel;
+        await buttonByText(environment.testDocument, 'Submit').click();
+        const posts = calls.filter(call => call.method === 'POST');
+        assert.equal(posts.length, 1);
+        assert.deepEqual(JSON.parse(posts[0].body), {
+            action: 'accept_provisional',
+            feedback: sentinel,
+        });
+        assert.equal(environment.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
+        assert.equal(
+            environment.scriptModule.chat[0].extra.cera_creator_review
+                .review_status.creator_guidance.text_sha256,
+            '6'.repeat(64),
+        );
+        assert.equal(
+            JSON.stringify(environment.scriptModule.chat).includes(sentinel),
+            false,
+        );
+        assert.equal(
+            [...environment.storage.values()].some(value => String(value).includes(sentinel)),
+            false,
+        );
+        assert.match(
+            elementText(environment.testDocument.body.querySelector('.cera-creator-review')),
+            /ACCEPTED OVERRIDE/,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('accepted recording repair appears only with backend authority and may enter generic Recorder status', async () => {
+    const checks = {
+        luna: lifecycleCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: lifecycleCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pass',
+        }),
+        adult_filter: lifecycleCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: lifecycleCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const acceptance = {
+        mode: 'automatic',
+        accepted_turn_id: 'turn-recorder-ui',
+        accepted_receipt_sha256: '7'.repeat(64),
+        canon_status: 'accepted',
+    };
+    const activeParent = lifecycleReview({
+        state: 'accepted', gate: 'pass', checks, acceptance,
+        recordingStatus: 'projection_pending',
+    });
+    const repairRequired = {
+        ...activeParent,
+        recording_status: 'pending_repair',
+        provider_operations: { ...activeParent.provider_operations, recorder: 3 },
+        actions: { ...activeParent.actions, repair_recording_enabled: true },
+    };
+    const active = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(activeParent),
+    });
+    const calls = [];
+    const pending = providerStageRetryEnvelope('recording_repair_required', {
+        chainCharacter: '7',
+    });
+    let repair = null;
+    try {
+        await attachLifecycleCompletion(active, activeParent);
+        assert.equal(buttonByText(active.testDocument, 'Repair Recording'), null);
+        assert.equal(active.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
+
+        repair = await loadExtension({
+            initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+            fetchImpl: async (url, options = {}) => {
+                calls.push({ url: String(url), method: options.method ?? 'GET', body: options.body });
+                return jsonResponse((options.method ?? 'GET') === 'POST' ? pending : repairRequired);
+            },
+        });
+        await attachLifecycleCompletion(repair, repairRequired);
+        assert.ok(buttonByText(repair.testDocument, 'Repair Recording'));
+        assert.equal(repair.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
+        await buttonByText(repair.testDocument, 'Repair Recording').click();
+        assert.equal(calls.filter(call => call.method === 'POST').length, 1);
+        assert.equal(
+            providerRetryStore(repair.storage).entries[0].envelope.status.state,
+            'recording_repair_required',
+        );
+        assert.equal(
+            providerRetryStore(repair.storage).entries[0].continuation.action,
+            'repair_recording',
+        );
+    } finally {
+        await rm(active.root, { recursive: true, force: true });
+        if (repair) await rm(repair.root, { recursive: true, force: true });
+    }
+});
+
+test('accepted override keeps its rejection audit while exposing authorized recording repair', async () => {
+    const review = lifecycleReview({
+        state: 'accepted',
+        gate: 'reject',
+        checks: {
+            luna: lifecycleCheck({
+                role: 'luna_semantic_validator', required: true, status: 'reject',
+                failures: [{ code: 'semantic_conflict', concise_explanation: 'Frozen Luna conflict.' }],
+            }),
+            reader: lifecycleCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'pass',
+            }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+        acceptance: {
+            mode: 'auditable_override',
+            accepted_turn_id: 'turn-override-recorder',
+            accepted_receipt_sha256: '7'.repeat(64),
+            canon_status: 'provisional',
+        },
+        actions: {
+            accept_enabled: false,
+            auditable_override_action: null,
+            auditable_override_enabled: false,
+            decline_enabled: false,
+            regenerate_enabled: false,
+            repair_recording_enabled: true,
+            replan_enabled: false,
+        },
+        recordingStatus: 'pending_repair',
+    });
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        await attachLifecycleCompletion(environment, review);
+        const text = elementText(
+            environment.testDocument.body.querySelector('.cera-creator-review'),
+        );
+        assert.match(text, /ACCEPTED OVERRIDE/);
+        assert.match(text, /Frozen Luna conflict/);
+        assert.match(text, /RECORDING REPAIR REQUIRED/);
+        assert.ok(buttonByText(environment.testDocument, 'Repair Recording'));
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('technical validation failure without Retry stays blocked and non-overrideable', async () => {
+    const review = lifecycleReview({
+        gate: 'blocked',
+        checks: {
+            luna: lifecycleCheck({
+                role: 'luna_semantic_validator', required: true, status: 'inconclusive',
+                failures: [{
+                    code: 'validation_custody_unavailable',
+                    concise_explanation: 'Luna validation custody needs manual recovery.',
+                }],
+            }),
+            reader: lifecycleCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'pending',
+            }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pending',
+            }),
+        },
+    });
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        await attachLifecycleCompletion(environment, review);
+        const panel = environment.testDocument.body.querySelector('.cera-creator-review');
+        assert.match(elementText(panel), /Luna validation custody needs manual recovery/);
+        for (const action of ['Retry', 'Override', 'Regenerate', 'Decline', 'Accept']) {
+            assert.equal(buttonByText(environment.testDocument, action), null);
+        }
+        assert.equal(
+            environment.scriptModule.chat[0].extra.cera_creator_review.provisional,
+            true,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('raw creator guidance is rejected without entering chat custody or the panel', async () => {
+    const sentinel = 'RAW-CREATOR-FEEDBACK-MUST-NOT-PERSIST';
+    const review = lifecycleReview({
+        creatorGuidance: {
+            schema_version: 'cera.pi_scene.creator_guidance_projection.v1',
+            action: 'regenerate',
+            text_sha256: '4'.repeat(64),
+            text: sentinel,
+        },
+    });
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        await attachLifecycleCompletion(environment, review);
+        assert.equal(JSON.stringify(environment.scriptModule.chat).includes(sentinel), false);
+        assert.equal(elementText(environment.testDocument.body).includes(sentinel), false);
+        assert.match(
+            elementText(environment.testDocument.body.querySelector('.cera-creator-review')),
+            /REVIEW RECONCILIATION BLOCKED/,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('ordinary provisional UI preserves independent Luna and Reader retry chains across reload', async () => {
+    const lunaEligible = lifecycleStageEnvelope('semantic_validator', 'eligible', 'b');
+    const readerEligible = lifecycleStageEnvelope('reader', 'eligible', 'c');
+    const review = lifecycleReview({
+        gate: 'blocked',
+        checks: {
+            luna: lifecycleCheck({
+                role: 'luna_semantic_validator', required: true, status: 'inconclusive',
+                retry: lunaEligible,
+                failures: [{ code: 'provider_timeout', concise_explanation: 'Luna is blocked.' }],
+            }),
+            reader: lifecycleCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'inconclusive',
+                retry: readerEligible,
+                failures: [{ code: 'provider_timeout', concise_explanation: 'Reader is blocked.' }],
+            }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+    });
+    const joinedReview = lifecycleReview({
+        gate: 'blocked',
+        checks: {
+            luna: lifecycleCheck({
+                role: 'luna_semantic_validator', required: true, status: 'pass',
+            }),
+            reader: lifecycleCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'inconclusive',
+                retry: readerEligible,
+                failures: [{ code: 'provider_timeout', concise_explanation: 'Reader is blocked.' }],
+            }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+    });
+    const calls = [];
+    let currentReview = review;
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async (url, options = {}) => {
+            calls.push({ url: String(url), method: options.method ?? 'GET', body: options.body });
+            if ((options.method ?? 'GET') === 'POST') {
+                currentReview = joinedReview;
+                return jsonResponse(joinedReview);
+            }
+            return jsonResponse(currentReview);
+        },
+    });
+    let reloaded = null;
+    try {
+        await attachLifecycleCompletion(environment, review);
+        const panel = environment.testDocument.body.querySelector('.cera-creator-review');
+        assert.match(elementText(panel), /Luna semantic check/);
+        assert.match(elementText(panel), /Codex Reader/);
+        assert.equal(
+            environment.testDocument.body.querySelectorAll('button')
+                .filter(button => button.textContent === 'Retry').length,
+            2,
+        );
+        await environment.testDocument.body.querySelectorAll('button')
+            .find(button => button.textContent === 'Retry').click();
+        assert.equal(calls.filter(call => call.method === 'POST').length, 1);
+        assert.deepEqual(
+            JSON.parse(calls.find(call => call.method === 'POST').body),
+            lunaEligible.actions[0],
+        );
+        const stored = environment.scriptModule.chat[0].extra.cera_creator_review;
+        assert.equal(
+            stored.review_status.checks.luna.status,
+            'pass',
+        );
+        assert.equal(stored.review_status.checks.luna.provider_stage_retry_status, null);
+        assert.equal(
+            stored.review_status.checks.reader.provider_stage_retry_status.status.chain_id,
+            readerEligible.status.chain_id,
+        );
+        const savedChat = structuredClone(environment.scriptModule.chat);
+        reloaded = await loadExtension({
+            initialChat: savedChat,
+            fetchImpl: async () => jsonResponse(joinedReview),
+        });
+        await reloaded.scriptModule.eventSource.emit(
+            reloaded.scriptModule.event_types.CHARACTER_MESSAGE_RENDERED,
+            0,
+        );
+        assert.match(
+            elementText(reloaded.testDocument.body.querySelector('.cera-creator-review')),
+            /Luna semantic check/,
+        );
+        const reloadedReview = reloaded.scriptModule.chat[0].extra.cera_creator_review;
+        assert.equal(reloadedReview.review_status.checks.luna.status, 'pass');
+        assert.equal(reloadedReview.review_check_actions.luna, undefined);
+        assert.equal(
+            reloadedReview.review_status.checks.reader.provider_stage_retry_status.status.chain_id,
+            readerEligible.status.chain_id,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+        if (reloaded) await rm(reloaded.root, { recursive: true, force: true });
+    }
+});
+
+test('ambiguous review-check POST is followed by provider-free GET and never redispatched', async () => {
+    const eligible = lifecycleStageEnvelope('semantic_validator', 'eligible', 'd');
+    const blocked = lifecycleStageEnvelope('semantic_validator', 'blocked_ambiguous', 'd');
+    const review = lifecycleReview({
+        gate: 'blocked',
+        checks: {
+            luna: lifecycleCheck({
+                role: 'luna_semantic_validator', required: true, status: 'inconclusive',
+                retry: eligible,
+                failures: [{ code: 'provider_timeout', concise_explanation: 'Luna is blocked.' }],
+            }),
+            reader: lifecycleCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pending' }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+    });
+    const calls = [];
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async (url, options = {}) => {
+            const method = options.method ?? 'GET';
+            calls.push({ url: String(url), method });
+            if (method === 'POST') throw new Error('ambiguous local relay interruption');
+            if (String(url).includes('/provider-stage-retries/')) return jsonResponse(blocked);
+            return jsonResponse(review);
+        },
+    });
+    try {
+        await attachLifecycleCompletion(environment, review);
+        await buttonByText(environment.testDocument, 'Retry').click();
+        assert.deepEqual(calls.map(call => call.method), ['GET', 'POST', 'GET']);
+        assert.equal(buttonByText(environment.testDocument, 'Retry'), null);
+        assert.ok(buttonByText(environment.testDocument, 'Check Status'));
+        assert.equal(
+            environment.scriptModule.chat[0].extra.cera_creator_review
+                .review_status.checks.luna.provider_stage_retry_status.status.state,
+            'blocked_ambiguous',
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('reload follows terminal decision GET to recover a lost Regenerate successor provider-free', async () => {
+    const rawFeedbackSentinel = 'RAW-TERMINAL-FEEDBACK-MUST-NOT-PERSIST';
+    const rejectedChecks = {
+        luna: lifecycleCheck({
+            role: 'luna_semantic_validator', required: true, status: 'reject',
+            failures: [{ code: 'semantic_conflict', concise_explanation: 'Frozen conflict.' }],
+        }),
+        reader: lifecycleCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+        adult_filter: lifecycleCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: lifecycleCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const predecessor = lifecycleReview({
+        state: 'regenerated', gate: 'reject', checks: rejectedChecks,
+    });
+    const successor = lifecycleReview({
+        reviewId: `review-${'b'.repeat(28)}`,
+        candidateId: `candidate-${'c'.repeat(28)}`,
+        candidateSha256: '3'.repeat(64),
+        storyText: 'New exact Writer prose.',
+    });
+    const decision = bindDetachedDecisionHash({
+        schema_version: 'cera.pi_scene.review_decision.v2',
+        status: 'review_transitioned',
+        creator_action: 'regenerate',
+        story_state_committed: false,
+        retry_mode: 'not_applicable',
+        review: predecessor,
+        successor: lifecycleSuccessorCompletion(successor, 'New exact Writer prose.'),
+        operational_warnings: [],
+    });
+    predecessor.terminal_decision = structuredClone(decision.review.terminal_decision);
+    const calls = [];
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async (url, options = {}) => {
+            calls.push({ url: String(url), method: options.method ?? 'GET' });
+            if (String(url).endsWith('/terminal-decision')) return jsonResponse(decision);
+            if (String(url).endsWith(successor.review_id)) return jsonResponse(successor);
+            return jsonResponse(predecessor);
+        },
+    });
+    let poisoned = null;
+    try {
+        await attachLifecycleCompletion(environment, predecessor);
+        assert.deepEqual(calls.map(call => call.method), ['GET', 'GET', 'GET']);
+        assert.match(calls[1].url, /\/terminal-decision$/);
+        assert.equal(calls.some(call => call.method === 'POST'), false);
+        assert.equal(environment.scriptModule.chat[0].mes, 'New exact Writer prose.');
+        assert.equal(
+            environment.scriptModule.chat[0].extra.cera_creator_review.review_id,
+            successor.review_id,
+        );
+        assert.equal(environment.scriptModule.chat[0].extra.cera_creator_review.provisional, true);
+
+        poisoned = await loadExtension({
+            initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+            fetchImpl: async url => jsonResponse(
+                String(url).endsWith('/terminal-decision')
+                    ? { ...decision, feedback: rawFeedbackSentinel }
+                    : predecessor,
+            ),
+        });
+        await attachLifecycleCompletion(poisoned, predecessor);
+        assert.equal(poisoned.scriptModule.chat[0].mes, 'Exact Writer prose.');
+        assert.equal(
+            poisoned.scriptModule.chat[0].extra.cera_creator_review.provisional,
+            true,
+        );
+        assert.equal(JSON.stringify(poisoned.scriptModule.chat).includes(rawFeedbackSentinel), false);
+        assert.equal(
+            [...poisoned.storage.values()].some(value => String(value).includes(rawFeedbackSentinel)),
+            false,
+        );
+        assert.equal(elementText(poisoned.testDocument.body).includes(rawFeedbackSentinel), false);
+        assert.match(
+            elementText(poisoned.testDocument.body.querySelector('.cera-creator-review')),
+            /invalid durable creator decision/i,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+        if (poisoned) await rm(poisoned.root, { recursive: true, force: true });
+    }
+});
+
+test('adult v1 remains synchronous creator review and never creates a Reader lane', async () => {
+    const reviewId = `review-${'d'.repeat(28)}`;
+    const review = creatorReview(reviewId, 'regenerate', { route: 'adult' });
+    review.story_text = null;
+    const initialMessage = creatorReviewMessage(reviewId);
+    initialMessage.mes = 'Displayed adult scene.';
+    initialMessage.extra.cera_creator_review.completion.route_mode = 'adult';
+    const environment = await loadExtension({
+        initialChat: [initialMessage],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        await environment.scriptModule.eventSource.emit(
+            environment.scriptModule.event_types.CHARACTER_MESSAGE_RENDERED,
+            0,
+        );
+        const text = elementText(environment.testDocument.body.querySelector('.cera-creator-review'));
+        assert.match(text, /ADULT SCENE READY FOR CREATOR REVIEW/);
+        assert.doesNotMatch(text, /Codex Reader|Luna semantic check/);
+        assert.equal(review.story_text, null);
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('v2 canonical marking requires exact backend receipt and displayed-prose binding', async () => {
+    const passedChecks = {
+        luna: lifecycleCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: lifecycleCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+        adult_filter: lifecycleCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: lifecycleCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const accepted = lifecycleReview({
+        state: 'accepted',
+        gate: 'pass',
+        checks: passedChecks,
+        acceptance: {
+            mode: 'automatic',
+            accepted_turn_id: 'turn-auto-ui',
+            accepted_receipt_sha256: '7'.repeat(64),
+            canon_status: 'accepted',
+        },
+    });
+    const good = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(accepted),
+    });
+    const drifted = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Locally changed prose.' }],
+        fetchImpl: async () => jsonResponse(accepted),
+    });
+    try {
+        await attachLifecycleCompletion(good, accepted);
+        assert.equal(good.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
+        assert.equal(
+            good.scriptModule.chat[0].extra.cera_creator_review.accepted_receipt_sha256,
+            '7'.repeat(64),
+        );
+        await attachLifecycleCompletion(drifted, accepted, 'Locally changed prose.');
+        assert.equal(drifted.scriptModule.chat[0].extra.cera_creator_review.provisional, true);
+        assert.match(
+            elementText(drifted.testDocument.body.querySelector('.cera-creator-review')),
+            /acceptance evidence did not match/i,
+        );
+    } finally {
+        await rm(good.root, { recursive: true, force: true });
+        await rm(drifted.root, { recursive: true, force: true });
+    }
+});
+
+test('review reload blocks candidate identity drift before exposing manual authority', async () => {
+    const checks = {
+        luna: lifecycleCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: lifecycleCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pass',
+        }),
+        adult_filter: lifecycleCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: lifecycleCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const original = lifecycleReview({
+        mode: 'manual', state: 'review_ready', gate: 'pass', checks,
+        actions: {
+            accept_enabled: true,
+            auditable_override_action: null,
+            auditable_override_enabled: false,
+            decline_enabled: true,
+            regenerate_enabled: true,
+            repair_recording_enabled: false,
+            replan_enabled: false,
+        },
+    });
+    const driftedCandidateId = `candidate-${'e'.repeat(28)}`;
+    const drifted = {
+        ...original,
+        candidate_id: driftedCandidateId,
+        provider_attempts: original.provider_attempts.map((attempt, index) => (
+            index === original.provider_attempts.length - 1
+                ? { ...attempt, candidate_id: driftedCandidateId }
+                : attempt
+        )),
+    };
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(drifted),
+    });
+    try {
+        await attachLifecycleCompletion(environment, original);
+        assert.equal(buttonByText(environment.testDocument, 'Accept'), null);
+        assert.match(
+            elementText(environment.testDocument.body.querySelector('.cera-creator-review')),
+            /did not match this provisional message/,
+        );
+        assert.equal(
+            environment.scriptModule.chat[0].extra.cera_creator_review.candidate_id,
+            original.candidate_id,
+        );
+        assert.equal(
+            environment.scriptModule.chat[0].extra.cera_creator_review.provisional,
+            true,
+        );
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('accepted auditable override keeps frozen rejection failures visible', async () => {
+    const review = lifecycleReview({
+        state: 'accepted',
+        gate: 'reject',
+        checks: {
+            luna: lifecycleCheck({
+                role: 'luna_semantic_validator', required: true, status: 'reject',
+                failures: [{ code: 'semantic_conflict', concise_explanation: 'Frozen Luna conflict.' }],
+            }),
+            reader: lifecycleCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+            adult_filter: lifecycleCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: lifecycleCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+        acceptance: {
+            mode: 'auditable_override',
+            accepted_turn_id: 'turn-override-ui',
+            accepted_receipt_sha256: '9'.repeat(64),
+            canon_status: 'provisional',
+        },
+    });
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: 'Exact Writer prose.' }],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        await attachLifecycleCompletion(environment, review);
+        const text = elementText(environment.testDocument.body.querySelector('.cera-creator-review'));
+        assert.match(text, /ACCEPTED OVERRIDE/);
+        assert.match(text, /Frozen Luna conflict/);
+        assert.equal(environment.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
     }
 });

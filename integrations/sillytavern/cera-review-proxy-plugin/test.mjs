@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -20,11 +21,182 @@ import {
     projectProviderStageRetryExhausted,
     projectProviderStageRetryResult,
     projectProviderStageRetryStatusEnvelope,
+    projectReviewDecisionPayload,
+    projectReviewPayload,
     projectTransportRetryPayload,
     projectTransportRetryStatusPayload,
     reviewUpstreamUrl,
     transportRetryUpstreamUrl,
 } from './index.js';
+
+function bindDetachedDecisionHash(value) {
+    const decision = structuredClone(value);
+    const detached = structuredClone(decision);
+    detached.review.terminal_decision = null;
+    decision.review.terminal_decision.decision_sha256 = createHash('sha256')
+        .update(canonicalJson(detached), 'utf8')
+        .digest('hex');
+    return decision;
+}
+
+function canonicalJson(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(key => (
+            `${JSON.stringify(key)}:${canonicalJson(value[key])}`
+        )).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+function reviewCheck({
+    role,
+    required,
+    status,
+    verdictCharacter = '8',
+    failures = [],
+    retry = null,
+    hasVerdict = ['pass', 'reject'].includes(status),
+}) {
+    return {
+        role,
+        required,
+        status,
+        verdict_sha256: hasVerdict ? verdictCharacter.repeat(64) : null,
+        failures,
+        provider_stage_retry_status: retry,
+    };
+}
+
+function stageCheckEnvelope(stage, chainCharacter) {
+    const envelope = providerStageRetryEnvelope('eligible', { chainCharacter });
+    const owner = {
+        semantic_validator: ['codex', 'luna'],
+        reader: ['codex', 'sol'],
+        adult_filter: ['deepseek', 'deepseek_v4'],
+    }[stage];
+    envelope.status.stage = stage;
+    [envelope.status.provider, envelope.status.model_family] = owner;
+    return envelope;
+}
+
+function reviewV2({
+    mode = 'automatic',
+    state = 'checks_pending',
+    gate = 'pending',
+    checks = null,
+    actions = null,
+    acceptance = null,
+    creatorGuidance = null,
+    recordingStatus = null,
+} = {}) {
+    const requiredChecks = checks ?? {
+        luna: reviewCheck({
+            role: 'luna_semantic_validator',
+            required: true,
+            status: 'pending',
+        }),
+        reader: reviewCheck({
+            role: 'codex_reader_severe_quality',
+            required: true,
+            status: 'pending',
+        }),
+        adult_filter: reviewCheck({
+            role: 'protected_adult_filter',
+            required: false,
+            status: 'not_applicable',
+        }),
+        python: reviewCheck({
+            role: 'python_deterministic_custody_privacy',
+            required: true,
+            status: 'pending',
+        }),
+    };
+    const noActions = {
+        accept_enabled: false,
+        auditable_override_action: null,
+        auditable_override_enabled: false,
+        decline_enabled: false,
+        regenerate_enabled: false,
+        repair_recording_enabled: false,
+        replan_enabled: false,
+    };
+    const reviewId = `review-${'a'.repeat(28)}`;
+    const resolved = ['accepted', 'declined', 'regenerated', 'replanned'].includes(state);
+    const disposition = reviewAttemptDisposition(gate, requiredChecks);
+    const attemptOperations = {
+        planner: 1,
+        writer: 1,
+        validator: requiredChecks.luna.status === 'pending' ? 0 : 1,
+        reader: requiredChecks.reader.status === 'pending' ? 0 : 1,
+    };
+    const recorderOperations = recordingStatus === 'pending_repair'
+        ? 3
+        : recordingStatus === 'complete'
+            ? 1
+            : 0;
+    return {
+        schema_version: 'cera.pi_scene.review.v2',
+        review_id: reviewId,
+        state,
+        route: 'ordinary',
+        story_text: 'Exact Writer prose.',
+        candidate_id: `candidate-${'b'.repeat(28)}`,
+        candidate_sha256: '1'.repeat(64),
+        primary_authority_kind: 'codex_cognition_plan',
+        primary_authority_sha256: '2'.repeat(64),
+        warnings: [],
+        recording_status: recordingStatus,
+        terminal_decision: resolved ? {
+            decision_sha256: '5'.repeat(64),
+            url: `/v1/cera/reviews/${reviewId}/terminal-decision`,
+        } : null,
+        request_controls: requestControls(mode),
+        creator_guidance: creatorGuidance,
+        provider_attempts: [{
+            attempt_number: 1,
+            candidate_id: `candidate-${'b'.repeat(28)}`,
+            disposition,
+            provider_operations: attemptOperations,
+        }],
+        provider_operations: {
+            ...attemptOperations, recorder: recorderOperations,
+        },
+        review_mode: mode,
+        gate_status: gate,
+        checks: { schema_version: 'cera.pi_scene.review_checks.v1', ...requiredChecks },
+        acceptance,
+        actions: actions ?? noActions,
+    };
+}
+
+function requestControls(reviewMode) {
+    return {
+        schema_version: 'cera.pi_scene.request_controls.v3',
+        session_id: 'manual-review-test',
+        scene_depth: 'auto',
+        regeneration_key: null,
+        character_autonomy: 'both',
+        prompt_handling: 'adjustment',
+        reasoning_effort: 'medium',
+        scene_change: false,
+        adult_craft_mode: 'off',
+        review_mode: reviewMode,
+    };
+}
+
+function reviewAttemptDisposition(gate, checks) {
+    if (gate === 'blocked') return 'checks_blocked';
+    if (gate === 'pass') return 'checks_passed';
+    if (gate === 'reject') {
+        const luna = checks.luna.status === 'reject';
+        const reader = checks.reader.status === 'reject';
+        if (luna && reader) return 'luna_reader_rejected';
+        if (luna) return 'luna_rejected';
+        if (reader) return 'reader_rejected';
+    }
+    return 'checks_pending';
+}
 
 function criticalProviderStageFailure({
     stage = 'planner',
@@ -198,6 +370,7 @@ test('plugin registers only the narrow CERA relay routes', async () => {
     assert.deepEqual(routes, [
         ['GET', '/health', 'function'],
         ['GET', '/v1/cera/reviews/:reviewId', 'function'],
+        ['GET', '/v1/cera/reviews/:reviewId/terminal-decision', 'function'],
         ['POST', '/v1/cera/reviews/:reviewId/decision', 'function'],
         ['GET', '/v1/cera/provider-stage-retries/:chainId', 'function'],
         ['POST', '/v1/cera/provider-stage-retries/:chainId/actions/:actionId', 'function'],
@@ -947,6 +1120,17 @@ test('review identities are validated and encoded without arbitrary proxying', (
         }),
         'http://127.0.0.1:64321/v1/cera/reviews/review-0123456789abcdef0123456789ab/decision',
     );
+    assert.equal(
+        reviewUpstreamUrl('review-0123456789abcdef0123456789ab', {
+            terminalDecision: true,
+            loopbackRoot: 'http://127.0.0.1:64321',
+        }),
+        'http://127.0.0.1:64321/v1/cera/reviews/review-0123456789abcdef0123456789ab/terminal-decision',
+    );
+    assert.throws(() => reviewUpstreamUrl('review-0123456789abcdef0123456789ab', {
+        decision: true,
+        terminalDecision: true,
+    }));
     assert.throws(() => normalizeLoopbackRoot('https://127.0.0.1:5101'));
     assert.throws(() => normalizeLoopbackRoot('http://localhost:5101'));
     assert.throws(() => normalizeLoopbackRoot('http://127.0.0.1:5101/admin'));
@@ -963,9 +1147,12 @@ test('decision bodies retain only typed creator actions and bounded feedback', (
         action: 'accept',
         feedback: null,
     });
-    assert.deepEqual(normalizeDecisionBody({ action: 'accept_provisional' }), {
+    assert.deepEqual(normalizeDecisionBody({
         action: 'accept_provisional',
-        feedback: null,
+        feedback: 'Creator audit reason.',
+    }), {
+        action: 'accept_provisional',
+        feedback: 'Creator audit reason.',
     });
     assert.deepEqual(normalizeDecisionBody({ action: 'false_positive' }), {
         action: 'false_positive',
@@ -1004,7 +1191,493 @@ test('decision bodies retain only typed creator actions and bounded feedback', (
         feedback: null,
     });
     assert.throws(() => normalizeDecisionBody({ action: 'retry' }));
+    assert.throws(() => normalizeDecisionBody({ action: 'automatic_accept' }));
+    assert.throws(() => normalizeDecisionBody({ action: 'accept_provisional' }));
+    assert.throws(() => normalizeDecisionBody({
+        action: 'accept_provisional', feedback: '   ',
+    }));
     assert.throws(() => normalizeDecisionBody({ action: 'accept', hidden: true }));
     assert.throws(() => normalizeDecisionBody({ action: 'regenerate', force_rehydrate: 'yes' }));
     assert.throws(() => normalizeDecisionBody({ action: 'accept', feedback: 'x'.repeat(20_001) }));
+});
+
+test('review v2 keeps independent Luna and Reader retry authorities closed', () => {
+    const luna = stageCheckEnvelope('semantic_validator', 'b');
+    const reader = stageCheckEnvelope('reader', 'c');
+    const payload = reviewV2({
+        gate: 'blocked',
+        checks: {
+            luna: reviewCheck({
+                role: 'luna_semantic_validator', required: true, status: 'inconclusive',
+                retry: luna,
+                failures: [{ code: 'provider_timeout', concise_explanation: 'Luna is blocked.' }],
+            }),
+            reader: reviewCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'inconclusive',
+                retry: reader,
+                failures: [{ code: 'provider_timeout', concise_explanation: 'Reader is blocked.' }],
+            }),
+            adult_filter: reviewCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: reviewCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+    });
+    const projected = projectReviewPayload(payload);
+    assert.equal(projected.checks.luna.provider_stage_retry_status.status.chain_id, luna.status.chain_id);
+    assert.equal(projected.checks.reader.provider_stage_retry_status.status.chain_id, reader.status.chain_id);
+    assert.notEqual(
+        projected.checks.luna.provider_stage_retry_status.status.chain_id,
+        projected.checks.reader.provider_stage_retry_status.status.chain_id,
+    );
+    assert.throws(() => projectReviewPayload({ ...payload, raw_prompt: 'private' }));
+});
+
+test('technical lane failure without Retry projects blocked with no creator authority', () => {
+    const payload = reviewV2({
+        gate: 'blocked',
+        checks: {
+            luna: reviewCheck({
+                role: 'luna_semantic_validator', required: true, status: 'inconclusive',
+                failures: [{
+                    code: 'validation_custody_unavailable',
+                    concise_explanation: 'Luna validation custody needs manual recovery.',
+                }],
+            }),
+            reader: reviewCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'pending',
+            }),
+            adult_filter: reviewCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: reviewCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pending',
+            }),
+        },
+    });
+    const projected = projectReviewPayload(payload);
+    assert.equal(projected.gate_status, 'blocked');
+    assert.equal(projected.actions.auditable_override_enabled, false);
+    assert.equal(projected.actions.regenerate_enabled, false);
+    assert.equal(projected.checks.luna.provider_stage_retry_status, null);
+});
+
+test('known semantic rejection remains actionless until the peer checks join', () => {
+    const payload = reviewV2({
+        state: 'checks_pending',
+        gate: 'reject',
+        checks: {
+            luna: reviewCheck({
+                role: 'luna_semantic_validator', required: true, status: 'reject',
+                failures: [{
+                    code: 'semantic_conflict',
+                    concise_explanation: 'Luna found a frozen continuity conflict.',
+                }],
+            }),
+            reader: reviewCheck({
+                role: 'codex_reader_severe_quality', required: true, status: 'pending',
+            }),
+            adult_filter: reviewCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: reviewCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pending',
+            }),
+        },
+    });
+    const projected = projectReviewPayload(payload);
+    assert.equal(projected.state, 'checks_pending');
+    assert.equal(projected.gate_status, 'reject');
+    assert.equal(projected.checks.luna.status, 'reject');
+    assert.equal(
+        projected.checks.luna.failures[0].concise_explanation,
+        'Luna found a frozen continuity conflict.',
+    );
+    assert.deepEqual(projected.actions, {
+        accept_enabled: false,
+        auditable_override_action: null,
+        auditable_override_enabled: false,
+        decline_enabled: false,
+        regenerate_enabled: false,
+        repair_recording_enabled: false,
+        replan_enabled: false,
+    });
+});
+
+test('review v2 carries only hash-bound creator guidance and rejects raw feedback', () => {
+    const safe = reviewV2({
+        creatorGuidance: {
+            schema_version: 'cera.pi_scene.creator_guidance_projection.v1',
+            action: 'replan',
+            text_sha256: '4'.repeat(64),
+        },
+    });
+    assert.deepEqual(projectReviewPayload(safe).creator_guidance, safe.creator_guidance);
+    const sentinel = 'RAW-CREATOR-FEEDBACK-MUST-NOT-CROSS-REVIEW';
+    assert.throws(() => projectReviewPayload({
+        ...safe,
+        creator_guidance: {
+            ...safe.creator_guidance,
+            text: sentinel,
+        },
+    }));
+    assert.throws(() => projectReviewPayload({ ...safe, feedback: sentinel }));
+});
+
+test('manual pass exposes only backend Accept Regenerate and Decline authority', () => {
+    const checks = {
+        luna: reviewCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: reviewCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pass',
+        }),
+        adult_filter: reviewCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: reviewCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const payload = reviewV2({
+        mode: 'manual',
+        state: 'review_ready',
+        gate: 'pass',
+        checks,
+        actions: {
+            accept_enabled: true,
+            auditable_override_action: null,
+            auditable_override_enabled: false,
+            decline_enabled: true,
+            regenerate_enabled: true,
+            repair_recording_enabled: false,
+            replan_enabled: false,
+        },
+    });
+    assert.equal(projectReviewPayload(payload).actions.regenerate_enabled, true);
+    assert.throws(() => projectReviewPayload({
+        ...payload,
+        actions: { ...payload.actions, decline_enabled: false },
+    }));
+});
+
+test('accepted recording repair is backend-authorized and never inferred from pending status', () => {
+    const checks = {
+        luna: reviewCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: reviewCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pass',
+        }),
+        adult_filter: reviewCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: reviewCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const acceptance = {
+        mode: 'automatic',
+        accepted_turn_id: 'turn-recorder-parent',
+        accepted_receipt_sha256: '7'.repeat(64),
+        canon_status: 'accepted',
+    };
+    const activeParent = reviewV2({
+        state: 'accepted', gate: 'pass', checks, acceptance,
+        recordingStatus: 'projection_pending',
+    });
+    assert.equal(projectReviewPayload(activeParent).actions.repair_recording_enabled, false);
+    const repairRequired = {
+        ...activeParent,
+        recording_status: 'pending_repair',
+        provider_operations: { ...activeParent.provider_operations, recorder: 3 },
+        actions: { ...activeParent.actions, repair_recording_enabled: true },
+    };
+    assert.equal(projectReviewPayload(repairRequired).actions.repair_recording_enabled, true);
+    assert.throws(() => projectReviewPayload({
+        ...repairRequired,
+        recording_status: 'complete',
+    }));
+});
+
+test('adult remains on synchronous v1 projection and carries no Reader authority', () => {
+    const payload = providerStageReview(`review-${'d'.repeat(28)}`);
+    payload.route = 'adult';
+    payload.story_text = null;
+    payload.primary_authority_kind = 'adult_decision_plan';
+    payload.provider_operations = { adult_scene: 1, adult_filter: 1, recorder: 0 };
+    const projected = projectReviewPayload(payload);
+    assert.equal(projected.schema_version, 'cera.pi_scene.review.v1');
+    assert.equal(projected.story_text, null);
+    assert.equal('checks' in projected, false);
+    assert.equal(JSON.stringify(projected).includes('reader'), false);
+    const attemptedAdultV2 = { ...reviewV2(), route: 'adult', story_text: null };
+    assert.throws(() => projectReviewPayload(attemptedAdultV2));
+});
+
+test('auditable override preserves semantic rejection and requires Python pass', () => {
+    const rejectedChecks = {
+        luna: reviewCheck({
+            role: 'luna_semantic_validator', required: true, status: 'reject',
+            failures: [{ code: 'semantic_conflict', concise_explanation: 'Concise frozen conflict.' }],
+        }),
+        reader: reviewCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+        adult_filter: reviewCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: reviewCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const acceptance = {
+        mode: 'auditable_override',
+        accepted_turn_id: 'turn-override-1',
+        accepted_receipt_sha256: '7'.repeat(64),
+        canon_status: 'provisional',
+    };
+    const accepted = reviewV2({
+        state: 'accepted', gate: 'reject', checks: rejectedChecks, acceptance,
+    });
+    assert.equal(projectReviewPayload(accepted).gate_status, 'reject');
+    const pythonFailed = structuredClone(accepted);
+    pythonFailed.checks.python = reviewCheck({
+        role: 'python_deterministic_custody_privacy', required: true, status: 'reject',
+        failures: [{ code: 'custody_failed', concise_explanation: 'Deterministic custody failed.' }],
+    });
+    assert.throws(() => projectReviewPayload(pythonFailed));
+});
+
+test('review decision v2 projects only backend-authoritative accepted evidence', () => {
+    const checks = {
+        luna: reviewCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: reviewCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+        adult_filter: reviewCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: reviewCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const review = reviewV2({
+        state: 'accepted',
+        gate: 'pass',
+        checks,
+        acceptance: {
+            mode: 'automatic',
+            accepted_turn_id: 'turn-auto-1',
+            accepted_receipt_sha256: '6'.repeat(64),
+            canon_status: 'accepted',
+        },
+    });
+    const decision = bindDetachedDecisionHash({
+        schema_version: 'cera.pi_scene.review_decision.v2',
+        status: 'story_committed',
+        creator_action: 'automatic_accept',
+        story_state_committed: true,
+        retry_mode: 'not_applicable',
+        review,
+        successor: null,
+        operational_warnings: [],
+        accepted_receipt_sha256: '6'.repeat(64),
+        accepted_turn_id: 'turn-auto-1',
+    });
+    assert.equal(projectReviewDecisionPayload(decision).review.state, 'accepted');
+    assert.throws(() => projectReviewDecisionPayload({
+        ...decision,
+        review: {
+            ...review,
+            acceptance: { ...review.acceptance, mode: 'manual' },
+        },
+    }));
+    assert.throws(() => projectReviewDecisionPayload({ ...decision, debug_log_path: 'D:\\secret' }));
+    assert.throws(() => projectReviewDecisionPayload({
+        ...decision,
+        feedback: 'RAW-TERMINAL-FEEDBACK-MUST-NOT-CROSS',
+    }));
+});
+
+test('review decision v2 validates an exact provisional Regenerate successor', () => {
+    const passedChecks = {
+        luna: reviewCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+        reader: reviewCheck({
+            role: 'codex_reader_severe_quality', required: true, status: 'pass',
+        }),
+        adult_filter: reviewCheck({
+            role: 'protected_adult_filter', required: false, status: 'not_applicable',
+        }),
+        python: reviewCheck({
+            role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+        }),
+    };
+    const predecessor = reviewV2({
+        mode: 'manual', state: 'regenerated', gate: 'pass', checks: passedChecks,
+    });
+    const successorReview = reviewV2({ mode: 'manual' });
+    const lifecycle = {
+        schema_version: 'cera.pi_scene.review_lifecycle.v1',
+        review_id: successorReview.review_id,
+        review_mode: successorReview.review_mode,
+        state: successorReview.state,
+        gate_status: successorReview.gate_status,
+        checks: structuredClone(successorReview.checks),
+        acceptance: null,
+        actions: structuredClone(successorReview.actions),
+        terminal_decision: null,
+        review_url: `/v1/cera/reviews/${successorReview.review_id}`,
+    };
+    const successor = {
+        id: 'chatcmpl-ordinary-successor',
+        object: 'chat.completion',
+        created: 1,
+        model: 'cera-alpha',
+        choices: [{
+            index: 0,
+            message: { role: 'assistant', content: 'Regenerated exact Writer prose.' },
+            finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        cera: {
+            profile_id: 'cera.pi_scene.lean.v1',
+            request_id: `request-${'9'.repeat(64)}`,
+            candidate_id: successorReview.candidate_id,
+            candidate_sha256: successorReview.candidate_sha256,
+            route_mode: 'ordinary',
+            provisional: true,
+            provisional_review_id: successorReview.review_id,
+            status: 'checks_pending',
+            story_state_committed: false,
+            review_url: `/v1/cera/reviews/${successorReview.review_id}`,
+            review_lifecycle: lifecycle,
+        },
+    };
+    const decision = bindDetachedDecisionHash({
+        schema_version: 'cera.pi_scene.review_decision.v2',
+        status: 'review_transitioned',
+        creator_action: 'regenerate',
+        story_state_committed: false,
+        retry_mode: 'not_applicable',
+        review: predecessor,
+        successor,
+        operational_warnings: [],
+    });
+    const projected = projectReviewDecisionPayload(decision);
+    assert.equal(projected.successor.cera.review_lifecycle.state, 'checks_pending');
+    assert.equal(projected.successor.choices[0].message.content, 'Regenerated exact Writer prose.');
+
+    const openSuccessor = structuredClone(decision);
+    openSuccessor.successor.debug = 'not part of the exact completion';
+    assert.throws(() => projectReviewDecisionPayload(bindDetachedDecisionHash(openSuccessor)));
+    const mismatchedLifecycle = structuredClone(decision);
+    mismatchedLifecycle.successor.cera.review_lifecycle.review_id = `review-${'f'.repeat(28)}`;
+    assert.throws(() => projectReviewDecisionPayload(bindDetachedDecisionHash(mismatchedLifecycle)));
+});
+
+test('terminal decision relay recovers output-only automatic acceptance by fixed GET', async () => {
+    const routes = new Map();
+    const router = {
+        get(path, handler) { routes.set(`GET ${path}`, handler); },
+        post() {},
+    };
+    await init(router);
+    const review = reviewV2({
+        state: 'accepted',
+        gate: 'pass',
+        checks: {
+            luna: reviewCheck({ role: 'luna_semantic_validator', required: true, status: 'pass' }),
+            reader: reviewCheck({ role: 'codex_reader_severe_quality', required: true, status: 'pass' }),
+            adult_filter: reviewCheck({
+                role: 'protected_adult_filter', required: false, status: 'not_applicable',
+            }),
+            python: reviewCheck({
+                role: 'python_deterministic_custody_privacy', required: true, status: 'pass',
+            }),
+        },
+        acceptance: {
+            mode: 'automatic',
+            accepted_turn_id: 'turn-auto-terminal',
+            accepted_receipt_sha256: '6'.repeat(64),
+            canon_status: 'accepted',
+        },
+        recordingStatus: 'projection_pending',
+    });
+    const decision = bindDetachedDecisionHash({
+        schema_version: 'cera.pi_scene.review_decision.v2',
+        status: 'story_committed',
+        creator_action: 'automatic_accept',
+        story_state_committed: true,
+        retry_mode: 'not_applicable',
+        review,
+        successor: null,
+        operational_warnings: [],
+        accepted_receipt_sha256: '6'.repeat(64),
+        accepted_turn_id: 'turn-auto-terminal',
+    });
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+        calls.push({ url, options });
+        return new Response(JSON.stringify(decision), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    };
+    let payload = null;
+    const response = {
+        headersSent: false,
+        set() { return this; },
+        status() { return this; },
+        json(value) { payload = value; return this; },
+    };
+    try {
+        await routes.get('GET /v1/cera/reviews/:reviewId/terminal-decision')({
+            params: { reviewId: review.review_id },
+            get() { return `Bearer ${'a'.repeat(43)}`; },
+        }, response);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.method, 'GET');
+    assert.equal(payload.creator_action, 'automatic_accept');
+    assert.equal(
+        calls[0].url,
+        `http://127.0.0.1:5101/v1/cera/reviews/${review.review_id}/terminal-decision`,
+    );
+    assert.equal(
+        payload.review.terminal_decision.decision_sha256,
+        decision.review.terminal_decision.decision_sha256,
+    );
+});
+
+test('unresolved terminal decision returns a fixed safe 404 without projecting upstream prose', async () => {
+    const routes = new Map();
+    const router = {
+        get(path, handler) { routes.set(`GET ${path}`, handler); },
+        post() {},
+    };
+    await init(router);
+    const reviewId = `review-${'f'.repeat(28)}`;
+    const sentinel = 'RAW-UPSTREAM-NOT-FOUND-MUST-NOT-CROSS';
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({ detail: sentinel }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+    });
+    let payload = null;
+    let status = null;
+    const response = {
+        headersSent: false,
+        set() { return this; },
+        status(value) { status = value; return this; },
+        json(value) { payload = value; return this; },
+    };
+    try {
+        await routes.get('GET /v1/cera/reviews/:reviewId/terminal-decision')({
+            params: { reviewId },
+            get() { return `Bearer ${'a'.repeat(43)}`; },
+        }, response);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(status, 404);
+    assert.equal(payload.error.code, 'cera_terminal_decision_not_found');
+    assert.equal(JSON.stringify(payload).includes(sentinel), false);
 });

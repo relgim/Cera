@@ -42,7 +42,8 @@ proxy an arbitrary CERA URL.
 For `cera-alpha` and the two explicit Pi Scene compatibility model IDs, the
 installed SillyTavern request path forwards typed `cera_profile_id`,
 `cera_session_id`, scene depth, character autonomy, prompt handling, reasoning
-effort, optional regeneration identity, and `cera_adult_craft_mode`. Adult
+effort, optional regeneration identity, `cera_adult_craft_mode`, and per-chat
+ordinary `cera_review_mode` (`automatic` or `manual`, default `automatic`). Adult
 craft mode selects retrieval breadth only; it never chooses the ordinary or
 adult route. CERA treats these fields as the primary transport contract.
 Hidden `[[CERA_*]]` prompt markers remain a legacy
@@ -106,13 +107,43 @@ ordinary/adult routing; the adult route uses the protected Adult Scene and
 Adult Filter pipeline. This remains a manual-development gate, not a public
 deployment or production route-promotion claim.
 
-The current client also installs the CERA creator-review extension. An ordinary
-candidate that passes the independent Luna semantic check is accepted
-automatically; a rejected candidate remains inspectable through the review UI.
-An adult candidate is promoted atomically only after its separate Adult Filter
-produces the protected full record and safe projection. Rejected/provisional
+The current client also installs the CERA creator-review extension. Ordinary
+Writer prose is displayed immediately with a provisional badge. Ordinary
+candidates then require independent Luna, Codex Reader, and deterministic Python
+custody/privacy checks. Adult stays on its synchronous Adult Filter path, with
+the deterministic Python gate enforced by the backend, and never runs or
+exposes Codex Reader. In the default Automatic mode, only
+the backend may mark the message canonical after every route-required check
+passes and a durable acceptance receipt is returned. Manual Review pauses a
+fully passing candidate for creator Accept, Regenerate, or Decline. The setting is stored per
+SillyTavern chat. This toggle does not change Adult behavior: Adult Filter stays
+synchronous and its existing creator-review rejection path remains in force.
+
+Semantically rejected v2 candidates remain visible and noncanonical with only
+concise frozen failures and backend-authorized Regenerate, Decline, and
+auditable Override actions. Legacy v1 keeps its existing Replan behavior; v2
+does not expose Replan in this release. A blocked technical lane or an
+inconclusive gate exposes no creator acceptance/override action in this release.
+If Luna or Reader rejects while another required lane is still pending, the
+known concise failure is visible but all creator actions remain disabled until
+the backend publishes the joined `review_ready` result.
+Override is never available for a failed Python gate. An accepted override
+retains the original Luna/Reader verdicts in the message audit panel. Adult
+Filter override remains disabled unless the backend explicitly authorizes it. Rejected/provisional
 text is excluded from accepted continuity and ordinary exports. Creator
-decisions make no hidden scene-regeneration call.
+decisions make no hidden scene-regeneration call. Review GET exposes creator
+guidance only as the exact hash-bound
+`cera.pi_scene.creator_guidance_projection.v1`; raw feedback is sent once in
+the explicit decision POST and is never stored or replayed by SillyTavern.
+Auditable Override requires a nonempty creator reason; an empty editor performs
+no POST, and only the backend's hash projection may return to the chat.
+The output-only v2 `automatic_accept` identity is rendered only from a durable
+backend decision; the browser never exposes or submits it as a creator action.
+
+The readable ordinary-review v2 JSON schemas are the contract source. The
+deterministic generator produces the Python and staged JavaScript validators;
+the extension and relay import those generated modules instead of maintaining
+separate handwritten v2 contract copies.
 
 The full-model UI metadata dispatch contract is documented in
 [`CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md`](CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md).
@@ -135,12 +166,16 @@ The compact panel keeps hashes, schema versions, provider-operation accounting,
 correlation identity, and browser-observed advisory counts behind the literal
 `Technical details` disclosure. `blocked_ambiguous` shows only `Check Status`,
 which performs the provider-free GET. `recording_repair_required` preserves the
-accepted story and shows only the existing separate `Repair Recording` review
-action. It never routes recording repair through provider-stage Retry. A normal
-Retry click posts the exact backend-issued action DTO once; Regenerate and
-Replan retain their separate review DTOs, counters, and buttons.
-`recovery_required` shows only provider-free `Explicit Recovery`; it never
-offers Retry or redispatch. Recording repair clears its immutable terminal
+accepted story, but does not by itself authorize a button: the accepted
+review's exact `actions.repair_recording_enabled` authority must also be true.
+That parent-authenticated, non-Retry repair may return a generic Recorder-stage
+status for its one successor occurrence; the UI then preserves that exact
+status/action authority and never invents another repair chain. A normal
+Retry click posts the exact backend-issued action DTO once. Regenerate retains
+its separate v2 review DTO and counter; Replan remains a separate legacy v1
+review action rather than a provider Retry.
+`recovery_required` is read-only and offers no generic action; it never offers
+Retry or redispatch. Recording repair clears its immutable terminal
 envelope only after the separate review authority returns recording status
 `complete`; it does not synthesize a generic Retry success.
 
@@ -151,6 +186,20 @@ Check Status uses GET only. The backend owns the three-attempt/two-action limit;
 browser counts are advisory defense-in-depth and never create authority. No raw
 prompt, response, provider exception, protected prose, or local path is retained
 in the persisted UI status.
+
+Review lifecycle GET uses the closed `cera.pi_scene.review.v2` projection. Its
+`checks` object has independent `luna`, `reader`, `adult_filter`, and `python`
+lanes. This v2 resource is ordinary-only: Luna, Reader, and Python are required,
+and Adult Filter is explicitly not applicable. Adult stays on the existing
+synchronous v1 creator-review projection and has no Reader lane. Each
+provider-backed required lane may carry its own complete generated
+status envelope and backend-issued action, so concurrent Luna and Reader
+failures cannot overwrite each other. Python never carries a provider action.
+The extension persists only the closed review projection, action identities,
+hashes, and a hash of the displayed message. On reload it reconciles with GET,
+blocks on review/candidate/message drift, and never derives acceptance from
+client state. The Adult path does not create a second browser copy of protected
+story prose.
 
 ## Verification
 

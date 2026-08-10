@@ -5,6 +5,11 @@ import {
     normalizeProviderStageRetryStatusEnvelopeV1,
     normalizeProviderStageRetryStatusV1,
 } from './generated/provider-stage-retry-contracts-v1.mjs';
+import {
+    normalizeOrdinaryReviewDecisionV2,
+    normalizeOrdinaryReviewLifecycleV1,
+    normalizeOrdinaryReviewV2,
+} from './generated/ordinary-review-contracts-v2.mjs';
 
 const DEFAULT_CERA_LOOPBACK_ROOT = 'http://127.0.0.1:5101';
 const MAX_UPSTREAM_BYTES = 2_000_000;
@@ -142,6 +147,15 @@ export function normalizeDecisionBody(value) {
         throw new TypeError('CERA review feedback is invalid');
     }
     if (
+        value.action === 'accept_provisional'
+        && (
+            typeof value.feedback !== 'string'
+            || value.feedback.trim().length === 0
+        )
+    ) {
+        throw new TypeError('CERA auditable override feedback is required');
+    }
+    if (
         value.force_rehydrate !== undefined
         && typeof value.force_rehydrate !== 'boolean'
     ) {
@@ -181,11 +195,21 @@ export function normalizeProviderStageRetryActionBody(value, { chainId, actionId
 
 export function reviewUpstreamUrl(
     reviewId,
-    { decision = false, loopbackRoot = CERA_LOOPBACK_ROOT } = {},
+    {
+        decision = false,
+        terminalDecision = false,
+        loopbackRoot = CERA_LOOPBACK_ROOT,
+    } = {},
 ) {
+    if (decision && terminalDecision) throw new TypeError('CERA review URL mode is invalid');
     const encoded = encodeURIComponent(normalizeReviewId(reviewId));
     const root = normalizeLoopbackRoot(loopbackRoot);
-    return `${root}/v1/cera/reviews/${encoded}${decision ? '/decision' : ''}`;
+    const suffix = decision
+        ? '/decision'
+        : terminalDecision
+            ? '/terminal-decision'
+            : '';
+    return `${root}/v1/cera/reviews/${encoded}${suffix}`;
 }
 
 export function transportRetryUpstreamUrl(
@@ -247,49 +271,22 @@ export function projectProviderStageRetryResult(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new TypeError('CERA provider stage retry result is invalid');
     }
-    if (value.object === 'chat.completion') {
-        const choice = value.choices?.[0];
-        if (
-            !exactKeys(value, ['id', 'object', 'created', 'model', 'choices', 'usage', 'cera'])
-            || typeof value.id !== 'string'
-            || !value.id.startsWith('chatcmpl-')
-            || !Number.isSafeInteger(value.created)
-            || value.created < 0
-            || typeof value.model !== 'string'
-            || !Array.isArray(value.choices)
-            || value.choices.length !== 1
-            || !choice
-            || typeof choice !== 'object'
-            || Array.isArray(choice)
-            || !exactKeys(choice, ['index', 'message', 'finish_reason'])
-            || choice.index !== 0
-            || choice.finish_reason !== 'stop'
-            || !exactKeys(choice.message, ['role', 'content'])
-            || choice.message?.role !== 'assistant'
-            || typeof choice.message?.content !== 'string'
-            || !choice.message.content.trim()
-            || !value.usage
-            || typeof value.usage !== 'object'
-            || Array.isArray(value.usage)
-            || !exactKeys(value.usage, ['prompt_tokens', 'completion_tokens', 'total_tokens'])
-            || Object.values(value.usage).some(count => (
-                !Number.isSafeInteger(count) || count < 0
-            ))
-            || !value.cera
-            || typeof value.cera !== 'object'
-            || Array.isArray(value.cera)
-            || typeof value.cera.profile_id !== 'string'
-            || !value.cera.profile_id.startsWith('cera.pi_scene.')
-            || !REQUEST_ID_PATTERN.test(value.cera.request_id)
-            || !SHA256_PATTERN.test(value.cera.provider_stage_request_sha256)
-            || containsUnsafeContinuationKey(value.cera)
-        ) {
-            throw new TypeError('CERA provider stage retry completion is invalid');
+    if (value.schema_version === 'cera.pi_scene.review_decision.v2') {
+        const decision = normalizeOrdinaryReviewDecisionV2(value, {
+            successorValidator: projectOrdinarySuccessorCompletion,
+        });
+        if (!decision) {
+            throw new TypeError('CERA provider stage retry decision is invalid');
         }
-        return structuredClone(value);
+        return decision;
     }
+    if (value.object === 'chat.completion') {
+        return projectProviderStageCompletion(value);
+    }
+    const directReview = projectReviewPayloadOrNull(value);
+    if (directReview) return directReview;
     const committed = value.story_state_committed === true;
-    const review = projectProviderStageRetryReview(value.review);
+    const review = projectReviewPayloadOrNull(value.review);
     const decisionKeys = [
         'schema_version',
         'status',
@@ -347,6 +344,114 @@ export function projectProviderStageRetryResult(value) {
     throw new TypeError('CERA provider stage retry result is invalid');
 }
 
+function projectProviderStageCompletion(value) {
+    return projectChatCompletion(value, { requireProviderStageBinding: true });
+}
+
+function projectOrdinarySuccessorCompletion(value) {
+    const completion = projectChatCompletion(value, {
+        requireProviderStageBinding: false,
+    });
+    const cera = completion.cera;
+    const lifecycle = normalizeOrdinaryReviewLifecycleV1(cera.review_lifecycle);
+    if (
+        cera.route_mode !== 'ordinary'
+        || cera.provisional !== true
+        || cera.story_state_committed !== false
+        || cera.status !== 'checks_pending'
+        || !REVIEW_ID_PATTERN.test(cera.provisional_review_id)
+        || cera.review_url !== `/v1/cera/reviews/${cera.provisional_review_id}`
+        || !/^candidate-[a-f0-9]{28}$/.test(cera.candidate_id)
+        || !SHA256_PATTERN.test(cera.candidate_sha256)
+        || !lifecycle
+        || lifecycle.review_id !== cera.provisional_review_id
+        || lifecycle.state !== 'checks_pending'
+    ) {
+        throw new TypeError('CERA ordinary review successor is invalid');
+    }
+    completion.cera.review_lifecycle = lifecycle;
+    return completion;
+}
+
+function projectChatCompletion(value, { requireProviderStageBinding }) {
+    const choice = value.choices?.[0];
+    const cera = value.cera;
+    const providerStageBinding = cera?.provider_stage_request_sha256;
+    if (
+        !exactKeys(value, ['id', 'object', 'created', 'model', 'choices', 'usage', 'cera'])
+        || value.object !== 'chat.completion'
+        || typeof value.id !== 'string'
+        || !value.id.startsWith('chatcmpl-')
+        || !Number.isSafeInteger(value.created)
+        || value.created < 0
+        || typeof value.model !== 'string'
+        || !Array.isArray(value.choices)
+        || value.choices.length !== 1
+        || !choice
+        || typeof choice !== 'object'
+        || Array.isArray(choice)
+        || !exactKeys(choice, ['index', 'message', 'finish_reason'])
+        || choice.index !== 0
+        || choice.finish_reason !== 'stop'
+        || !exactKeys(choice.message, ['role', 'content'])
+        || choice.message?.role !== 'assistant'
+        || typeof choice.message?.content !== 'string'
+        || !choice.message.content.trim()
+        || !value.usage
+        || typeof value.usage !== 'object'
+        || Array.isArray(value.usage)
+        || !exactKeys(value.usage, ['prompt_tokens', 'completion_tokens', 'total_tokens'])
+        || Object.values(value.usage).some(count => (
+            !Number.isSafeInteger(count) || count < 0
+        ))
+        || !cera
+        || typeof cera !== 'object'
+        || Array.isArray(cera)
+        || typeof cera.profile_id !== 'string'
+        || !cera.profile_id.startsWith('cera.pi_scene.')
+        || !REQUEST_ID_PATTERN.test(cera.request_id)
+        || (requireProviderStageBinding && !SHA256_PATTERN.test(providerStageBinding))
+        || (!requireProviderStageBinding
+            && providerStageBinding !== undefined
+            && !SHA256_PATTERN.test(providerStageBinding))
+        || containsUnsafeContinuationKey(cera)
+    ) {
+        throw new TypeError('CERA provider stage retry completion is invalid');
+    }
+    return structuredClone(value);
+}
+
+/** Closed public review projection shared by GET, decisions, and stage continuation. */
+export function projectReviewPayload(value) {
+    const normalized = projectReviewPayloadOrNull(value);
+    if (!normalized) throw new TypeError('CERA review payload is invalid');
+    return normalized;
+}
+
+/** Decision POST may return a generated stage status while its exact action is paused. */
+export function projectReviewDecisionPayload(value) {
+    return projectProviderStageRetryResult(value);
+}
+
+function projectReviewPayloadOrNull(value) {
+    return projectReviewV2(value) ?? projectProviderStageRetryReview(value);
+}
+
+function projectReviewV2(value) {
+    return normalizeOrdinaryReviewV2(value);
+}
+function safeCountMap(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const allowed = new Set([
+        'planner', 'writer', 'luna', 'validator', 'reader', 'adult_scene',
+        'adult_filter', 'recorder', 'total',
+    ]);
+    const entries = Object.entries(value);
+    return entries.length > 0 && entries.every(([key, count]) => (
+        allowed.has(key) && Number.isSafeInteger(count) && count >= 0
+    ));
+}
+
 function projectProviderStageRetryReview(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const baseKeys = [
@@ -381,6 +486,7 @@ function projectProviderStageRetryReview(value) {
         'automatic_repair_limit',
         'operation_state',
     ];
+    const attemptKeys = ['provider_attempts'];
     const booleanKeys = [
         'provisional',
         'warnings_block_accept',
@@ -393,7 +499,9 @@ function projectProviderStageRetryReview(value) {
         'repair_recording_enabled',
     ];
     const exactShape = exactKeys(value, baseKeys)
-        || exactKeys(value, [...baseKeys, ...adultKeys]);
+        || exactKeys(value, [...baseKeys, ...attemptKeys])
+        || exactKeys(value, [...baseKeys, ...adultKeys])
+        || exactKeys(value, [...baseKeys, ...adultKeys, ...attemptKeys]);
     if (
         !exactShape
         || value.schema_version !== 'cera.pi_scene.review.v1'
@@ -420,6 +528,13 @@ function projectProviderStageRetryReview(value) {
         || Object.entries(value.provider_operations).some(([key, count]) => (
             typeof key !== 'string' || !Number.isSafeInteger(count) || count < 0
         ))
+        || (
+            value.provider_attempts !== undefined
+            && (
+                !Array.isArray(value.provider_attempts)
+                || value.provider_attempts.length > 12
+            )
+        )
         || containsUnsafeContinuationKey(value)
     ) return null;
     return structuredClone(value);
@@ -434,7 +549,12 @@ function containsUnsafeContinuationKey(value) {
             || normalized.startsWith('raw_')
             || normalized.startsWith('exact_')
             || normalized.endsWith('_path')
-            || ['prompt', 'provider_output', 'protected_full_record'].includes(normalized)
+            || [
+                'feedback',
+                'prompt',
+                'provider_output',
+                'protected_full_record',
+            ].includes(normalized)
             || containsUnsafeContinuationKey(item);
     });
 }
@@ -892,7 +1012,14 @@ function safeProxyError(response, status, code, message) {
 async function forwardJson(
     response,
     url,
-    { method = 'GET', body, timeoutMs, authorization, projectPayload = value => value },
+    {
+        method = 'GET',
+        body,
+        timeoutMs,
+        authorization,
+        projectPayload = value => value,
+        notFoundPayload = null,
+    },
 ) {
     const normalizedAuthorization = normalizeAuthorization(authorization);
     let upstream;
@@ -915,6 +1042,11 @@ async function forwardJson(
             'cera_loopback_unavailable',
             'SillyTavern could not reach the local CERA service. Continuation is blocked.',
         );
+        return;
+    }
+    if (upstream.status === 404 && notFoundPayload !== null) {
+        response.set('Cache-Control', 'no-store');
+        response.status(404).json(structuredClone(notFoundPayload));
         return;
     }
 
@@ -957,6 +1089,7 @@ export async function init(router) {
             await forwardJson(response, reviewUpstreamUrl(request.params.reviewId), {
                 timeoutMs: GET_TIMEOUT_MS,
                 authorization: request.get('X-Cera-Authorization'),
+                projectPayload: projectReviewPayload,
             });
         } catch (error) {
             const authorizationFailure = error.message === 'CERA review authorization is invalid';
@@ -964,6 +1097,40 @@ export async function init(router) {
                 response,
                 authorizationFailure ? 401 : 400,
                 authorizationFailure ? 'cera_review_authorization_invalid' : 'cera_review_id_invalid',
+                error.message,
+            );
+        }
+    });
+
+    router.get('/v1/cera/reviews/:reviewId/terminal-decision', async (request, response) => {
+        try {
+            await forwardJson(
+                response,
+                reviewUpstreamUrl(request.params.reviewId, { terminalDecision: true }),
+                {
+                    timeoutMs: GET_TIMEOUT_MS,
+                    authorization: request.get('X-Cera-Authorization'),
+                    projectPayload: projectReviewDecisionPayload,
+                    notFoundPayload: {
+                        error: {
+                            message: 'No durable terminal creator decision is available.',
+                            type: 'cera_error',
+                            code: 'cera_terminal_decision_not_found',
+                            stage: 'sillytavern_cera_review_proxy',
+                            retryable: false,
+                            fallback_used: false,
+                        },
+                    },
+                },
+            );
+        } catch (error) {
+            const authorizationFailure = error.message === 'CERA review authorization is invalid';
+            safeProxyError(
+                response,
+                authorizationFailure ? 401 : 400,
+                authorizationFailure
+                    ? 'cera_review_authorization_invalid'
+                    : 'cera_review_id_invalid',
                 error.message,
             );
         }
@@ -980,6 +1147,7 @@ export async function init(router) {
                     body,
                     timeoutMs: DECISION_TIMEOUT_MS,
                     authorization: request.get('X-Cera-Authorization'),
+                    projectPayload: projectReviewDecisionPayload,
                 },
             );
         } catch (error) {

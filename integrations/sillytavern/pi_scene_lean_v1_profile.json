@@ -13,13 +13,18 @@
   "ordinary_logic_owner": "retained_codex_cognition",
   "ordinary_writer": "confined_pi_deepseek",
   "ordinary_validator": "fresh_luna_xhigh",
+  "ordinary_reader": "fresh_codex_sol",
+  "ordinary_python_gate": "deterministic_custody_privacy",
   "adult_logic_and_prose_owner": "confined_pi_deepseek_adult_scene",
   "adult_validator": "confined_pi_deepseek_adult_filter",
   "creator_review_required": false,
   "creator_review_available_on_reject": true,
-  "automatic_accept": "semantic_pass_only",
+  "ordinary_review_mode_default": "automatic",
+  "automatic_accept": "all_route_required_checks_pass_only",
   "validator_required": true,
-  "reader_required": false,
+  "reader_required": true,
+  "adult_reader_required": false,
+  "python_gate_required": true,
   "ted_restrictions": "warn_only",
   "character_autonomy_default": "both",
   "adult_craft_mode": "retrieval_breadth_only_not_route_selection",
@@ -37,6 +42,10 @@
     "session_id": "dynamic_per_sillytavern_chat",
     "profile_id": "cera.pi_scene.lean.v1",
     "character_autonomy_default": "both",
-    "adult_craft_mode_default": "off"
+    "adult_craft_mode_default": "off",
+    "review_mode_request_field": "cera_review_mode",
+    "review_mode_default": "automatic",
+    "review_mode_scope": "ordinary_per_sillytavern_chat",
+    "adult_review_behavior": "synchronous_filter_then_existing_creator_rejection"
   }
 }
