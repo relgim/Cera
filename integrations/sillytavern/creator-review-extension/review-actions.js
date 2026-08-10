@@ -12,7 +12,8 @@ const REQUIRED_ARTIFACTS = Object.freeze([
 const TRANSPORT_RETRY_SCHEMA = 'cera.pi_scene.transport_retry.v1';
 const TRANSPORT_RETRY_STATUS_SCHEMA_V1 = 'cera.pi_scene.transport_retry_status.v1';
 const TRANSPORT_RETRY_STATUS_SCHEMA_V2 = 'cera.pi_scene.transport_retry_status.v2';
-const TRANSPORT_RETRY_STATE_SCHEMA = 'cera.sillytavern.transport_retry_state.v1';
+const TRANSPORT_RETRY_STATE_SCHEMA_V1 = 'cera.sillytavern.transport_retry_state.v1';
+const TRANSPORT_RETRY_STATE_SCHEMA_V2 = 'cera.sillytavern.transport_retry_state.v2';
 const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
 const PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA = 'cera.provider_stage_retry_exhausted.v1';
 const PROVIDER_STAGE_FAILURE_STATE_SCHEMA = 'cera.sillytavern.provider_stage_failure_state.v1';
@@ -21,11 +22,15 @@ const PROVIDER_STAGE_RETRY_EXHAUSTED_CODE = 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED
 const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
-const TRANSPORT_RETRY_PHASES = new Set([
+const TRANSPORT_RETRY_PHASES_V1 = new Set([
     'eligible',
     'in_progress',
     'unknown',
     'completion_received',
+]);
+const TRANSPORT_RETRY_PHASES_V2 = new Set([
+    ...TRANSPORT_RETRY_PHASES_V1,
+    'limit_reached_unconfirmed',
 ]);
 const BACKEND_PROGRESS_PHASES = new Set([
     'authorized',
@@ -183,35 +188,53 @@ export function transportRetryReceipt(value) {
 
 /** Closed browser-persistence record for one SillyTavern chat. */
 export function normalizePersistedTransportRetryState(value) {
-    if (!plainObject(value) || !exactKeys(value, [
+    if (!plainObject(value)) return null;
+    const legacy = value.schema_version === TRANSPORT_RETRY_STATE_SCHEMA_V1;
+    const keys = [
         'chat_key',
         'completion_identity',
         'phase',
         'post_dispatched',
         'receipt',
         'schema_version',
-    ])) return null;
+        ...(legacy ? [] : ['retry_actions_dispatched']),
+    ];
+    if (!exactKeys(value, keys)) return null;
     if (
-        value.schema_version !== TRANSPORT_RETRY_STATE_SCHEMA
+        (!legacy && value.schema_version !== TRANSPORT_RETRY_STATE_SCHEMA_V2)
         || typeof value.chat_key !== 'string'
         || value.chat_key.length < 1
         || value.chat_key.length > 520
         || /[\u0000-\u001f\u007f]/.test(value.chat_key)
-        || !TRANSPORT_RETRY_PHASES.has(value.phase)
+        || !(legacy
+            ? TRANSPORT_RETRY_PHASES_V1.has(value.phase)
+            : TRANSPORT_RETRY_PHASES_V2.has(value.phase))
         || typeof value.post_dispatched !== 'boolean'
         || (value.completion_identity !== null && !validCompletionIdentity(value.completion_identity))
+    ) return null;
+    const actionsDispatched = legacy ? null : value.retry_actions_dispatched;
+    if (
+        actionsDispatched !== null
+        && (
+            !Number.isSafeInteger(actionsDispatched)
+            || actionsDispatched < 0
+            || actionsDispatched > 2
+        )
     ) return null;
     const receipt = normalizeTransportRetryReceipt(value.receipt);
     if (!receipt) return null;
     if (value.phase === 'eligible' && value.post_dispatched) return null;
     if (value.phase !== 'eligible' && !value.post_dispatched) return null;
+    if (value.post_dispatched && actionsDispatched === 0) return null;
+    if (value.phase === 'limit_reached_unconfirmed' && actionsDispatched !== 2) return null;
     if (value.phase === 'completion_received' && value.completion_identity === null) return null;
     if (value.phase !== 'completion_received' && value.completion_identity !== null) return null;
     return {
-        schema_version: TRANSPORT_RETRY_STATE_SCHEMA,
+        schema_version: TRANSPORT_RETRY_STATE_SCHEMA_V2,
         chat_key: value.chat_key,
         phase: value.phase,
         post_dispatched: value.post_dispatched,
+        retry_actions_dispatched: actionsDispatched,
         receipt,
         completion_identity: value.completion_identity,
     };

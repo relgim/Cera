@@ -50,9 +50,11 @@ const TERMINAL_REVIEW_STATES = Object.freeze([
 ]);
 const CONTROL_STORAGE_KEY = 'cera_creator_controls_v1';
 const TRANSPORT_RETRY_STORAGE_KEY = 'cera_transport_retry_receipts_v1';
-const TRANSPORT_RETRY_STORE_SCHEMA = 'cera.sillytavern.transport_retry_store.v1';
-const TRANSPORT_RETRY_STATE_SCHEMA = 'cera.sillytavern.transport_retry_state.v1';
+const TRANSPORT_RETRY_STORE_SCHEMA_V1 = 'cera.sillytavern.transport_retry_store.v1';
+const TRANSPORT_RETRY_STORE_SCHEMA_V2 = 'cera.sillytavern.transport_retry_store.v2';
+const TRANSPORT_RETRY_STATE_SCHEMA_V2 = 'cera.sillytavern.transport_retry_state.v2';
 const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
+const MAXIMUM_TRANSPORT_RETRY_ACTIONS = 2;
 const PROVIDER_STAGE_FAILURE_STORAGE_KEY = 'cera_provider_stage_failures_v1';
 const PROVIDER_STAGE_FAILURE_STORE_SCHEMA = 'cera.sillytavern.provider_stage_failure_store.v1';
 const PROVIDER_STAGE_FAILURE_STATE_SCHEMA = 'cera.sillytavern.provider_stage_failure_state.v1';
@@ -183,10 +185,16 @@ function captureTransportFailure(value) {
             return false;
         }
         renderTransportRetryControl();
-        if (existing.phase !== 'eligible') void reconcileTransportRetry();
+        if (!transportRetryActionAvailable(existing)) void reconcileTransportRetry();
         return true;
     }
-    const nextState = makeTransportRetryState(chatKey, receipt, 'eligible');
+    const nextState = makeTransportRetryState(
+        chatKey,
+        receipt,
+        'eligible',
+        null,
+        { postDispatched: false, retryActionsDispatched: 0 },
+    );
     if (!nextState) return false;
     transportRetryState = nextState;
     transportRetryInFlight = false;
@@ -467,15 +475,35 @@ function makeTransportRetryState(
     receipt,
     phase,
     completionIdentityValue = null,
+    { postDispatched, retryActionsDispatched },
 ) {
     return normalizePersistedTransportRetryState({
-        schema_version: TRANSPORT_RETRY_STATE_SCHEMA,
+        schema_version: TRANSPORT_RETRY_STATE_SCHEMA_V2,
         chat_key: chatKey,
         phase,
-        post_dispatched: phase !== 'eligible',
+        post_dispatched: postDispatched,
+        retry_actions_dispatched: retryActionsDispatched,
         receipt: structuredClone(receipt),
         completion_identity: completionIdentityValue,
     });
+}
+
+function transportRetryActionAvailable(state = transportRetryState) {
+    return Boolean(
+        state
+        && state.phase === 'eligible'
+        && state.post_dispatched === false
+        && Number.isSafeInteger(state.retry_actions_dispatched)
+        && state.retry_actions_dispatched < MAXIMUM_TRANSPORT_RETRY_ACTIONS,
+    );
+}
+
+function observedRetryActionCount(state) {
+    if (!Number.isSafeInteger(state?.retry_actions_dispatched)) return null;
+    return Math.min(
+        MAXIMUM_TRANSPORT_RETRY_ACTIONS,
+        state.retry_actions_dispatched + (state.post_dispatched ? 0 : 1),
+    );
 }
 
 function readTransportRetryEntries() {
@@ -486,12 +514,19 @@ function readTransportRetryEntries() {
             || typeof value !== 'object'
             || Array.isArray(value)
             || Object.keys(value).sort().join(',') !== 'entries,schema_version'
-            || value.schema_version !== TRANSPORT_RETRY_STORE_SCHEMA
+            || ![
+                TRANSPORT_RETRY_STORE_SCHEMA_V1,
+                TRANSPORT_RETRY_STORE_SCHEMA_V2,
+            ].includes(value.schema_version)
             || !Array.isArray(value.entries)
         ) return [];
-        return value.entries
+        const entries = value.entries
             .map(normalizePersistedTransportRetryState)
             .filter(Boolean);
+        if (value.schema_version === TRANSPORT_RETRY_STORE_SCHEMA_V1) {
+            writeTransportRetryEntries(entries);
+        }
+        return entries;
     } catch {
         return [];
     }
@@ -503,7 +538,7 @@ function writeTransportRetryEntries(entries) {
             .map(normalizePersistedTransportRetryState)
             .filter(Boolean);
         localStorage.setItem(TRANSPORT_RETRY_STORAGE_KEY, JSON.stringify({
-            schema_version: TRANSPORT_RETRY_STORE_SCHEMA,
+            schema_version: TRANSPORT_RETRY_STORE_SCHEMA_V2,
             entries: normalized,
         }));
         return true;
@@ -561,7 +596,7 @@ function restoreTransportRetryForCurrentChat({ reconcile = false } = {}) {
     }
     deactivateSendButtons();
     renderTransportRetryControl();
-    if (reconcile && transportRetryState.phase !== 'eligible') {
+    if (reconcile && !transportRetryActionAvailable(transportRetryState)) {
         void reconcileTransportRetry();
     }
 }
@@ -589,6 +624,8 @@ function renderTransportRetryControl({
         ? 'CERA TRANSPORT RETRY IN PROGRESS'
         : phase === 'unknown'
             ? 'CERA TRANSPORT RETRY RESULT UNKNOWN'
+        : phase === 'limit_reached_unconfirmed'
+            ? 'CERA TRANSPORT RETRY LIMIT REACHED'
         : phase === 'terminal'
             ? 'CERA TRANSPORT RETRY STOPPED'
             : 'CERA TRANSPORT RETRY AVAILABLE';
@@ -602,6 +639,10 @@ function renderTransportRetryControl({
                 ? 'The terminal completion was identified. CERA is waiting for the chat save to finish before clearing the receipt.'
                 : phase === 'unknown'
                     ? 'The browser could not prove the POST result. Only a read-only status check is available; no second dispatch will occur.'
+                    : phase === 'limit_reached_unconfirmed'
+                        ? 'Two Retry actions were dispatched. No further provider request is allowed; only authoritative read-only status can establish the terminal provider-stage failure.'
+                    : !transportRetryActionAvailable(transportRetryState)
+                        ? 'This legacy receipt has no trustworthy local Retry count. Only a read-only status check is available.'
                     : 'The original zero-effect transport failure remains recorded. One manual Retry is available.'
     );
     panel.append(heading, status);
@@ -615,9 +656,15 @@ function renderTransportRetryControl({
     ) {
         const actions = document.createElement('div');
         actions.className = 'cera-review-actions';
-        if (phase === 'eligible') {
+        if (phase === 'eligible' && transportRetryActionAvailable(transportRetryState)) {
             actions.append(actionButton('Retry transport', false, () => retryTransport()));
-        } else if (['in_progress', 'unknown', 'completion_received'].includes(phase)) {
+        } else if ([
+            'eligible',
+            'in_progress',
+            'unknown',
+            'completion_received',
+            'limit_reached_unconfirmed',
+        ].includes(phase)) {
             actions.append(actionButton(
                 'Check retry status',
                 false,
@@ -634,13 +681,12 @@ async function retryTransport() {
         transportRetryInFlight
         || providerStageFailureState?.chat_key === currentTransportRetryChatKey()
         || !transportRetryState
-        || transportRetryState.phase !== 'eligible'
-        || transportRetryState.post_dispatched
+        || !transportRetryActionAvailable(transportRetryState)
         || !transportRetryContextIsCurrent()
     ) {
         renderTransportRetryControl({
-            phase: 'terminal',
-            detail: 'The original chat context is no longer active, so this retry was not sent.',
+            phase: transportRetryState?.phase ?? 'terminal',
+            detail: 'This chat has no proven local Retry budget for another provider action, so nothing was sent.',
             allowAction: false,
         });
         return;
@@ -649,10 +695,13 @@ async function retryTransport() {
     deactivateSendButtons();
     const attempted = structuredClone(transportRetryState.receipt);
     const attemptedChatKey = transportRetryState.chat_key;
+    const retryActionsDispatched = transportRetryState.retry_actions_dispatched + 1;
     const dispatchedState = makeTransportRetryState(
         attemptedChatKey,
         attempted,
         'in_progress',
+        null,
+        { postDispatched: true, retryActionsDispatched },
     );
     if (!dispatchedState || !persistTransportRetryState(dispatchedState)) {
         transportRetryInFlight = false;
@@ -669,7 +718,12 @@ async function retryTransport() {
             method: 'POST',
             body: {},
         });
-        await appendTransportRetryCompletion(result, attempted, attemptedChatKey);
+        await appendTransportRetryCompletion(
+            result,
+            attempted,
+            attemptedChatKey,
+            retryActionsDispatched,
+        );
     } catch (error) {
         const exhausted = normalizeProviderStageRetryExhaustedError(error?.payload);
         if (
@@ -679,23 +733,39 @@ async function retryTransport() {
         ) return;
         const nextFailure = normalizeTransportRetryFailure(error?.payload);
         const nextReceipt = transportRetryReceipt(nextFailure);
-        if (nextReceipt && transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
+        const successor = Boolean(
+            nextReceipt
+            && nextReceipt.request_id === attempted.request_id
+            && nextReceipt.retry_id !== attempted.retry_id,
+        );
+        if (successor && transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
+            const limitReached = retryActionsDispatched >= MAXIMUM_TRANSPORT_RETRY_ACTIONS;
             const nextState = makeTransportRetryState(
                 attemptedChatKey,
-                nextReceipt,
-                'eligible',
+                limitReached ? attempted : nextReceipt,
+                limitReached ? 'limit_reached_unconfirmed' : 'eligible',
+                null,
+                {
+                    postDispatched: limitReached,
+                    retryActionsDispatched,
+                },
             );
             if (nextState) persistTransportRetryState(nextState);
             renderTransportRetryControl({
-                detail: 'The retry also ended in a proven zero-effect transport failure. A new manual retry is available.',
+                detail: limitReached
+                    ? 'The second Retry ended in another zero-effect failure, but CERA did not provide authoritative terminal stage evidence. No further POST is allowed; status checks are read-only.'
+                    : 'The retry also ended in a proven zero-effect transport failure. One final manual Retry is available.',
             });
         } else if (transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
             const current = transportRetryState;
             if (current.phase !== 'completion_received') {
+                const limitReached = retryActionsDispatched >= MAXIMUM_TRANSPORT_RETRY_ACTIONS;
                 const unknownState = makeTransportRetryState(
                     current.chat_key,
                     attempted,
-                    'unknown',
+                    limitReached ? 'limit_reached_unconfirmed' : 'unknown',
+                    null,
+                    { postDispatched: true, retryActionsDispatched },
                 );
                 if (unknownState) persistTransportRetryState(unknownState);
             }
@@ -724,6 +794,7 @@ async function reconcileTransportRetry() {
     ) return;
     transportRetryStatusInFlight = true;
     deactivateSendButtons();
+    const attemptedState = structuredClone(transportRetryState);
     const attempted = structuredClone(transportRetryState.receipt);
     const attemptedChatKey = transportRetryState.chat_key;
     renderTransportRetryControl({
@@ -757,14 +828,22 @@ async function reconcileTransportRetry() {
                 );
             }
         } else if (status.state === 'eligible') {
-            const receipt = transportRetryReceipt({
-                request_id: status.request_id,
-                ...status.transport_retry,
-            });
+            const limitReached = attemptedState.retry_actions_dispatched
+                === MAXIMUM_TRANSPORT_RETRY_ACTIONS;
+            const phase = limitReached
+                ? 'limit_reached_unconfirmed'
+                : attemptedState.post_dispatched
+                    ? 'unknown'
+                    : 'eligible';
             const nextState = makeTransportRetryState(
                 attemptedChatKey,
-                receipt,
-                'eligible',
+                attempted,
+                phase,
+                null,
+                {
+                    postDispatched: attemptedState.post_dispatched,
+                    retryActionsDispatched: attemptedState.retry_actions_dispatched,
+                },
             );
             if (!nextState || !persistTransportRetryState(nextState)) {
                 throw new CeraReviewRequestError(
@@ -773,10 +852,13 @@ async function reconcileTransportRetry() {
                 );
             }
         } else if (status.state === 'in_progress') {
+            const retryActionsDispatched = observedRetryActionCount(attemptedState);
             const nextState = makeTransportRetryState(
                 attemptedChatKey,
                 attempted,
                 'in_progress',
+                null,
+                { postDispatched: true, retryActionsDispatched },
             );
             if (nextState) persistTransportRetryState(nextState);
         } else if (status.state === 'succeeded') {
@@ -784,16 +866,24 @@ async function reconcileTransportRetry() {
                 status.completion,
                 attempted,
                 attemptedChatKey,
+                observedRetryActionCount(attemptedState),
             );
         } else if (status.state === 'superseded') {
             const receipt = transportRetryReceipt({
                 request_id: status.request_id,
                 ...status.transport_retry,
             });
+            const retryActionsDispatched = observedRetryActionCount(attemptedState);
+            const limitReached = retryActionsDispatched === MAXIMUM_TRANSPORT_RETRY_ACTIONS;
             const nextState = makeTransportRetryState(
                 attemptedChatKey,
-                receipt,
-                'eligible',
+                limitReached ? attempted : receipt,
+                limitReached ? 'limit_reached_unconfirmed' : 'eligible',
+                null,
+                {
+                    postDispatched: limitReached,
+                    retryActionsDispatched,
+                },
             );
             if (!nextState || !persistTransportRetryState(nextState)) {
                 throw new CeraReviewRequestError(
@@ -825,12 +915,20 @@ async function reconcileTransportRetry() {
             const current = transportRetryState;
             const phase = current.phase === 'completion_received'
                 ? 'completion_received'
-                : 'unknown';
+                : current.retry_actions_dispatched === MAXIMUM_TRANSPORT_RETRY_ACTIONS
+                    ? 'limit_reached_unconfirmed'
+                    : current.post_dispatched
+                        ? 'unknown'
+                        : current.phase;
             const nextState = makeTransportRetryState(
                 current.chat_key,
                 current.receipt,
                 phase,
                 phase === 'completion_received' ? current.completion_identity : null,
+                {
+                    postDispatched: current.post_dispatched,
+                    retryActionsDispatched: current.retry_actions_dispatched,
+                },
             );
             if (nextState) persistTransportRetryState(nextState);
             renderTransportRetryControl({
@@ -845,7 +943,12 @@ async function reconcileTransportRetry() {
     }
 }
 
-async function appendTransportRetryCompletion(result, receipt, chatKey) {
+async function appendTransportRetryCompletion(
+    result,
+    receipt,
+    chatKey,
+    retryActionsDispatched,
+) {
     const storyText = result?.choices?.[0]?.message?.content;
     const completion = normalizeCompletionMetadata(result?.cera);
     if (
@@ -871,6 +974,7 @@ async function appendTransportRetryCompletion(result, receipt, chatKey) {
         receipt,
         'completion_received',
         identity,
+        { postDispatched: true, retryActionsDispatched },
     );
     if (!completionState || !persistTransportRetryState(completionState)) {
         throw new CeraReviewRequestError(

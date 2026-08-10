@@ -697,9 +697,14 @@ test('transport Retry receipt survives reload, blocks sends, and remains isolate
         assert.equal(window.ceraCaptureTransportFailure(failure), true);
         assert.equal(first.scriptModule.testState.deactivateCount, 1);
         const stored = retryStore(first.storage);
-        assert.equal(stored.schema_version, 'cera.sillytavern.transport_retry_store.v1');
+        assert.equal(stored.schema_version, 'cera.sillytavern.transport_retry_store.v2');
         assert.equal(stored.entries.length, 1);
+        assert.equal(
+            stored.entries[0].schema_version,
+            'cera.sillytavern.transport_retry_state.v2',
+        );
         assert.equal(stored.entries[0].phase, 'eligible');
+        assert.equal(stored.entries[0].retry_actions_dispatched, 0);
         assert.equal(JSON.stringify(stored).includes(sentinel), false);
         assert.equal(JSON.stringify(stored).includes('debug.md'), false);
         assert.ok(first.testDocument.querySelector('#cera_transport_retry_panel'));
@@ -722,6 +727,202 @@ test('transport Retry receipt survives reload, blocks sends, and remains isolate
     } finally {
         await rm(first.root, { recursive: true, force: true });
         if (second) await rm(second.root, { recursive: true, force: true });
+    }
+});
+
+test('legacy v1 retry state migrates fail-closed and permits GET only', async () => {
+    const failure = eligibleTransportFailure();
+    const receipt = {
+        request_id: failure.error.request_id,
+        ...failure.error.transport_retry,
+    };
+    const legacyState = {
+        schema_version: 'cera.sillytavern.transport_retry_state.v1',
+        chat_key: JSON.stringify(['0', 'test-chat']),
+        phase: 'eligible',
+        post_dispatched: false,
+        receipt,
+        completion_identity: null,
+    };
+    const initialStorage = {
+        cera_transport_retry_receipts_v1: JSON.stringify({
+            schema_version: 'cera.sillytavern.transport_retry_store.v1',
+            entries: [legacyState],
+        }),
+    };
+    const methods = [];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        initialStorage,
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return jsonResponse(transportRetryStatus(failure, 'eligible', {
+                transport_retry: failure.error.transport_retry,
+            }));
+        },
+    });
+    try {
+        await loaded.scriptModule.eventSource.emit(loaded.scriptModule.event_types.APP_READY);
+        for (
+            let attempt = 0;
+            attempt < 20 && !buttonByText(loaded.testDocument, 'Check retry status');
+            attempt += 1
+        ) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        const stored = retryStore(loaded.storage);
+        assert.equal(stored.schema_version, 'cera.sillytavern.transport_retry_store.v2');
+        assert.equal(stored.entries[0].schema_version, 'cera.sillytavern.transport_retry_state.v2');
+        assert.equal(stored.entries[0].retry_actions_dispatched, null);
+        assert.deepEqual(methods, ['GET']);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.ok(buttonByText(loaded.testDocument, 'Check retry status'));
+
+        const actions = await import(
+            `${pathToFileURL(path.join(
+                loaded.root,
+                'public/scripts/extensions/third-party/cera-creator-review/review-actions.js',
+            )).href}?v=${Date.now()}`
+        );
+        const validV2 = {
+            ...legacyState,
+            schema_version: 'cera.sillytavern.transport_retry_state.v2',
+            retry_actions_dispatched: 0,
+        };
+        assert.equal(actions.normalizePersistedTransportRetryState(validV2)
+            .retry_actions_dispatched, 0);
+        for (const retryActionsDispatched of [-1, 3, 0.5, '2']) {
+            assert.equal(actions.normalizePersistedTransportRetryState({
+                ...validV2,
+                retry_actions_dispatched: retryActionsDispatched,
+            }), null);
+        }
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('two v1 successors consume the local budget and cannot expose a fourth attempt', async () => {
+    const firstFailure = eligibleTransportFailure();
+    const secondFailure = eligibleTransportFailure({
+        retryCharacter: 'd',
+        requestCharacter: 'a',
+        proofCharacter: 'e',
+    });
+    const forbiddenThirdFailure = eligibleTransportFailure({
+        retryCharacter: 'f',
+        requestCharacter: 'a',
+        proofCharacter: '1',
+    });
+    const methods = [];
+    const responses = [
+        jsonResponse(secondFailure, 500),
+        jsonResponse(forbiddenThirdFailure, 500),
+    ];
+    const originalFetch = globalThis.fetch;
+    const first = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return responses.shift();
+        },
+    });
+    let second = null;
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(firstFailure), true);
+        await buttonByText(first.testDocument, 'Retry transport').click();
+        let state = retryStore(first.storage).entries[0];
+        assert.equal(state.receipt.retry_id, secondFailure.error.transport_retry.retry_id);
+        assert.equal(state.retry_actions_dispatched, 1);
+        const secondButton = buttonByText(first.testDocument, 'Retry transport');
+        assert.ok(secondButton);
+        await secondButton.click();
+
+        state = retryStore(first.storage).entries[0];
+        assert.equal(state.phase, 'limit_reached_unconfirmed');
+        assert.equal(state.retry_actions_dispatched, 2);
+        assert.equal(state.receipt.retry_id, secondFailure.error.transport_retry.retry_id);
+        assert.deepEqual(methods, ['POST', 'POST']);
+        assert.equal(buttonByText(first.testDocument, 'Retry transport'), null);
+        assert.ok(buttonByText(first.testDocument, 'Check retry status'));
+        assert.equal(providerFailureStore(first.storage).entries?.length ?? 0, 0);
+
+        await secondButton.click();
+        assert.deepEqual(methods, ['POST', 'POST']);
+
+        const successorStatus = transportRetryStatus(secondFailure, 'superseded', {
+            superseded_by_retry_id: forbiddenThirdFailure.error.transport_retry.retry_id,
+            transport_retry: forbiddenThirdFailure.error.transport_retry,
+        });
+        second = await loadExtension({
+            initialStorage: Object.fromEntries(first.storage),
+            fetchImpl: async (url, options) => {
+                methods.push(options.method);
+                return jsonResponse(successorStatus);
+            },
+        });
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.APP_READY);
+        for (
+            let attempt = 0;
+            attempt < 20 && !buttonByText(second.testDocument, 'Check retry status');
+            attempt += 1
+        ) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        state = retryStore(second.storage).entries[0];
+        assert.deepEqual(methods, ['POST', 'POST', 'GET']);
+        assert.equal(state.phase, 'limit_reached_unconfirmed');
+        assert.equal(state.retry_actions_dispatched, 2);
+        assert.equal(state.receipt.retry_id, secondFailure.error.transport_retry.retry_id);
+        assert.equal(buttonByText(second.testDocument, 'Retry transport'), null);
+        assert.ok(buttonByText(second.testDocument, 'Check retry status'));
+        assert.equal(providerFailureStore(second.storage).entries?.length ?? 0, 0);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(first.root, { recursive: true, force: true });
+        if (second) await rm(second.root, { recursive: true, force: true });
+    }
+});
+
+test('authoritative terminal evidence after the second Retry creates the critical state', async () => {
+    const firstFailure = eligibleTransportFailure();
+    const secondFailure = eligibleTransportFailure({
+        retryCharacter: 'd',
+        requestCharacter: 'a',
+        proofCharacter: 'e',
+    });
+    const critical = criticalProviderStageFailure({
+        stage: 'planner',
+        failureClass: 'provider_unavailable',
+    });
+    const methods = [];
+    const responses = [
+        jsonResponse(secondFailure, 500),
+        jsonResponse(exhaustedError(critical), 503),
+    ];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return responses.shift();
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(firstFailure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.equal(retryStore(loaded.storage).entries[0].retry_actions_dispatched, 1);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(methods, ['POST', 'POST']);
+        assert.equal(retryStore(loaded.storage).entries.length, 0);
+        assert.equal(providerFailureStore(loaded.storage).entries.length, 1);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.match(
+            elementText(loaded.testDocument.querySelector('#cera_provider_stage_failure_panel')),
+            /Codex Planner failed after three attempts/,
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
     }
 });
 
