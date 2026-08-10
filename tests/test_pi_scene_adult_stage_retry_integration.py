@@ -222,6 +222,12 @@ class _UnusedRegistration:
 
 class AdultStageRetryIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.provider_dispatch_guard = patch(
+            "cera.adult_pipeline.pi_roles.assert_provider_dispatch_allowed",
+            autospec=True,
+        )
+        self.provider_dispatch_guard.start()
+        self.addCleanup(self.provider_dispatch_guard.stop)
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.database_path = self.root / "authority.sqlite3"
