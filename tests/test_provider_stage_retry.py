@@ -22,6 +22,7 @@ from cera.pi_scene.provider_stage_retry import (
     ProviderStageFailureClass,
     ProviderStageProtectedCheckpointV1,
     ProviderStageRecoveryAction,
+    ProviderStageRecoveryRequiredV1,
     ProviderStageRetryBlockedV1,
     ProviderStageRetryChainV1,
     ProviderStageRetryExhaustedV1,
@@ -108,6 +109,15 @@ class ProviderStageRetryContractTests(unittest.TestCase):
                 "provider_completion_incomplete",
                 "provider_output_invalid",
                 "dispatch_ambiguous",
+                "authentication_failed",
+                "invalid_request",
+                "context_size_exceeded",
+                "unsupported_parameter",
+                "output_limit_truncated",
+                "custody_failed",
+                "configuration_failed",
+                "budget_exhausted",
+                "provider_failure_not_retryable",
             ),
         )
         for stage in ProviderStage:
@@ -314,7 +324,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(StateConflictError, "input changed"):
             controller.begin(drift, changed_input)
         blocked = controller.status(first.chain_id)
-        self.assertEqual(blocked.phase, ProviderStageRetryPhase.BLOCKED_AMBIGUOUS)
+        self.assertEqual(blocked.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
         self.assertIs(blocked.block_reason, ProviderStageBlockReason.INPUT_CHANGED)
         self.assertEqual(blocked.attempts_total, 0)
 
@@ -852,9 +862,9 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
             reason=ProviderStageBlockReason.OWNER_RETIREMENT_UNPROVEN,
             evidence_sha256=_sha("retirement-unproven"),
         )
-        self.assertEqual(blocked.phase, ProviderStageRetryPhase.BLOCKED_AMBIGUOUS)
+        self.assertEqual(blocked.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
         terminal = controller.terminal(chain_id)
-        self.assertIsInstance(terminal, ProviderStageRetryBlockedV1)
+        self.assertIsInstance(terminal, ProviderStageRecoveryRequiredV1)
         self.assertNotIsInstance(terminal, ProviderStageRetryExhaustedV1)
 
     def test_dispatch_ambiguity_never_opens_retry_runway(self) -> None:
@@ -976,7 +986,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
             reason=ProviderStageBlockReason.OWNER_RETIREMENT_UNPROVEN,
             evidence_sha256=_sha("block:evidence"),
         )
-        self.assertEqual(blocked.phase, ProviderStageRetryPhase.BLOCKED_AMBIGUOUS)
+        self.assertEqual(blocked.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
         replay = controller.block_ambiguous(
             chain_id,
             reason=ProviderStageBlockReason.OWNER_RETIREMENT_UNPROVEN,
@@ -984,17 +994,17 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
         )
         self.assertEqual(replay, blocked)
         terminal = self._controller().terminal(chain_id)
-        self.assertIsInstance(terminal, ProviderStageRetryBlockedV1)
-        assert isinstance(terminal, ProviderStageRetryBlockedV1)
+        self.assertIsInstance(terminal, ProviderStageRecoveryRequiredV1)
+        assert isinstance(terminal, ProviderStageRecoveryRequiredV1)
         self.assertEqual(terminal.attempts_total, 1)
         self.assertEqual(terminal.retries_consumed, 0)
         self.assertEqual(terminal.provider_operations_observed_total, 1)
         self.assertEqual(terminal.provider_operations_conservative_total, 1)
         self.assertEqual(
             self._controller().recover(chain_id).action,
-            ProviderStageRecoveryAction.REPORT_BLOCKED_AMBIGUOUS,
+            ProviderStageRecoveryAction.REPORT_RECOVERY_REQUIRED,
         )
-        with self.assertRaisesRegex(ContractValidationError, "enums are not closed"):
+        with self.assertRaises(ContractValidationError):
             replace(
                 terminal,
                 block_reason="owner_retirement_unproven",  # type: ignore[arg-type]

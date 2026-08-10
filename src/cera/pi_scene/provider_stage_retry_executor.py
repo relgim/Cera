@@ -27,6 +27,9 @@ from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256
 
 from .provider_stage_retry import (
     MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
+    NON_RETRYABLE_PROVIDER_STAGE_FAILURES,
+    PRETRANSPORT_PROVIDER_STAGE_FAILURES,
+    RETRYABLE_PROVIDER_STAGE_FAILURES,
     ProviderStage,
     ProviderStageAttemptPhase,
     ProviderStageFailureClass,
@@ -36,17 +39,6 @@ from .provider_stage_retry import (
 from .provider_stage_retry_packets import ProviderStageFrozenPacketV1
 from .provider_stage_retry_port import ProviderStageRetryStorePort
 from .provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
-
-_CLOSED_RETRYABLE_FAILURES = frozenset(
-    {
-        ProviderStageFailureClass.TRANSPORT_TIMEOUT,
-        ProviderStageFailureClass.PROVIDER_UNAVAILABLE,
-        ProviderStageFailureClass.PROVIDER_PROCESS_FAILED,
-        ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE,
-        ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
-        ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
-    }
-)
 
 
 def _require_sha256(value: str, field_name: str) -> None:
@@ -140,7 +132,7 @@ class ProviderStageClosedFailureV1:
     metrics: ProviderStageAttemptMetricsV1
 
     def __post_init__(self) -> None:
-        if self.failure_class not in _CLOSED_RETRYABLE_FAILURES:
+        if self.failure_class not in RETRYABLE_PROVIDER_STAGE_FAILURES:
             raise ContractValidationError("provider-stage failure is not closed and retryable")
         _require_sha256(self.failure_evidence_sha256, "failure evidence")
         if type(self.metrics) is not ProviderStageAttemptMetricsV1:
@@ -162,11 +154,56 @@ class ProviderStagePretransportFailureV1:
     duration_ms: int
 
     def __post_init__(self) -> None:
-        if self.failure_class not in _CLOSED_RETRYABLE_FAILURES:
-            raise ContractValidationError("pretransport failure is not closed and retryable")
+        if self.failure_class not in PRETRANSPORT_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError("failure cannot occur before provider transport")
         _require_sha256(self.failure_evidence_sha256, "pretransport failure evidence")
         _require_sha256(self.ledger_prefix_after_sha256, "pretransport ledger prefix after")
         _require_nonnegative(self.duration_ms, "pretransport duration")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderStagePretransportNonRetryableFailureV1:
+    """Known non-Retry failure before transport; provider accounting is zero."""
+
+    failure_class: ProviderStageFailureClass
+    failure_evidence_sha256: str
+    ledger_prefix_after_sha256: str
+    duration_ms: int
+
+    def __post_init__(self) -> None:
+        if self.failure_class not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError("pretransport failure is not a known non-Retry terminal")
+        _require_sha256(self.failure_evidence_sha256, "pretransport non-Retry evidence")
+        _require_sha256(
+            self.ledger_prefix_after_sha256,
+            "pretransport non-Retry ledger prefix after",
+        )
+        _require_nonnegative(self.duration_ms, "pretransport non-Retry duration")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderStageNonRetryableFailureV1:
+    """Accepted stage attempt with a known terminal non-Retry disposition."""
+
+    failure_class: ProviderStageFailureClass
+    failure_evidence_sha256: str
+    metrics: ProviderStageAttemptMetricsV1
+
+    def __post_init__(self) -> None:
+        if self.failure_class not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError(
+                "provider-stage failure is not a known non-Retry terminal"
+            )
+        _require_sha256(self.failure_evidence_sha256, "non-Retry failure evidence")
+        if type(self.metrics) is not ProviderStageAttemptMetricsV1:
+            raise ContractValidationError("provider-stage non-Retry failure metrics changed")
+        if (
+            self.metrics.provider_operations_conservative
+            != self.metrics.provider_operations_observed
+        ):
+            raise ContractValidationError(
+                "non-Retry failure lacks closed provider-operation accounting"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +224,7 @@ class ProviderStageDispatchAmbiguousV1:
 type ProviderStageAttemptOutcomeV1 = (
     ProviderStageSuccessfulResultV1
     | ProviderStageClosedFailureV1
+    | ProviderStageNonRetryableFailureV1
     | ProviderStageDispatchAmbiguousV1
 )
 
@@ -201,7 +239,9 @@ class PreparedProviderStageDispatchPort(Protocol):
 
 
 type ProviderStagePreparationV1 = (
-    PreparedProviderStageDispatchPort | ProviderStagePretransportFailureV1
+    PreparedProviderStageDispatchPort
+    | ProviderStagePretransportFailureV1
+    | ProviderStagePretransportNonRetryableFailureV1
 )
 
 
@@ -548,7 +588,10 @@ class ProviderStageRetryExecutorV1:
         chain = self._store.read(scope.identity.chain_id)
         if chain.identity != scope.identity:
             raise StateConflictError("provider-stage status scope changed")
-        if chain.attempts_total < 1:
+        if (
+            chain.attempts_total < 1
+            and chain.phase is not ProviderStageRetryPhase.RECOVERY_REQUIRED
+        ):
             raise StateConflictError("provider-stage status is unavailable before attempt one")
         retry_count = self._store.retry_actions_accepted(chain.chain_id)
         state, failure_category, available_action = self._public_state(chain)
@@ -626,6 +669,16 @@ class ProviderStageRetryExecutorV1:
                 duration_ms=preparation.duration_ms,
             )
             return self._retire(failed, owner, preparation.failure_class)
+        if isinstance(preparation, ProviderStagePretransportNonRetryableFailureV1):
+            failed = self._store.mark_pretransport_non_retryable_failed(
+                chain.chain_id,
+                attempt_number=attempt.attempt_number,
+                failure_class=preparation.failure_class,
+                failure_evidence_sha256=preparation.failure_evidence_sha256,
+                ledger_prefix_after_sha256=preparation.ledger_prefix_after_sha256,
+                duration_ms=preparation.duration_ms,
+            )
+            return self._retire(failed, owner, preparation.failure_class)
 
         dispatch_evidence = preparation.dispatch_evidence_sha256
         _require_sha256(dispatch_evidence, "dispatch evidence")
@@ -658,6 +711,8 @@ class ProviderStageRetryExecutorV1:
         outcome = preparation.invoke()
         if isinstance(outcome, ProviderStageSuccessfulResultV1):
             return self._freeze_result(chain.chain_id, attempt.attempt_number, outcome)
+        if isinstance(outcome, ProviderStageNonRetryableFailureV1):
+            return self._close_non_retryable_failure(dispatched, owner, outcome)
         if isinstance(outcome, (ProviderStageClosedFailureV1, ProviderStageDispatchAmbiguousV1)):
             return self._close_failure(dispatched, owner, outcome)
         raise ContractValidationError("provider-stage adapter returned an unknown disposition")
@@ -690,6 +745,30 @@ class ProviderStageRetryExecutorV1:
             reasoning_tokens=metrics.reasoning_tokens,
         )
         return self._retire(failed, owner, failure_class)
+
+    def _close_non_retryable_failure(
+        self,
+        chain: ProviderStageRetryChainV1,
+        owner: ProviderStageAttemptOwnerPort,
+        outcome: ProviderStageNonRetryableFailureV1,
+    ) -> ProviderStageRetryChainV1:
+        attempt_number = chain.attempts[-1].attempt_number
+        metrics = outcome.metrics
+        failed = self._store.mark_non_retryable_failed(
+            chain.chain_id,
+            attempt_number=attempt_number,
+            failure_class=outcome.failure_class,
+            failure_evidence_sha256=outcome.failure_evidence_sha256,
+            ledger_prefix_after_sha256=metrics.ledger_prefix_after_sha256,
+            provider_operations_observed=metrics.provider_operations_observed,
+            provider_operations_conservative=metrics.provider_operations_conservative,
+            duration_ms=metrics.duration_ms,
+            input_tokens=metrics.input_tokens,
+            cached_input_tokens=metrics.cached_input_tokens,
+            output_tokens=metrics.output_tokens,
+            reasoning_tokens=metrics.reasoning_tokens,
+        )
+        return self._retire(failed, owner, outcome.failure_class)
 
     def _retire(
         self,
@@ -817,7 +896,7 @@ class ProviderStageRetryExecutorV1:
     ) -> tuple[str, str | None, str | None]:
         if chain.phase is ProviderStageRetryPhase.OWNER_RETIRED:
             failure = chain.attempts[-1].failure_class
-            if failure not in _CLOSED_RETRYABLE_FAILURES:
+            if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
                 raise StateConflictError("eligible provider-stage failure is not closed")
             return "eligible", failure.value, "provider_retry"
         if chain.phase in {
@@ -838,14 +917,23 @@ class ProviderStageRetryExecutorV1:
             return "blocked_ambiguous", "dispatch_ambiguous", "check_status"
         if chain.phase is ProviderStageRetryPhase.EXHAUSTED:
             failure = chain.attempts[-1].failure_class
-            if failure not in _CLOSED_RETRYABLE_FAILURES:
+            if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
                 raise StateConflictError("exhausted provider-stage failure is not closed")
             return "attempts_exhausted", failure.value, "explicit_recovery"
         if chain.phase is ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED:
             failure = chain.attempts[-1].failure_class
-            if failure not in _CLOSED_RETRYABLE_FAILURES:
+            if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
                 raise StateConflictError("Recorder repair failure is not closed")
             return "recording_repair_required", failure.value, "repair_recording"
+        if chain.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
+            if chain.block_reason is not None:
+                failure_category = chain.block_reason.value
+            else:
+                failure = chain.attempts[-1].failure_class
+                if failure not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+                    raise StateConflictError("provider-stage recovery reason is not closed")
+                failure_category = failure.value
+            return "recovery_required", failure_category, "explicit_recovery"
         raise StateConflictError("provider-stage public status is unavailable")
 
 
@@ -857,7 +945,9 @@ __all__ = [
     "ProviderStageAttemptOwnerPort",
     "ProviderStageClosedFailureV1",
     "ProviderStageDispatchAmbiguousV1",
+    "ProviderStageNonRetryableFailureV1",
     "ProviderStagePretransportFailureV1",
+    "ProviderStagePretransportNonRetryableFailureV1",
     "ProviderStagePreparationV1",
     "ProviderStageRetryExecutorV1",
     "ProviderStageSemanticDisposition",

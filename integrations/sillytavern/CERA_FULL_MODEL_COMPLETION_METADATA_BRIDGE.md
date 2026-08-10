@@ -71,10 +71,14 @@ POST /v1/cera/provider-stage-retries/:chainId/actions/:actionId
 `blocked_ambiguous` carries only `check_status`, and the UI performs the GET;
 it never posts that action. `recording_repair_required` carries only
 `repair_recording`, but the UI routes it through the existing review decision
-authority instead of the provider-stage POST. Regenerate and Replan remain
-separate review actions and cannot validate as provider-stage actions. The
-legacy `transport_retry` contract below is a Planner compatibility adapter,
-not the generic source of counters or identity.
+authority instead of the provider-stage POST. The immutable repair envelope is
+cleared only when that separate authority returns `recording_status=complete`;
+the UI does not fabricate completion through a generic GET. A known non-Retry
+terminal carries only `recovery_required` plus `explicit_recovery`; it never
+offers or redispatches provider Retry. Regenerate and Replan remain separate
+review actions and cannot validate as provider-stage actions. The legacy
+`transport_retry` contract below is a Planner compatibility adapter, not the
+generic source of counters or identity.
 
 `Retry transport` is exposed only when the closed error projection has
 `retry_transport_enabled === true`, `retry_mode === "manual_transport"`, a
@@ -149,16 +153,18 @@ fields, invalid provider/model/stage combinations, and mismatched story-state
 flags. It strips the outer message, trace, request-local diagnostics, details,
 debug path, and any provider/story prose before browser delivery.
 
-The legacy exhausted projection has no successor or Retry button. The generic
-status exposes only an explicit-recovery identity, never provider Retry. The extension
-stores its hash/count-only projection per SillyTavern chat, restores a red
-critical panel after reload, and keeps normal sending disabled only for that
-chat/branch. Switching to an unrelated chat does not leak or discard the
-failure. Recorder exhaustion is the sole post-Accept case: the accepted
-assistant message receives the same safe marker and explicitly remains
-accepted while derived recording is incomplete and presents the separate
-recording-repair action. The other five stages are pre-Accept and require
-`story_state_committed=false`.
+The legacy exhausted projection has no successor or Retry button. Generic
+`attempts_exhausted` and known non-Retry `recovery_required` expose only an
+explicit-recovery identity, never provider Retry. The extension stores their
+hash/count-only projection per SillyTavern chat, restores a red critical panel
+after reload, and keeps normal sending disabled only for that chat/branch.
+Switching to an unrelated chat does not leak or discard the failure. Retryable
+Recorder exhaustion is the sole `recording_repair_required` post-Accept case:
+the accepted assistant message receives the same safe marker and explicitly
+remains accepted while derived recording is incomplete and presents the
+separate recording-repair action. A known non-Retry Recorder terminal instead
+preserves the accepted story while entering `recovery_required`. The other
+five stages are pre-Accept and require `story_state_committed=false`.
 
 The relay applies the same closed projection to an error returned by the retry
 itself. A normal OpenAI-compatible completion passes through unchanged. An

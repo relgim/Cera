@@ -1021,7 +1021,8 @@ CREATE TABLE provider_stage_retry_chains (
         'input_frozen', 'attempt_prepared', 'dispatch_started',
         'awaiting_owner_retirement', 'owner_retired', 'result_frozen',
         'downstream_intent_frozen', 'downstream_bound', 'succeeded',
-        'exhausted', 'blocked_ambiguous', 'recording_repair_required'
+        'exhausted', 'blocked_ambiguous', 'recording_repair_required',
+        'recovery_required'
     )),
     input_checkpoint_sha256 TEXT NOT NULL,
     result_checkpoint_sha256 TEXT,
@@ -1045,8 +1046,12 @@ CREATE TABLE provider_stage_retry_chains (
     CHECK ((stage = 'recorder') = story_state_committed),
     CHECK ((block_reason IS NULL) = (block_evidence_sha256 IS NULL)),
     CHECK (
-        (phase = 'blocked_ambiguous' AND block_reason IS NOT NULL) OR
-        (phase != 'blocked_ambiguous' AND block_reason IS NULL)
+        (phase = 'blocked_ambiguous'
+            AND block_reason = 'dispatch_custody_ambiguous') OR
+        (phase = 'recovery_required'
+            AND (block_reason IS NULL OR block_reason != 'dispatch_custody_ambiguous')) OR
+        (phase NOT IN ('blocked_ambiguous', 'recovery_required')
+            AND block_reason IS NULL)
     )
 );
 
@@ -1061,6 +1066,13 @@ CREATE TABLE provider_stage_retry_actions (
     created_at TEXT NOT NULL,
     UNIQUE(chain_id, resulting_attempt_number),
     CHECK (resulting_attempt_number = prior_attempt_number + 1)
+);
+
+CREATE TABLE provider_stage_retry_occurrence_scopes (
+    chain_id TEXT PRIMARY KEY REFERENCES provider_stage_retry_chains(chain_id),
+    scope_json TEXT NOT NULL,
+    scope_sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE provider_stage_retry_checkpoints (
@@ -1113,7 +1125,11 @@ CREATE TABLE provider_stage_retry_attempts (
     failure_class TEXT CHECK (failure_class IS NULL OR failure_class IN (
         'transport_timeout', 'provider_unavailable', 'provider_process_failed',
         'provider_stream_incomplete', 'provider_completion_incomplete',
-        'provider_output_invalid', 'dispatch_ambiguous'
+        'provider_output_invalid', 'dispatch_ambiguous',
+        'authentication_failed', 'invalid_request', 'context_size_exceeded',
+        'unsupported_parameter', 'output_limit_truncated', 'custody_failed',
+        'configuration_failed', 'budget_exhausted',
+        'provider_failure_not_retryable'
     )),
     failure_evidence_sha256 TEXT,
     owner_retirement_evidence_sha256 TEXT,
@@ -1161,12 +1177,21 @@ BEGIN SELECT RAISE(ABORT, 'provider-stage Retry chain identity is immutable'); E
 
 CREATE TRIGGER provider_stage_retry_chain_terminal_immutable
 BEFORE UPDATE ON provider_stage_retry_chains
-WHEN OLD.phase IN ('succeeded', 'exhausted', 'recording_repair_required')
+WHEN OLD.phase IN (
+    'succeeded', 'exhausted', 'recording_repair_required', 'recovery_required'
+)
 BEGIN SELECT RAISE(ABORT, 'terminal provider-stage Retry chain is immutable'); END;
 
 CREATE TRIGGER provider_stage_retry_chains_no_delete
 BEFORE DELETE ON provider_stage_retry_chains
 BEGIN SELECT RAISE(ABORT, 'provider-stage Retry chains cannot be deleted'); END;
+
+CREATE TRIGGER provider_stage_retry_occurrence_scopes_no_update
+BEFORE UPDATE ON provider_stage_retry_occurrence_scopes
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry occurrence scopes are immutable'); END;
+CREATE TRIGGER provider_stage_retry_occurrence_scopes_no_delete
+BEFORE DELETE ON provider_stage_retry_occurrence_scopes
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry occurrence scopes cannot be deleted'); END;
 
 CREATE TRIGGER provider_stage_retry_actions_no_update
 BEFORE UPDATE ON provider_stage_retry_actions

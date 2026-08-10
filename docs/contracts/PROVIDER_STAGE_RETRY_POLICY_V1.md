@@ -60,11 +60,18 @@ The shared states are:
 - `attempts_exhausted`: three closed, confirmed failures occurred and all
   owners are fenced;
 - `recording_repair_required`: accepted story is preserved but Recorder work
-  is incomplete.
+  is incomplete after the third closed retryable failure;
+- `recovery_required`: a known non-Retry failure or non-dispatch custody
+  conflict stopped this occurrence with its last accepted branch head
+  preserved. Only explicit recovery is allowed.
 
 `blocked_ambiguous` may later become recovered success, confirmed retryable
 failure, confirmed exhaustion, or operator repair required. It never silently
 authorizes another provider call.
+
+`blocked_ambiguous` is reserved for unresolved dispatch custody. Input,
+authority, ledger, owner-retirement, result-checkpoint, and other deterministic
+conflicts enter `recovery_required`, not provider ambiguity.
 
 ## 4. Exhaustion behavior
 
@@ -104,6 +111,15 @@ The following are not provider Retry events:
 - exhausted provider/campaign budget;
 - unresolved dispatch ambiguity.
 
+A known non-Retry failure closes the accepted attempt, records only its closed
+safe reason and hash/accounting evidence, retires the owner, and enters
+`recovery_required` without offering Retry or redispatch. When the provider
+boundary proves only that the failure is not Retry-eligible, the closed generic
+reason `provider_failure_not_retryable` is used instead of guessing a specific
+cause or parsing exception text. Recorder story acceptance remains preserved;
+this state is distinct from third-attempt retryable Recorder exhaustion and its
+`recording_repair_required` workflow.
+
 Interrupted transport truncation is distinct from deterministic output-limit
 truncation. The former may be retryable after closure; the latter requires an
 input/configuration decision.
@@ -122,6 +138,15 @@ The controlling counters are:
 A pre-transport failure consumes its stage attempt and, when applicable, its
 accepted Retry action. It consumes zero provider operations. A submitted or
 possibly submitted operation remains conservatively charged.
+
+Pre-transport Retry classification is limited to typed process/start failure,
+temporary unavailability, or a typed pre-submit connection/start timeout.
+Output, stream, and completion-shape failures cannot be claimed before
+transport. A known non-Retry attempt may close with zero observed and zero
+conservative operations when durable evidence proves no provider operation.
+This includes a deterministic preparation/build failure after the attempt was
+accepted but before transport: the owner is retired and the chain enters
+`recovery_required`; it is never offered as provider Retry.
 
 ## 7. Owner retirement and exactly-once authority
 

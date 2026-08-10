@@ -21,6 +21,7 @@ def _scope(
     stage_ordinal: int = 1,
     accepted_state_sha256: str | None = None,
     exact_input: bytes = b"exact-input-1",
+    authority_binding: object | None = None,
 ) -> ProviderStageRetryOccurrenceScopeV1:
     return ProviderStageRetryOccurrenceScopeV1.create(
         world_id=world_id,
@@ -29,35 +30,58 @@ def _scope(
         generation_id=generation_id,
         stage=stage,
         stage_ordinal=stage_ordinal,
-        accepted_state_sha256=accepted_state_sha256 or text_sha256("accepted-head-1"),
+        accepted_state_sha256=(
+            text_sha256("accepted-head-1")
+            if accepted_state_sha256 is None
+            else accepted_state_sha256
+        ),
         exact_input=exact_input,
-        authority_binding={"branch_state_version": 7, "route": "ordinary"},
+        authority_binding=(
+            {"branch_state_version": 7, "route": "ordinary"}
+            if authority_binding is None
+            else authority_binding
+        ),
     )
 
 
 class ProviderStageRetryOccurrenceScopeTests(unittest.TestCase):
-    def test_occurrence_binds_every_counter_scope_component(self) -> None:
+    def test_occurrence_locator_binds_only_stable_counter_scope(self) -> None:
         baseline = _scope()
-        variants = (
+        new_occurrences = (
             _scope(world_id="world-2"),
             _scope(branch_id="branch-2"),
             _scope(request_id="request-2"),
             _scope(generation_id="generation-2"),
             _scope(stage=ProviderStage.WRITER),
             _scope(stage_ordinal=2),
+        )
+        drifted_bindings = (
             _scope(accepted_state_sha256=text_sha256("accepted-head-2")),
             _scope(exact_input=b"exact-input-2"),
+            _scope(authority_binding={"branch_state_version": 8, "route": "ordinary"}),
         )
 
         self.assertEqual(
             len(
                 {
                     baseline.request_occurrence_sha256,
-                    *(v.request_occurrence_sha256 for v in variants),
+                    *(v.request_occurrence_sha256 for v in new_occurrences),
                 }
             ),
-            9,
+            7,
         )
+        self.assertTrue(
+            all(
+                value.request_occurrence_sha256 == baseline.request_occurrence_sha256
+                for value in drifted_bindings
+            )
+        )
+        self.assertTrue(
+            all(value.identity.chain_id == baseline.identity.chain_id for value in drifted_bindings)
+        )
+        self.assertNotEqual(drifted_bindings[0].authority_sha256, baseline.authority_sha256)
+        self.assertNotEqual(drifted_bindings[1].stage_input_sha256, baseline.stage_input_sha256)
+        self.assertNotEqual(drifted_bindings[2].authority_sha256, baseline.authority_sha256)
         self.assertEqual(baseline.identity.stage_input_sha256, baseline.stage_input_sha256)
         self.assertEqual(
             baseline.identity.request_occurrence_sha256, baseline.request_occurrence_sha256

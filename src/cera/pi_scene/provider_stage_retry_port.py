@@ -76,7 +76,35 @@ class ProviderStageRetryStorePort(Protocol):
         duration_ms: int,
     ) -> ProviderStageRetryChainV1: ...
 
+    def mark_pretransport_non_retryable_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        duration_ms: int,
+    ) -> ProviderStageRetryChainV1: ...
+
     def mark_attempt_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1: ...
+
+    def mark_non_retryable_failed(
         self,
         chain_id: str,
         *,

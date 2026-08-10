@@ -61,6 +61,21 @@
       ],
       "description": "Closed, confirmed failure eligible for stage-local provider Retry. provider_output_invalid is limited to a deterministically malformed received envelope or protocol result whose fresh stochastic output may differ; it excludes authentication, invalid request, context size, unsupported parameters, configured output-limit truncation, semantic rejection, custody, and configuration failures."
     },
+    "non_retryable_failure_category": {
+      "type": "string",
+      "enum": [
+        "authentication_failed",
+        "invalid_request",
+        "context_size_exceeded",
+        "unsupported_parameter",
+        "output_limit_truncated",
+        "custody_failed",
+        "configuration_failed",
+        "budget_exhausted",
+        "provider_failure_not_retryable"
+      ],
+      "description": "Closed terminal reason that never authorizes provider Retry. provider_failure_not_retryable is the truthful fallback when the provider boundary proves only that a failure is not Retry-eligible; specific reasons require separately typed evidence."
+    },
     "block_reason": {
       "type": "string",
       "enum": [

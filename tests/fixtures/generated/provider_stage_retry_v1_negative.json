@@ -2,12 +2,12 @@
   "schema_version": "cera.provider_stage_retry_fixture_set.v1",
   "generated_from_sha256": {
     "action.schema.json": "f8cdcf769ab1e1f17d3034765d23c26cd76cbe916af64d9db1bde15312061bc2",
-    "blocked_ambiguous.schema.json": "af4ce77dfa8178ee051a29364a6fb64a8e421add2a821a20c0a888972d3f2e0e",
-    "common.schema.json": "8bfe1929075e69facaeb2fd5e6ea8e30675d9443cd6e461dbc68b524c641fa60",
+    "blocked_ambiguous.schema.json": "64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9",
+    "common.schema.json": "ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233",
     "compatibility_adapter.schema.json": "8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff",
     "exhausted.schema.json": "53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b",
-    "status.schema.json": "d5dce0fb337bd98f508017c606664ef3f18e5e9a87176a68147641409c3b8e6f",
-    "status_envelope.schema.json": "a767e13fe57a06cc83bef71629406b41f21d4107c72f0496d988e822fb2bd13b"
+    "status.schema.json": "e87887566d0102012767bce43f1102fa52bf3ee4b66fc49473742b11c0dddcb5",
+    "status_envelope.schema.json": "caf257ecbc15cd75647e4de7d6b40711b0b2665fe9a647ef842773f441a30998"
   },
   "expected_valid": false,
   "cases": [
@@ -176,7 +176,7 @@
         "failed_stage_effect_committed": false,
         "provider_operations_observed_total": 0,
         "provider_operations_conservative_total": 1,
-        "block_reason": "owner_retirement_unproven",
+        "block_reason": "dispatch_custody_ambiguous",
         "request_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "stage_input_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         "attempt_chain_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
@@ -246,6 +246,29 @@
         "provider_operations_observed_total": 1,
         "provider_operations_conservative_total": 2,
         "block_reason": "attempts_exhausted",
+        "request_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stage_input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "attempt_chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "terminal_evidence_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "case_id": "blocked_ambiguous.schema.negative.non_dispatch_conflict_is_not_ambiguous",
+      "contract_schema_version": "cera.provider_stage_retry_blocked_ambiguous.v1",
+      "value": {
+        "schema_version": "cera.provider_stage_retry_blocked_ambiguous.v1",
+        "severity": "critical",
+        "provider": "deepseek",
+        "model_family": "deepseek_v4",
+        "stage": "adult_filter",
+        "maximum_attempts": 3,
+        "attempts_total": 2,
+        "retries_consumed": 1,
+        "story_state_committed": false,
+        "failed_stage_effect_committed": false,
+        "provider_operations_observed_total": 1,
+        "provider_operations_conservative_total": 2,
+        "block_reason": "authority_changed",
         "request_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stage_input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "attempt_chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -728,6 +751,68 @@
           "stage_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
           "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      }
+    },
+    {
+      "case_id": "status.schema.negative.non_retryable_failure_cannot_offer_retry",
+      "contract_schema_version": "cera.provider_stage_retry_status.v1",
+      "value": {
+        "schema_version": "cera.provider_stage_retry_status.v1",
+        "chain_id": "stage-retry-1212121212121212121212121212121212121212121212121212121212121212",
+        "provider": "deepseek",
+        "model_family": "deepseek_v4",
+        "stage": "writer",
+        "state": "eligible",
+        "maximum_attempts": 3,
+        "stage_attempts_total": 1,
+        "retry_actions_accepted": 0,
+        "provider_operations_observed_total": 0,
+        "provider_operations_conservative_total": 0,
+        "story_state_committed": false,
+        "branch_preserved_at_last_accepted_head": true,
+        "failure_category": "provider_failure_not_retryable",
+        "available_actions": [
+          "provider_retry"
+        ],
+        "technical_details": {
+          "schema_version": "cera.provider_stage_retry_technical_details.v1",
+          "request_occurrence_sha256": "2323232323232323232323232323232323232323232323232323232323232323",
+          "request_sha256": "3434343434343434343434343434343434343434343434343434343434343434",
+          "stage_input_sha256": "4545454545454545454545454545454545454545454545454545454545454545",
+          "accepted_state_sha256": "5656565656565656565656565656565656565656565656565656565656565656",
+          "chain_sha256": "6767676767676767676767676767676767676767676767676767676767676767"
+        }
+      }
+    },
+    {
+      "case_id": "status.schema.negative.dispatch_ambiguity_is_not_operator_recovery",
+      "contract_schema_version": "cera.provider_stage_retry_status.v1",
+      "value": {
+        "schema_version": "cera.provider_stage_retry_status.v1",
+        "chain_id": "stage-retry-1212121212121212121212121212121212121212121212121212121212121212",
+        "provider": "deepseek",
+        "model_family": "deepseek_v4",
+        "stage": "writer",
+        "state": "recovery_required",
+        "maximum_attempts": 3,
+        "stage_attempts_total": 1,
+        "retry_actions_accepted": 0,
+        "provider_operations_observed_total": 0,
+        "provider_operations_conservative_total": 0,
+        "story_state_committed": false,
+        "branch_preserved_at_last_accepted_head": true,
+        "failure_category": "dispatch_ambiguous",
+        "available_actions": [
+          "explicit_recovery"
+        ],
+        "technical_details": {
+          "schema_version": "cera.provider_stage_retry_technical_details.v1",
+          "request_occurrence_sha256": "2323232323232323232323232323232323232323232323232323232323232323",
+          "request_sha256": "3434343434343434343434343434343434343434343434343434343434343434",
+          "stage_input_sha256": "4545454545454545454545454545454545454545454545454545454545454545",
+          "accepted_state_sha256": "5656565656565656565656565656565656565656565656565656565656565656",
+          "chain_sha256": "6767676767676767676767676767676767676767676767676767676767676767"
         }
       }
     },

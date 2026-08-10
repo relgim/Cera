@@ -198,7 +198,8 @@
 }
 
 .cera-provider-stage-status-blocked_ambiguous,
-.cera-provider-stage-status-attempts_exhausted {
+.cera-provider-stage-status-attempts_exhausted,
+.cera-provider-stage-status-recovery_required {
     border-color: color-mix(in srgb, #ff4d5f 75%, transparent);
     background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 82%, #6b0010 18%);
 }

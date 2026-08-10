@@ -124,7 +124,8 @@ queued or duplicated by that bridge.
 The repository extension and review relay implement the generic provider-stage
 Retry contract for `eligible`, `in_progress`, `succeeded`,
 `blocked_ambiguous`, `attempts_exhausted`, and
-`recording_repair_required`. The same-origin boundary is the closed
+`recording_repair_required`, plus the distinct non-Retry terminal
+`recovery_required`. The same-origin boundary is the closed
 `cera.provider_stage_retry_status_envelope.v1`: it pairs the generated status
 DTO with zero or one generated backend-issued action DTO. The action identity,
 chain identity, expected chain hash, and Retry ordinal must all match before a
@@ -138,6 +139,10 @@ accepted story and shows only the existing separate `Repair Recording` review
 action. It never routes recording repair through provider-stage Retry. A normal
 Retry click posts the exact backend-issued action DTO once; Regenerate and
 Replan retain their separate review DTOs, counters, and buttons.
+`recovery_required` shows only provider-free `Explicit Recovery`; it never
+offers Retry or redispatch. Recording repair clears its immutable terminal
+envelope only after the separate review authority returns recording status
+`complete`; it does not synthesize a generic Retry success.
 
 The fixed relay paths are GET
 `/api/plugins/cera-review/v1/cera/provider-stage-retries/:chainId` and POST

@@ -10,12 +10,12 @@ semantic Regenerate, and Replan remain separate identities and DTO families.
 | Source | Published DTO | SHA-256 |
 |---|---|---|
 | `schemas/provider_stage_retry/v1/action.schema.json` | `cera.provider_stage_retry_action.v1` | `f8cdcf769ab1e1f17d3034765d23c26cd76cbe916af64d9db1bde15312061bc2` |
-| `schemas/provider_stage_retry/v1/blocked_ambiguous.schema.json` | `cera.provider_stage_retry_blocked_ambiguous.v1` | `af4ce77dfa8178ee051a29364a6fb64a8e421add2a821a20c0a888972d3f2e0e` |
-| `schemas/provider_stage_retry/v1/common.schema.json` | `support schema` | `8bfe1929075e69facaeb2fd5e6ea8e30675d9443cd6e461dbc68b524c641fa60` |
+| `schemas/provider_stage_retry/v1/blocked_ambiguous.schema.json` | `cera.provider_stage_retry_blocked_ambiguous.v1` | `64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9` |
+| `schemas/provider_stage_retry/v1/common.schema.json` | `support schema` | `ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233` |
 | `schemas/provider_stage_retry/v1/compatibility_adapter.schema.json` | `cera.provider_stage_retry_compatibility_adapter.v1` | `8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff` |
 | `schemas/provider_stage_retry/v1/exhausted.schema.json` | `cera.provider_stage_retry_exhausted.v1` | `53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b` |
-| `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `d5dce0fb337bd98f508017c606664ef3f18e5e9a87176a68147641409c3b8e6f` |
-| `schemas/provider_stage_retry/v1/status_envelope.schema.json` | `cera.provider_stage_retry_status_envelope.v1` | `a767e13fe57a06cc83bef71629406b41f21d4107c72f0496d988e822fb2bd13b` |
+| `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `e87887566d0102012767bce43f1102fa52bf3ee4b66fc49473742b11c0dddcb5` |
+| `schemas/provider_stage_retry/v1/status_envelope.schema.json` | `cera.provider_stage_retry_status_envelope.v1` | `caf257ecbc15cd75647e4de7d6b40711b0b2665fe9a647ef842773f441a30998` |
 
 ## `cera.provider_stage_retry_action.v1`
 
@@ -54,7 +54,7 @@ Hash-only reconcilable disposition snapshot while provider disposition or custod
 | `failed_stage_effect_committed` | yes | const `false` | The ambiguous owner has no authority to publish a late result. |
 | `provider_operations_observed_total` | yes | range 0..9007199254740991 | Ledger-proven provider operations. |
 | `provider_operations_conservative_total` | yes | range 0..9007199254740991 | Observed operations plus unresolved possible operations. |
-| `block_reason` | yes | block_reason | Provider-free reconciliation reason. |
+| `block_reason` | yes | const `"dispatch_custody_ambiguous"` | Only unresolved dispatch custody is user-visible blocked ambiguity. |
 | `request_sha256` | yes | sha256 | See canonical schema. |
 | `stage_input_sha256` | yes | sha256 | See canonical schema. |
 | `attempt_chain_sha256` | yes | sha256 | See canonical schema. |
@@ -114,7 +114,7 @@ Privacy-safe shared status for exactly one provider-stage occurrence. Semantic R
 | `provider` | yes | provider | See canonical schema. |
 | `model_family` | yes | model_family | See canonical schema. |
 | `stage` | yes | stage | See canonical schema. |
-| `state` | yes | enum `eligible`, `in_progress`, `succeeded`, `blocked_ambiguous`, `attempts_exhausted`, `recording_repair_required` | User-visible state. blocked_ambiguous and attempts_exhausted are distinct. |
+| `state` | yes | enum `eligible`, `in_progress`, `succeeded`, `blocked_ambiguous`, `attempts_exhausted`, `recording_repair_required`, `recovery_required` | User-visible state. blocked_ambiguous, attempts_exhausted, and recovery_required are distinct. |
 | `maximum_attempts` | yes | const `3` | Backend-authoritative ceiling: one initial attempt plus two manual Retry actions. |
 | `stage_attempts_total` | yes | range 0..3 | Accepted executions for this exact branch, generation, stage, and stage occurrence. |
 | `retry_actions_accepted` | yes | range 0..2 | Backend-accepted manual provider Retry actions for this occurrence only. |

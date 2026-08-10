@@ -97,6 +97,9 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         recording_repair_required: [
             'recorder', 3, 2, 3, 3, 'provider_completion_incomplete', 'repair_recording',
         ],
+        recovery_required: [
+            'writer', 1, 0, 0, 0, 'provider_failure_not_retryable', 'explicit_recovery',
+        ],
     }[state];
     const [stage, attempts, retries, observed, conservative, failure, actionKind] = config;
     const chainId = `stage-retry-${chainCharacter.repeat(64)}`;
@@ -273,7 +276,7 @@ test('terminal provider-stage projection is closed across all stages and failure
     ));
 });
 
-test('generated provider-stage envelope projects all six states with exact action authority', () => {
+test('generated provider-stage envelope projects all seven states with exact action authority', () => {
     for (const state of [
         'eligible',
         'in_progress',
@@ -281,6 +284,7 @@ test('generated provider-stage envelope projects all six states with exact actio
         'blocked_ambiguous',
         'attempts_exhausted',
         'recording_repair_required',
+        'recovery_required',
     ]) {
         const envelope = providerStageRetryEnvelope(state);
         assert.deepEqual(projectProviderStageRetryStatusEnvelope(envelope), envelope);

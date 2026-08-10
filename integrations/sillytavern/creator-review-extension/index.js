@@ -613,6 +613,10 @@ function providerStageRetryStatusText(status) {
     if (status.state === 'recording_repair_required') {
         return 'The assistant story remains accepted. Recording needs explicit repair; no provider Retry is available.';
     }
+    if (status.state === 'recovery_required') {
+        const accepted = status.story_state_committed ? ' The assistant story remains accepted.' : '';
+        return `${attempt} ${provider} ${stage} stopped on a known non-Retry failure.${accepted} Explicit recovery is required.`;
+    }
     return 'Three attempts were exhausted for this stage occurrence. The branch remains at its last accepted head; explicit recovery is required.';
 }
 
@@ -630,7 +634,7 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
     const panel = document.createElement('section');
     panel.id = 'cera_provider_stage_retry_panel';
     panel.className = `cera-provider-stage-status cera-provider-stage-status-${status.state}`;
-    panel.role = ['blocked_ambiguous', 'attempts_exhausted'].includes(status.state)
+    panel.role = ['blocked_ambiguous', 'attempts_exhausted', 'recovery_required'].includes(status.state)
         ? 'alert'
         : 'status';
 
@@ -728,6 +732,9 @@ async function submitProviderStageControlAction(action) {
     ) || (
         envelope?.status.state === 'attempts_exhausted'
         && current?.action_kind === 'explicit_recovery'
+    ) || (
+        envelope?.status.state === 'recovery_required'
+        && current?.action_kind === 'explicit_recovery'
     );
     if (
         providerStageRetryInFlight
@@ -760,7 +767,7 @@ async function submitProviderStageControlAction(action) {
         captureProviderStageRetryStatus(next);
     } catch {
         renderProviderStageRetryControl({
-            detail: 'The Retry result is not authoritative yet. No automatic provider redispatch will occur; Check Status is provider-free.',
+            detail: 'The provider-stage action result is not authoritative yet. No automatic provider redispatch will occur; Check Status is provider-free.',
             allowAction: false,
         });
         await reconcileProviderStageRetry();
@@ -814,8 +821,20 @@ async function repairRecordingFromProviderStage() {
         || envelope.actions[0]?.action_kind !== 'repair_recording'
         || !target
     ) return;
-    await decide(target.messageIndex, { review_id: target.reviewId }, 'repair_recording');
-    await reconcileProviderStageRetry();
+    const repaired = await decide(
+        target.messageIndex,
+        { review_id: target.reviewId },
+        'repair_recording',
+    );
+    const authoritativeReview = repaired?.review ?? repaired;
+    if (authoritativeReview?.recording_status === 'complete') {
+        clearProviderStageRetryEnvelope();
+        syncSendButtons();
+        return;
+    }
+    renderProviderStageRetryControl({
+        detail: 'Recording repair is not authoritatively complete. The accepted story remains preserved and no provider Retry is available.',
+    });
 }
 
 function transportRetryContextIsCurrent() {
@@ -1954,10 +1973,13 @@ async function decide(messageId, review, action, feedback = null) {
         updateStoredState(messageId, resolvedReview);
         renderReview(messageId, resolvedReview);
         await saveChatConditional();
+        return result;
     } catch (error) {
-        if (await reconcileDecisionAfterError(messageId, review.review_id)) return;
+        const reconciled = await reconcileDecisionAfterError(messageId, review.review_id);
+        if (reconciled) return reconciled;
         statusText(messageId, `Save failed - candidate remains provisional: ${String(error)}`);
         disablePanel(messageId, false);
+        return null;
     }
 }
 
@@ -1969,7 +1991,9 @@ async function reconcileDecisionAfterError(messageId, reviewId) {
         updateStoredState(messageId, persisted);
         renderReview(messageId, persisted);
         await saveChatConditional();
-        return ['accepted', 'declined', 'rejected'].includes(persisted.state);
+        return ['accepted', 'declined', 'rejected'].includes(persisted.state)
+            ? persisted
+            : null;
     } catch {
         return false;
     }

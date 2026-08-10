@@ -116,6 +116,25 @@ class ProviderStageRetryControllerV1:
             duration_ms=duration_ms,
         )
 
+    def mark_pretransport_non_retryable_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        duration_ms: int,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.mark_pretransport_non_retryable_failed(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            duration_ms=duration_ms,
+        )
+
     def mark_attempt_failed(
         self,
         chain_id: str,
@@ -158,6 +177,37 @@ class ProviderStageRetryControllerV1:
             chain_id,
             attempt_number=attempt_number,
             retirement_evidence_sha256=retirement_evidence_sha256,
+        )
+
+    def mark_non_retryable_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.mark_non_retryable_failed(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
         )
 
     def freeze_result(
@@ -360,6 +410,9 @@ class ProviderStageRetryControllerV1:
         elif chain.phase is ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED:
             action = ProviderStageRecoveryAction.REPORT_RECORDING_REPAIR_REQUIRED
             attempt_number = chain.attempts[-1].attempt_number
+        elif chain.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
+            action = ProviderStageRecoveryAction.REPORT_RECOVERY_REQUIRED
+            attempt_number = None if not chain.attempts else chain.attempts[-1].attempt_number
         else:
             action = ProviderStageRecoveryAction.REPORT_BLOCKED_AMBIGUOUS
             attempt_number = None if not chain.attempts else chain.attempts[-1].attempt_number

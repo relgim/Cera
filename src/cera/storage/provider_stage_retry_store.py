@@ -18,6 +18,9 @@ from typing import Any, Protocol
 from cera.errors import ContractValidationError, StateConflictError, TransactionError
 from cera.pi_scene.provider_stage_retry import (
     MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
+    NON_RETRYABLE_PROVIDER_STAGE_FAILURES,
+    PRETRANSPORT_PROVIDER_STAGE_FAILURES,
+    RETRYABLE_PROVIDER_STAGE_FAILURES,
     ProviderStage,
     ProviderStageAttemptPhase,
     ProviderStageAttemptV1,
@@ -25,6 +28,7 @@ from cera.pi_scene.provider_stage_retry import (
     ProviderStageCheckpointKind,
     ProviderStageFailureClass,
     ProviderStageProtectedCheckpointV1,
+    ProviderStageRecoveryRequiredV1,
     ProviderStageRetryBlockedV1,
     ProviderStageRetryChainV1,
     ProviderStageRetryExhaustedV1,
@@ -366,10 +370,53 @@ class SQLiteProviderStageRetryStore:
         ledger_prefix_after_sha256: str,
         duration_ms: int,
     ) -> ProviderStageRetryChainV1:
-        if type(failure_class) is not ProviderStageFailureClass:
-            raise ContractValidationError("provider-stage failure class is not closed")
-        if failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS:
-            raise ContractValidationError("pretransport failure cannot be dispatch ambiguous")
+        if failure_class not in PRETRANSPORT_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError(
+                "provider-stage failure cannot occur before provider transport"
+            )
+        return self._mark_pretransport_failure(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            duration_ms=duration_ms,
+            event_kind="pretransport_failure_closed",
+        )
+
+    def mark_pretransport_non_retryable_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        duration_ms: int,
+    ) -> ProviderStageRetryChainV1:
+        if failure_class not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError("pretransport failure is not a known non-Retry terminal")
+        return self._mark_pretransport_failure(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            duration_ms=duration_ms,
+            event_kind="pretransport_non_retryable_failure_closed",
+        )
+
+    def _mark_pretransport_failure(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        duration_ms: int,
+        event_kind: str,
+    ) -> ProviderStageRetryChainV1:
         self._require_sha(failure_evidence_sha256, "failure evidence")
         self._require_sha(ledger_prefix_after_sha256, "ledger prefix after")
         with self._transaction() as connection:
@@ -426,7 +473,7 @@ class SQLiteProviderStageRetryStore:
                 connection,
                 row,
                 updated,
-                "pretransport_failure_closed",
+                event_kind,
             )
 
     def mark_attempt_failed(
@@ -445,8 +492,83 @@ class SQLiteProviderStageRetryStore:
         output_tokens: int | None = None,
         reasoning_tokens: int | None = None,
     ) -> ProviderStageRetryChainV1:
-        if type(failure_class) is not ProviderStageFailureClass:
-            raise ContractValidationError("provider-stage failure class is not closed")
+        if failure_class not in RETRYABLE_PROVIDER_STAGE_FAILURES | {
+            ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+        }:
+            raise ContractValidationError("provider-stage failure is not Retry-eligible")
+        return self._mark_submitted_failure(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
+            event_kind="attempt_failure_closed",
+        )
+
+    def mark_non_retryable_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        if failure_class not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError(
+                "provider-stage failure is not a known non-Retry terminal"
+            )
+        if provider_operations_conservative != provider_operations_observed:
+            raise ContractValidationError(
+                "non-Retry failure lacks closed provider-operation accounting"
+            )
+        return self._mark_submitted_failure(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
+            event_kind="non_retryable_failure_closed",
+        )
+
+    def _mark_submitted_failure(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None,
+        cached_input_tokens: int | None,
+        output_tokens: int | None,
+        reasoning_tokens: int | None,
+        event_kind: str,
+    ) -> ProviderStageRetryChainV1:
         self._require_sha(failure_evidence_sha256, "failure evidence")
         self._require_sha(ledger_prefix_after_sha256, "ledger prefix after")
         with self._transaction() as connection:
@@ -499,7 +621,7 @@ class SQLiteProviderStageRetryStore:
                 phase=ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
                 attempts=(*chain.attempts[:-1], failed),
             )
-            return self._write_transition(connection, row, updated, "attempt_failure_closed")
+            return self._write_transition(connection, row, updated, event_kind)
 
     def mark_owner_retired(
         self,
@@ -535,6 +657,10 @@ class SQLiteProviderStageRetryStore:
                         "retirement_evidence_sha256": retirement_evidence_sha256,
                     },
                 )
+            elif current.failure_class in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+                phase = ProviderStageRetryPhase.RECOVERY_REQUIRED
+                block_reason = None
+                block_evidence = None
             elif attempt_number == MAXIMUM_PROVIDER_STAGE_ATTEMPTS:
                 phase = (
                     ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED
@@ -669,7 +795,12 @@ class SQLiteProviderStageRetryStore:
         with self._transaction() as connection:
             row = self._chain_row(connection, chain_id)
             chain = self._chain_from_row(connection, row)
-            if chain.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
+            target_phase = (
+                ProviderStageRetryPhase.BLOCKED_AMBIGUOUS
+                if reason is ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
+                else ProviderStageRetryPhase.RECOVERY_REQUIRED
+            )
+            if chain.phase is target_phase:
                 if chain.block_reason is reason and chain.block_evidence_sha256 == evidence_sha256:
                     return chain
                 raise StateConflictError("provider-stage block evidence changed")
@@ -679,16 +810,27 @@ class SQLiteProviderStageRetryStore:
                 ProviderStageRetryPhase.DOWNSTREAM_BOUND,
                 ProviderStageRetryPhase.SUCCEEDED,
                 ProviderStageRetryPhase.EXHAUSTED,
+                ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
                 ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
+                ProviderStageRetryPhase.RECOVERY_REQUIRED,
             }:
                 raise StateConflictError("provider-stage boundary cannot become an ambiguous block")
             updated = replace(
                 chain,
-                phase=ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
+                phase=target_phase,
                 block_reason=reason,
                 block_evidence_sha256=evidence_sha256,
             )
-            return self._write_transition(connection, row, updated, "blocked_ambiguous")
+            return self._write_transition(
+                connection,
+                row,
+                updated,
+                (
+                    "blocked_ambiguous"
+                    if target_phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS
+                    else "recovery_required"
+                ),
+            )
 
     def resolve_blocked_failure(
         self,
@@ -709,11 +851,8 @@ class SQLiteProviderStageRetryStore:
         self._require_sha(resolution_evidence_sha256, "blocked resolution evidence")
         self._require_sha(failure_evidence_sha256, "failure evidence")
         self._require_sha(ledger_prefix_after_sha256, "ledger prefix after")
-        if (
-            type(failure_class) is not ProviderStageFailureClass
-            or failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
-        ):
-            raise ContractValidationError("blocked failure resolution is not closed")
+        if failure_class not in RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError("blocked failure resolution is not Retry-eligible")
         with self._transaction() as connection:
             row = self._chain_row(connection, chain_id)
             chain = self._require_dispatch_block(self._chain_from_row(connection, row))
@@ -859,6 +998,8 @@ class SQLiteProviderStageRetryStore:
             return self._exhausted_terminal(chain)
         if chain.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
             return self._blocked_terminal(chain)
+        if chain.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
+            return self._recovery_required_terminal(chain)
         return None
 
     def _freeze_result(
@@ -1495,8 +1636,8 @@ class SQLiteProviderStageRetryStore:
         chain: ProviderStageRetryChainV1,
     ) -> ProviderStageRetryExhaustedV1:
         final = chain.attempts[-1]
-        if final.failure_class in {None, ProviderStageFailureClass.DISPATCH_AMBIGUOUS}:
-            raise TransactionError("ambiguous provider-stage chain cannot be exhausted")
+        if final.failure_class not in RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise TransactionError("non-Retry provider-stage chain cannot be exhausted")
         evidence = domain_sha256(
             "cera.provider_stage_retry_exhausted_evidence.v1",
             {
@@ -1551,6 +1692,48 @@ class SQLiteProviderStageRetryStore:
             failed_stage_effect_committed=False,
             provider_operations_observed_total=(chain.provider_operations_observed_total),
             provider_operations_conservative_total=(chain.provider_operations_conservative_total),
+            block_reason=chain.block_reason,
+            request_sha256=chain.identity.request_sha256,
+            stage_input_sha256=chain.identity.stage_input_sha256,
+            attempt_chain_sha256=chain.attempt_chain_sha256,
+            terminal_evidence_sha256=evidence,
+        )
+
+    @staticmethod
+    def _recovery_required_terminal(
+        chain: ProviderStageRetryChainV1,
+    ) -> ProviderStageRecoveryRequiredV1:
+        final_failure = None if not chain.attempts else chain.attempts[-1].failure_class
+        if chain.block_reason is None:
+            if final_failure not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+                raise TransactionError("provider-stage recovery lacks a non-Retry failure")
+        elif chain.block_reason is ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS:
+            raise TransactionError("dispatch ambiguity cannot require operator recovery")
+        evidence = domain_sha256(
+            "cera.provider_stage_retry_recovery_required_evidence.v1",
+            {
+                "chain_sha256": chain.chain_sha256,
+                "attempt_chain_sha256": chain.attempt_chain_sha256,
+                "final_failure_class": (None if final_failure is None else final_failure.value),
+                "block_reason": (None if chain.block_reason is None else chain.block_reason.value),
+            },
+        )
+        return ProviderStageRecoveryRequiredV1(
+            schema_version=ProviderStageRecoveryRequiredV1.SCHEMA_VERSION,
+            severity="critical",
+            provider=chain.identity.provider,
+            model_family=chain.identity.model_family,
+            stage=chain.identity.stage,
+            maximum_attempts=MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
+            attempts_total=chain.attempts_total,
+            retries_consumed=chain.retries_consumed,
+            story_state_committed=chain.identity.story_state_committed,
+            failed_stage_effect_committed=False,
+            provider_operations_observed_total=chain.provider_operations_observed_total,
+            provider_operations_conservative_total=(chain.provider_operations_conservative_total),
+            final_failure_class=(
+                final_failure if final_failure in NON_RETRYABLE_PROVIDER_STAGE_FAILURES else None
+            ),
             block_reason=chain.block_reason,
             request_sha256=chain.identity.request_sha256,
             stage_input_sha256=chain.identity.stage_input_sha256,

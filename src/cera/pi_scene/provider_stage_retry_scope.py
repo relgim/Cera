@@ -84,11 +84,8 @@ def _request_occurrence_sha256(
     branch_id: str,
     request_id: str,
     generation_id: str,
-    request_sha256: str,
     stage: ProviderStage,
     stage_ordinal: int,
-    accepted_state_sha256: str,
-    stage_input_sha256: str,
 ) -> str:
     return domain_sha256(
         "cera.provider_stage_retry_occurrence.v1",
@@ -97,11 +94,8 @@ def _request_occurrence_sha256(
             "branch_id": branch_id,
             "request_id": request_id,
             "generation_id": generation_id,
-            "request_sha256": request_sha256,
             "stage": stage.value,
             "stage_ordinal": stage_ordinal,
-            "accepted_state_sha256": accepted_state_sha256,
-            "stage_input_sha256": stage_input_sha256,
         },
     )
 
@@ -112,7 +106,9 @@ class ProviderStageRetryOccurrenceScopeV1:
 
     Human-readable identifiers remain inside Python authority.  The shared
     retry identity receives only deterministic hashes, while the occurrence
-    hash binds every field that must prevent a chat-lifetime Retry counter.
+    hash is the stable budget locator. Accepted state, input, and authority are
+    immutable bindings inside that locator, so drift conflicts instead of
+    silently creating a fresh attempt budget.
     """
 
     SCHEMA_VERSION: ClassVar[str] = "cera.provider_stage_retry_occurrence_scope.v1"
@@ -175,11 +171,8 @@ class ProviderStageRetryOccurrenceScopeV1:
             branch_id=self.branch_id,
             request_id=self.request_id,
             generation_id=self.generation_id,
-            request_sha256=self.request_sha256,
             stage=self.stage,
             stage_ordinal=self.stage_ordinal,
-            accepted_state_sha256=self.accepted_state_sha256,
-            stage_input_sha256=self.stage_input_sha256,
         )
         if self.request_sha256 != expected_request:
             raise ContractValidationError("provider-stage request identity changed")
@@ -256,11 +249,8 @@ class ProviderStageRetryOccurrenceScopeV1:
                 branch_id=branch_id,
                 request_id=request_id,
                 generation_id=generation_id,
-                request_sha256=request_sha256,
                 stage=stage,
                 stage_ordinal=stage_ordinal,
-                accepted_state_sha256=accepted_state_sha256,
-                stage_input_sha256=stage_input_sha256,
             ),
         )
 

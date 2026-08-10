@@ -85,6 +85,7 @@ class ProviderStageRetrySchemaGenerationTests(unittest.TestCase):
                 "blocked_ambiguous",
                 "attempts_exhausted",
                 "recording_repair_required",
+                "recovery_required",
             },
         )
 
@@ -104,6 +105,20 @@ class ProviderStageRetrySchemaGenerationTests(unittest.TestCase):
         self.assertEqual(repair["stage"], "recorder")
         self.assertIs(repair["story_state_committed"], True)
         self.assertEqual(repair["available_actions"], ["repair_recording"])
+
+        recovery_cases = [value for value in status_cases if value["state"] == "recovery_required"]
+        self.assertEqual(
+            {value["failure_category"] for value in recovery_cases},
+            {"provider_failure_not_retryable", "authority_changed"},
+        )
+        self.assertEqual(
+            {value["stage_attempts_total"] for value in recovery_cases},
+            {0, 1},
+        )
+        for recovery in recovery_cases:
+            self.assertEqual(recovery["available_actions"], ["explicit_recovery"])
+            self.assertEqual(recovery["provider_operations_observed_total"], 0)
+            self.assertEqual(recovery["provider_operations_conservative_total"], 0)
 
     def test_retry_action_is_not_regenerate_or_replan(self) -> None:
         action_cases: list[dict[str, object]] = [

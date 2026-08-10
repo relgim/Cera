@@ -14,8 +14,10 @@ from cera.pi_scene.provider_stage_retry import (
     ProviderFamily,
     ProviderModelFamily,
     ProviderStage,
+    ProviderStageBlockReason,
     ProviderStageFailureClass,
     ProviderStageRecoveryAction,
+    ProviderStageRecoveryRequiredV1,
     ProviderStageRetryIdentityV1,
     ProviderStageRetryPhase,
 )
@@ -25,7 +27,9 @@ from cera.pi_scene.provider_stage_retry_blob import (
 from cera.pi_scene.provider_stage_retry_controller import (
     ProviderStageRetryControllerV1,
 )
+from cera.pi_scene.provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
 from cera.serialization import bytes_sha256, canonical_json, text_sha256
+from cera.storage.migrations import MIGRATIONS
 from cera.storage.provider_stage_retry_store import SQLiteProviderStageRetryStore
 from cera.storage.sqlite_store import SQLiteAuthorityStore
 
@@ -111,6 +115,12 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def test_unreleased_migration_19_hash_is_pinned(self) -> None:
+        self.assertEqual(
+            text_sha256(MIGRATIONS[19]),
+            "3425b562c8e29b370c68440f2153c2e4df5ffc5447f76f915d6edb32f15658b2",
+        )
+
     def _prepared(
         self,
         *,
@@ -187,6 +197,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
                 "provider_stage_retry_checkpoints",
                 "provider_stage_retry_attempts",
                 "provider_stage_retry_events",
+                "provider_stage_retry_occurrence_scopes",
             }.issubset(tables)
         )
 
@@ -350,6 +361,110 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
         self.assertIs(resolved.phase, ProviderStageRetryPhase.OWNER_RETIRED)
         self.assertIsNone(self.controller.terminal(chain_id))
         self._accept_retry(chain_id, 2)
+
+    def test_known_non_retryable_terminal_is_fenced_replayed_and_never_retryable(self) -> None:
+        _, chain_id = self._prepared(occurrence="non-retryable")
+        self.controller.mark_dispatch_started(
+            chain_id,
+            attempt_number=1,
+            dispatch_evidence_sha256=_sha("non-retryable:dispatch"),
+        )
+        failed = self.controller.mark_non_retryable_failed(
+            chain_id,
+            attempt_number=1,
+            failure_class=ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+            failure_evidence_sha256=_sha("non-retryable:failure"),
+            ledger_prefix_after_sha256=_sha("non-retryable:ledger:closed"),
+            provider_operations_observed=0,
+            provider_operations_conservative=0,
+            duration_ms=4,
+        )
+        self.assertIs(failed.phase, ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT)
+        terminal_chain = self.controller.mark_owner_retired(
+            chain_id,
+            attempt_number=1,
+            retirement_evidence_sha256=_sha("non-retryable:retired"),
+        )
+        self.assertIs(terminal_chain.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertEqual(terminal_chain.provider_operations_observed_total, 0)
+        self.assertEqual(terminal_chain.provider_operations_conservative_total, 0)
+        terminal = self.controller.terminal(chain_id)
+        self.assertIsInstance(terminal, ProviderStageRecoveryRequiredV1)
+        assert isinstance(terminal, ProviderStageRecoveryRequiredV1)
+        self.assertEqual(
+            terminal.final_failure_class,
+            ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+        )
+        self.assertIsNone(terminal.block_reason)
+
+        restarted = ProviderStageRetryControllerV1(
+            store=SQLiteProviderStageRetryStore(
+                SQLiteAuthorityStore(self.database_path),
+                TrustedLocalProtectedStageBlobStore(self.blob_root),
+            )
+        )
+        self.assertEqual(restarted.status(chain_id), terminal_chain)
+        self.assertEqual(restarted.terminal(chain_id), terminal)
+        self.assertIs(
+            restarted.recover(chain_id).action,
+            ProviderStageRecoveryAction.REPORT_RECOVERY_REQUIRED,
+        )
+        with self.assertRaises(StateConflictError):
+            restarted.accept_retry(
+                chain_id,
+                retry_action_sha256=_sha("non-retryable:unsafe-retry"),
+                session_scope_sha256=_sha("non-retryable:unsafe-session"),
+                ledger_prefix_before_sha256=_sha("non-retryable:ledger:closed"),
+            )
+
+    def test_non_dispatch_conflict_requires_recovery_not_ambiguity(self) -> None:
+        _, chain_id = self._prepared(occurrence="authority-conflict")
+        recovery = self.controller.block_ambiguous(
+            chain_id,
+            reason=ProviderStageBlockReason.AUTHORITY_CHANGED,
+            evidence_sha256=_sha("authority-conflict:evidence"),
+        )
+        self.assertIs(recovery.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        terminal = self.controller.terminal(chain_id)
+        self.assertIsInstance(terminal, ProviderStageRecoveryRequiredV1)
+        assert isinstance(terminal, ProviderStageRecoveryRequiredV1)
+        self.assertEqual(terminal.block_reason, ProviderStageBlockReason.AUTHORITY_CHANGED)
+        self.assertIsNone(terminal.final_failure_class)
+
+    def test_recorder_non_retryable_terminal_preserves_accepted_story(self) -> None:
+        accepted_prose = b"accepted story preserved across non-Retry Recorder failure"
+        _, chain_id = self._prepared(
+            stage=ProviderStage.RECORDER,
+            exact_input=accepted_prose,
+            occurrence="recorder-non-retryable",
+        )
+        self.controller.mark_dispatch_started(
+            chain_id,
+            attempt_number=1,
+            dispatch_evidence_sha256=_sha("recorder-non-retryable:dispatch"),
+        )
+        self.controller.mark_non_retryable_failed(
+            chain_id,
+            attempt_number=1,
+            failure_class=ProviderStageFailureClass.AUTHENTICATION_FAILED,
+            failure_evidence_sha256=_sha("recorder-non-retryable:auth"),
+            ledger_prefix_after_sha256=_sha("recorder-non-retryable:ledger"),
+            provider_operations_observed=0,
+            provider_operations_conservative=0,
+            duration_ms=2,
+        )
+        chain = self.controller.mark_owner_retired(
+            chain_id,
+            attempt_number=1,
+            retirement_evidence_sha256=_sha("recorder-non-retryable:retired"),
+        )
+        self.assertIs(chain.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertTrue(chain.identity.story_state_committed)
+        self.assertEqual(self.controller.load_protected_input(chain_id), accepted_prose)
+        terminal = self.controller.terminal(chain_id)
+        self.assertIsInstance(terminal, ProviderStageRecoveryRequiredV1)
+        assert isinstance(terminal, ProviderStageRecoveryRequiredV1)
+        self.assertTrue(terminal.story_state_committed)
 
     def test_blocked_dispatch_can_resolve_to_exact_frozen_result(self) -> None:
         _, chain_id = self._prepared(occurrence="result-resolution")
@@ -571,6 +686,42 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             self.controller.load_protected_result(chain_id),
             _ADULT_RESULT_SENTINEL,
         )
+
+    def test_scope_binding_drift_conflicts_without_resetting_attempt_budget(self) -> None:
+        exact_input = b"stable occurrence input"
+
+        def scope(
+            *,
+            generation_id: str = "generation-1",
+            accepted_state: str = "accepted-1",
+            input_bytes: bytes = exact_input,
+        ) -> ProviderStageRetryOccurrenceScopeV1:
+            return ProviderStageRetryOccurrenceScopeV1.create(
+                world_id="world-1",
+                branch_id="branch-1",
+                request_id="request-1",
+                generation_id=generation_id,
+                stage=ProviderStage.WRITER,
+                stage_ordinal=1,
+                accepted_state_sha256=_sha(accepted_state),
+                exact_input=input_bytes,
+                authority_binding={"branch_state_version": accepted_state},
+            )
+
+        baseline = scope()
+        self.store.begin(baseline.identity, exact_input)
+        changed_head = scope(accepted_state="accepted-2")
+        changed_input = scope(input_bytes=b"drifted occurrence input")
+        self.assertEqual(changed_head.identity.chain_id, baseline.identity.chain_id)
+        self.assertEqual(changed_input.identity.chain_id, baseline.identity.chain_id)
+        with self.assertRaises(StateConflictError):
+            self.store.begin(changed_head.identity, exact_input)
+        with self.assertRaises(StateConflictError):
+            self.store.begin(changed_input.identity, b"drifted occurrence input")
+
+        next_generation = scope(generation_id="generation-2")
+        self.assertNotEqual(next_generation.identity.chain_id, baseline.identity.chain_id)
+        self.store.begin(next_generation.identity, exact_input)
 
     def test_pretransport_failure_rejects_ambiguous_class_without_mutation(self) -> None:
         _, chain_id = self._prepared(occurrence="pretransport")

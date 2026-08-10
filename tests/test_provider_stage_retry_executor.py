@@ -6,13 +6,14 @@ from itertools import count
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from cera.errors import StateConflictError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryContractError,
     validate_provider_stage_retry_action_v1,
 )
 from cera.pi_scene.provider_stage_retry import (
     ProviderStage,
+    ProviderStageBlockReason,
     ProviderStageFailureClass,
     ProviderStageRetryPhase,
 )
@@ -23,7 +24,9 @@ from cera.pi_scene.provider_stage_retry_executor import (
     ProviderStageAttemptOutcomeV1,
     ProviderStageClosedFailureV1,
     ProviderStageDispatchAmbiguousV1,
+    ProviderStageNonRetryableFailureV1,
     ProviderStagePretransportFailureV1,
+    ProviderStagePretransportNonRetryableFailureV1,
     ProviderStageRetryExecutorV1,
     ProviderStageSemanticDisposition,
     ProviderStageSuccessfulResultV1,
@@ -103,7 +106,11 @@ class _Owner:
         self,
         label: str,
         ledger_before: str,
-        preparation: _PreparedDispatch | ProviderStagePretransportFailureV1,
+        preparation: (
+            _PreparedDispatch
+            | ProviderStagePretransportFailureV1
+            | ProviderStagePretransportNonRetryableFailureV1
+        ),
         *,
         expected_input: bytes,
     ) -> None:
@@ -129,7 +136,11 @@ class _Owner:
         chain_id: str,
         attempt_number: int,
         exact_input: bytes,
-    ) -> _PreparedDispatch | ProviderStagePretransportFailureV1:
+    ) -> (
+        _PreparedDispatch
+        | ProviderStagePretransportFailureV1
+        | ProviderStagePretransportNonRetryableFailureV1
+    ):
         del chain_id, attempt_number
         self.prepare_calls += 1
         if exact_input != self.expected_input:
@@ -270,6 +281,136 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
         self.assertEqual(envelope["status"]["state"], "eligible")
         self.assertEqual(envelope["status"]["retry_actions_accepted"], 0)
         self.assertEqual(envelope["actions"][0]["action_kind"], "provider_retry")
+
+    def test_pretransport_rejects_post_transport_failure_classes(self) -> None:
+        for failure_class in (
+            ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE,
+            ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
+            ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+        ):
+            with self.subTest(failure_class=failure_class):
+                with self.assertRaises(ContractValidationError):
+                    ProviderStagePretransportFailureV1(
+                        failure_class=failure_class,
+                        failure_evidence_sha256=_sha("invalid-pretransport"),
+                        ledger_prefix_after_sha256=_sha("ledger-not-contacted"),
+                        duration_ms=1,
+                    )
+
+    def test_pretransport_non_retryable_failure_requires_explicit_recovery(self) -> None:
+        pretransport = ProviderStagePretransportNonRetryableFailureV1(
+            failure_class=ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+            failure_evidence_sha256=_sha("pretransport-non-retryable"),
+            ledger_prefix_after_sha256=_sha("ledger-not-contacted"),
+            duration_ms=2,
+        )
+        owner = _Owner(
+            "pretransport-non-retryable",
+            "ledger-0",
+            pretransport,
+            expected_input=self.packet.exact_bytes,
+        )
+
+        terminal = self.executor.execute_initial(
+            scope=self.scope,
+            packet=self.packet,
+            owner=owner,
+        )
+        envelope = self.executor.status_envelope(self.scope)
+
+        self.assertIs(terminal.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertEqual(terminal.attempts_total, 1)
+        self.assertEqual(terminal.provider_operations_observed_total, 0)
+        self.assertEqual(terminal.provider_operations_conservative_total, 0)
+        self.assertEqual(owner.prepare_calls, 1)
+        self.assertEqual(owner.retire_calls, 1)
+        self.assertEqual(envelope["status"]["state"], "recovery_required")
+        self.assertEqual(
+            envelope["status"]["failure_category"],
+            "provider_failure_not_retryable",
+        )
+        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
+        self.assertFalse(envelope["actions"][0]["provider_dispatch_authorized"])
+        with self.assertRaises(StateConflictError):
+            self.executor.execute_manual_retry(action=envelope["actions"][0], owner=owner)
+
+        replay_owner, replay_dispatch = self._owner(
+            "pretransport-must-not-run",
+            "ledger-0",
+            _success("must-not-run", "ledger-1"),
+        )
+        replay = ProviderStageRetryExecutorV1(self.store).execute_initial(
+            scope=self.scope,
+            packet=self.packet,
+            owner=replay_owner,
+        )
+        self.assertEqual(replay, terminal)
+        self.assertEqual(replay_owner.prepare_calls, 0)
+        self.assertEqual(replay_dispatch.invoke_calls, 0)
+
+    def test_known_non_retryable_failure_requires_recovery_and_replays_after_restart(self) -> None:
+        non_retryable = ProviderStageNonRetryableFailureV1(
+            failure_class=ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+            failure_evidence_sha256=_sha("known-non-retryable"),
+            metrics=_metrics("ledger-closed-zero", observed=0, conservative=0),
+        )
+        owner, dispatch = self._owner("non-retryable", "ledger-0", non_retryable)
+        terminal = self.executor.execute_initial(
+            scope=self.scope,
+            packet=self.packet,
+            owner=owner,
+        )
+
+        self.assertIs(terminal.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertEqual(dispatch.invoke_calls, 1)
+        self.assertEqual(owner.retire_calls, 1)
+        self.assertEqual(terminal.attempts_total, 1)
+        self.assertEqual(terminal.provider_operations_observed_total, 0)
+        self.assertEqual(terminal.provider_operations_conservative_total, 0)
+        envelope = self.executor.status_envelope(self.scope)
+        self.assertEqual(envelope["status"]["state"], "recovery_required")
+        self.assertEqual(
+            envelope["status"]["failure_category"],
+            "provider_failure_not_retryable",
+        )
+        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
+        self.assertFalse(envelope["actions"][0]["provider_dispatch_authorized"])
+        self.assertFalse(envelope["actions"][0]["consumes_retry_action"])
+
+        restarted = ProviderStageRetryExecutorV1(self.store)
+        replay_owner, replay_dispatch = self._owner(
+            "must-not-redispatch",
+            "ledger-0",
+            _success("must-not-run", "ledger-1"),
+        )
+        replay = restarted.execute_initial(
+            scope=self.scope,
+            packet=self.packet,
+            owner=replay_owner,
+        )
+        self.assertEqual(replay, terminal)
+        self.assertEqual(replay_owner.prepare_calls, 0)
+        self.assertEqual(replay_dispatch.invoke_calls, 0)
+        with self.assertRaises(StateConflictError):
+            restarted.execute_manual_retry(
+                action=envelope["actions"][0],
+                owner=replay_owner,
+            )
+
+    def test_pre_attempt_authority_conflict_projects_zero_attempt_recovery(self) -> None:
+        chain = self.store.begin(self.scope.identity, self.packet.exact_bytes)
+        recovery = self.store.block_ambiguous(
+            chain.chain_id,
+            reason=ProviderStageBlockReason.AUTHORITY_CHANGED,
+            evidence_sha256=_sha("pre-attempt-authority-conflict"),
+        )
+        self.assertIs(recovery.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        envelope = self.executor.status_envelope(self.scope)
+        self.assertEqual(envelope["status"]["state"], "recovery_required")
+        self.assertEqual(envelope["status"]["stage_attempts_total"], 0)
+        self.assertEqual(envelope["status"]["retry_actions_accepted"], 0)
+        self.assertEqual(envelope["status"]["failure_category"], "authority_changed")
+        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
 
     def test_manual_retry_is_idempotent_and_backend_forbids_attempt_four(self) -> None:
         owner1, _ = self._owner("attempt-1", "ledger-0", _failure("one", "ledger-1"))

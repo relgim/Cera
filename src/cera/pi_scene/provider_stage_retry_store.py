@@ -42,6 +42,7 @@ from .provider_stage_retry import (
     ProviderStageCheckpointKind,
     ProviderStageFailureClass,
     ProviderStageProtectedCheckpointV1,
+    ProviderStageRecoveryRequiredV1,
     ProviderStageRetryBlockedV1,
     ProviderStageRetryChainV1,
     ProviderStageRetryExhaustedV1,
@@ -591,7 +592,12 @@ class ProviderStageRetryStoreV1:
             raise ContractValidationError("provider-stage block reason is not closed")
         with self._lock, self._claim(chain_id):
             chain = self._reconcile_locked(self._require_chain_locked(chain_id))
-            if chain.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
+            target_phase = (
+                ProviderStageRetryPhase.BLOCKED_AMBIGUOUS
+                if reason is ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
+                else ProviderStageRetryPhase.RECOVERY_REQUIRED
+            )
+            if chain.phase is target_phase:
                 if chain.block_reason is reason and chain.block_evidence_sha256 == evidence_sha256:
                     return chain
                 raise StateConflictError("provider-stage block evidence changed")
@@ -600,7 +606,9 @@ class ProviderStageRetryStoreV1:
                 ProviderStageRetryPhase.DOWNSTREAM_BOUND,
                 ProviderStageRetryPhase.SUCCEEDED,
                 ProviderStageRetryPhase.EXHAUSTED,
+                ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
                 ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
+                ProviderStageRetryPhase.RECOVERY_REQUIRED,
             }:
                 raise StateConflictError(
                     "provider-stage effect or terminal boundary cannot become no-effect block"
@@ -611,7 +619,7 @@ class ProviderStageRetryStoreV1:
                 )
             updated = replace(
                 chain,
-                phase=ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
+                phase=target_phase,
                 block_reason=reason,
                 block_evidence_sha256=evidence_sha256,
             )
@@ -753,7 +761,7 @@ class ProviderStageRetryStoreV1:
                 block_evidence_sha256=None,
             )
             self._write_state_locked(chain, checkpoint)
-        if chain.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
+        if chain.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
             if chain.block_reason is reason and chain.block_evidence_sha256 == evidence_sha256:
                 return
             raise StateConflictError("provider-stage retry authority drift evidence changed")
@@ -762,6 +770,9 @@ class ProviderStageRetryStoreV1:
             ProviderStageRetryPhase.DOWNSTREAM_BOUND,
             ProviderStageRetryPhase.SUCCEEDED,
             ProviderStageRetryPhase.EXHAUSTED,
+            ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
+            ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
+            ProviderStageRetryPhase.RECOVERY_REQUIRED,
         }:
             # Never rewrite a committed-effect or existing terminal history.
             return
@@ -771,7 +782,7 @@ class ProviderStageRetryStoreV1:
             return
         blocked = replace(
             chain,
-            phase=ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
+            phase=ProviderStageRetryPhase.RECOVERY_REQUIRED,
             block_reason=reason,
             block_evidence_sha256=evidence_sha256,
         )
@@ -840,6 +851,8 @@ class ProviderStageRetryStoreV1:
             terminal: ProviderStageRetryTerminalV1 = self._exhausted_terminal(chain)
         elif chain.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
             terminal = self._blocked_terminal(chain)
+        elif chain.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
+            terminal = self._recovery_required_terminal(chain)
         else:
             if existing_bytes is not None:
                 raise StateConflictError("active provider-stage chain has terminal evidence")
@@ -917,6 +930,43 @@ class ProviderStageRetryStoreV1:
             failed_stage_effect_committed=False,
             provider_operations_observed_total=chain.provider_operations_observed_total,
             provider_operations_conservative_total=(chain.provider_operations_conservative_total),
+            block_reason=chain.block_reason,
+            request_sha256=chain.identity.request_sha256,
+            stage_input_sha256=chain.identity.stage_input_sha256,
+            attempt_chain_sha256=chain.attempt_chain_sha256,
+            terminal_evidence_sha256=evidence,
+        )
+
+    @staticmethod
+    def _recovery_required_terminal(
+        chain: ProviderStageRetryChainV1,
+    ) -> ProviderStageRecoveryRequiredV1:
+        assert chain.block_reason is not None
+        assert chain.block_reason is not ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
+        assert chain.block_evidence_sha256 is not None
+        evidence = domain_sha256(
+            "cera.provider_stage_retry_recovery_required_evidence.v1",
+            {
+                "chain_sha256": chain.chain_sha256,
+                "attempt_chain_sha256": chain.attempt_chain_sha256,
+                "block_reason": chain.block_reason.value,
+                "block_evidence_sha256": chain.block_evidence_sha256,
+            },
+        )
+        return ProviderStageRecoveryRequiredV1(
+            schema_version=ProviderStageRecoveryRequiredV1.SCHEMA_VERSION,
+            severity="critical",
+            provider=chain.identity.provider,
+            model_family=chain.identity.model_family,
+            stage=chain.identity.stage,
+            maximum_attempts=MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
+            attempts_total=chain.attempts_total,
+            retries_consumed=chain.retries_consumed,
+            story_state_committed=chain.identity.story_state_committed,
+            failed_stage_effect_committed=False,
+            provider_operations_observed_total=chain.provider_operations_observed_total,
+            provider_operations_conservative_total=(chain.provider_operations_conservative_total),
+            final_failure_class=None,
             block_reason=chain.block_reason,
             request_sha256=chain.identity.request_sha256,
             stage_input_sha256=chain.identity.stage_input_sha256,
@@ -1146,6 +1196,7 @@ class ProviderStageRetryStoreV1:
             ProviderStageRetryPhase.SUCCEEDED,
             ProviderStageRetryPhase.EXHAUSTED,
             ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
+            ProviderStageRetryPhase.RECOVERY_REQUIRED,
             ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
         }:
             raise StateConflictError("terminal provider-stage state has a successor")
@@ -1184,6 +1235,31 @@ class ProviderStageRetryStoreV1:
             )
             if current != blocked_expected or not (same_attempts or retired_ambiguous):
                 raise StateConflictError("provider-stage blocked successor is not monotonic")
+            return
+        if current.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
+            if (
+                current.block_reason is None
+                or current.block_reason is ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
+                or previous.phase
+                in {
+                    ProviderStageRetryPhase.DISPATCH_STARTED,
+                    ProviderStageRetryPhase.DOWNSTREAM_INTENT_FROZEN,
+                    ProviderStageRetryPhase.DOWNSTREAM_BOUND,
+                }
+            ):
+                raise StateConflictError(
+                    "provider-stage operator recovery crossed a custody boundary"
+                )
+            expected_recovery = replace(
+                previous,
+                phase=ProviderStageRetryPhase.RECOVERY_REQUIRED,
+                block_reason=current.block_reason,
+                block_evidence_sha256=current.block_evidence_sha256,
+            )
+            if current != expected_recovery:
+                raise StateConflictError(
+                    "provider-stage operator recovery successor is not monotonic"
+                )
             return
         expected: ProviderStageRetryChainV1 | None = None
         if (

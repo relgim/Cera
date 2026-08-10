@@ -252,8 +252,8 @@ export const CONTRACT_SCHEMAS = deepFreeze({
         "description": "Observed operations plus unresolved possible operations."
       },
       "block_reason": {
-        "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/block_reason",
-        "description": "Provider-free reconciliation reason."
+        "const": "dispatch_custody_ambiguous",
+        "description": "Only unresolved dispatch custody is user-visible blocked ambiguity."
       },
       "request_sha256": {
         "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256"
@@ -370,6 +370,21 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           "provider_output_invalid"
         ],
         "description": "Closed, confirmed failure eligible for stage-local provider Retry. provider_output_invalid is limited to a deterministically malformed received envelope or protocol result whose fresh stochastic output may differ; it excludes authentication, invalid request, context size, unsupported parameters, configured output-limit truncation, semantic rejection, custody, and configuration failures."
+      },
+      "non_retryable_failure_category": {
+        "type": "string",
+        "enum": [
+          "authentication_failed",
+          "invalid_request",
+          "context_size_exceeded",
+          "unsupported_parameter",
+          "output_limit_truncated",
+          "custody_failed",
+          "configuration_failed",
+          "budget_exhausted",
+          "provider_failure_not_retryable"
+        ],
+        "description": "Closed terminal reason that never authorizes provider Retry. provider_failure_not_retryable is the truthful fallback when the provider boundary proves only that a failure is not Retry-eligible; specific reasons require separately typed evidence."
       },
       "block_reason": {
         "type": "string",
@@ -796,9 +811,10 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           "succeeded",
           "blocked_ambiguous",
           "attempts_exhausted",
-          "recording_repair_required"
+          "recording_repair_required",
+          "recovery_required"
         ],
-        "description": "User-visible state. blocked_ambiguous and attempts_exhausted are distinct."
+        "description": "User-visible state. blocked_ambiguous, attempts_exhausted, and recovery_required are distinct."
       },
       "maximum_attempts": {
         "const": 3,
@@ -843,6 +859,12 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           },
           {
             "const": "dispatch_ambiguous"
+          },
+          {
+            "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/non_retryable_failure_category"
+          },
+          {
+            "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/block_reason"
           },
           {
             "type": "null"
@@ -1026,6 +1048,38 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 ]
               }
             }
+          },
+          {
+            "properties": {
+              "state": {
+                "const": "recovery_required"
+              },
+              "stage_attempts_total": {
+                "minimum": 0
+              },
+              "failure_category": {
+                "anyOf": [
+                  {
+                    "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/non_retryable_failure_category"
+                  },
+                  {
+                    "enum": [
+                      "input_changed",
+                      "authority_changed",
+                      "ledger_prefix_changed",
+                      "owner_retirement_unproven",
+                      "result_checkpoint_conflict"
+                    ]
+                  }
+                ]
+              },
+              "available_actions": {
+                "const": [
+                  "explicit_recovery"
+                ]
+              }
+            },
+            "$comment": "A known non-Retry terminal or non-dispatch custody conflict preserves accepted state and requires explicit recovery."
           }
         ]
       }
@@ -1211,6 +1265,31 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                     "properties": {
                       "action_kind": {
                         "const": "repair_recording"
+                      }
+                    }
+                  }
+                ],
+                "items": false
+              }
+            }
+          },
+          {
+            "properties": {
+              "status": {
+                "properties": {
+                  "state": {
+                    "const": "recovery_required"
+                  }
+                }
+              },
+              "actions": {
+                "minItems": 1,
+                "maxItems": 1,
+                "prefixItems": [
+                  {
+                    "properties": {
+                      "action_kind": {
+                        "const": "explicit_recovery"
                       }
                     }
                   }

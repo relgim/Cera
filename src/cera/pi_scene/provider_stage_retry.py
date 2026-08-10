@@ -49,6 +49,49 @@ class ProviderStageFailureClass(StrEnum):
     PROVIDER_COMPLETION_INCOMPLETE = "provider_completion_incomplete"
     PROVIDER_OUTPUT_INVALID = "provider_output_invalid"
     DISPATCH_AMBIGUOUS = "dispatch_ambiguous"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    INVALID_REQUEST = "invalid_request"
+    CONTEXT_SIZE_EXCEEDED = "context_size_exceeded"
+    UNSUPPORTED_PARAMETER = "unsupported_parameter"
+    OUTPUT_LIMIT_TRUNCATED = "output_limit_truncated"
+    CUSTODY_FAILED = "custody_failed"
+    CONFIGURATION_FAILED = "configuration_failed"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    PROVIDER_FAILURE_NOT_RETRYABLE = "provider_failure_not_retryable"
+
+
+RETRYABLE_PROVIDER_STAGE_FAILURES = frozenset(
+    {
+        ProviderStageFailureClass.TRANSPORT_TIMEOUT,
+        ProviderStageFailureClass.PROVIDER_UNAVAILABLE,
+        ProviderStageFailureClass.PROVIDER_PROCESS_FAILED,
+        ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE,
+        ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
+        ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+    }
+)
+
+PRETRANSPORT_PROVIDER_STAGE_FAILURES = frozenset(
+    {
+        ProviderStageFailureClass.TRANSPORT_TIMEOUT,
+        ProviderStageFailureClass.PROVIDER_UNAVAILABLE,
+        ProviderStageFailureClass.PROVIDER_PROCESS_FAILED,
+    }
+)
+
+NON_RETRYABLE_PROVIDER_STAGE_FAILURES = frozenset(
+    {
+        ProviderStageFailureClass.AUTHENTICATION_FAILED,
+        ProviderStageFailureClass.INVALID_REQUEST,
+        ProviderStageFailureClass.CONTEXT_SIZE_EXCEEDED,
+        ProviderStageFailureClass.UNSUPPORTED_PARAMETER,
+        ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED,
+        ProviderStageFailureClass.CUSTODY_FAILED,
+        ProviderStageFailureClass.CONFIGURATION_FAILED,
+        ProviderStageFailureClass.BUDGET_EXHAUSTED,
+        ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+    }
+)
 
 
 class ProviderStageBlockReason(StrEnum):
@@ -73,6 +116,7 @@ class ProviderStageRetryPhase(StrEnum):
     EXHAUSTED = "exhausted"
     BLOCKED_AMBIGUOUS = "blocked_ambiguous"
     RECORDING_REPAIR_REQUIRED = "recording_repair_required"
+    RECOVERY_REQUIRED = "recovery_required"
 
 
 class ProviderStageAttemptPhase(StrEnum):
@@ -101,11 +145,13 @@ class ProviderStageRecoveryAction(StrEnum):
     REPORT_EXHAUSTED = "report_exhausted"
     REPORT_BLOCKED_AMBIGUOUS = "report_blocked_ambiguous"
     REPORT_RECORDING_REPAIR_REQUIRED = "report_recording_repair_required"
+    REPORT_RECOVERY_REQUIRED = "report_recovery_required"
 
 
 class ProviderStageTerminalDisposition(StrEnum):
     EXHAUSTED = "exhausted"
     BLOCKED_AMBIGUOUS = "blocked_ambiguous"
+    RECOVERY_REQUIRED = "recovery_required"
 
 
 _STAGE_OWNER = {
@@ -449,7 +495,8 @@ class ProviderStageAttemptV1:
         ):
             raise ContractValidationError("failed provider-stage attempt has invalid disposition")
         if pretransport and (
-            self.failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+            self.failure_class
+            not in PRETRANSPORT_PROVIDER_STAGE_FAILURES | NON_RETRYABLE_PROVIDER_STAGE_FAILURES
             or self.provider_operations_observed != 0
             or self.provider_operations_conservative != 0
             or any(
@@ -575,10 +622,23 @@ class ProviderStageRetryChainV1:
             _require_sha256(self.block_evidence_sha256, "provider-stage block evidence")
         if self.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
             if (
-                type(self.block_reason) is not ProviderStageBlockReason
+                self.block_reason is not ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
                 or self.block_evidence_sha256 is None
             ):
-                raise ContractValidationError("blocked provider-stage chain lacks closed evidence")
+                raise ContractValidationError(
+                    "ambiguous provider-stage chain lacks dispatch-custody evidence"
+                )
+        elif self.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED and (
+            self.block_reason is not None or self.block_evidence_sha256 is not None
+        ):
+            if (
+                type(self.block_reason) is not ProviderStageBlockReason
+                or self.block_reason is ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
+                or self.block_evidence_sha256 is None
+            ):
+                raise ContractValidationError(
+                    "provider-stage recovery block lacks closed non-dispatch evidence"
+                )
         elif self.block_reason is not None or self.block_evidence_sha256 is not None:
             raise ContractValidationError(
                 "active provider-stage chain contains a block disposition"
@@ -621,7 +681,10 @@ class ProviderStageRetryChainV1:
         return canonical_sha256(self.to_payload())
 
     def _require_phase_shape(self) -> None:
-        if self.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
+        if self.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS or (
+            self.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED
+            and self.block_reason is not None
+        ):
             if (
                 self.downstream_intent_sha256 is not None
                 or self.downstream_evidence_sha256 is not None
@@ -647,6 +710,7 @@ class ProviderStageRetryChainV1:
             ProviderStageRetryPhase.OWNER_RETIRED,
             ProviderStageRetryPhase.EXHAUSTED,
             ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
+            ProviderStageRetryPhase.RECOVERY_REQUIRED,
         }
         if pre_result and (
             self.result_checkpoint is not None
@@ -666,6 +730,7 @@ class ProviderStageRetryChainV1:
             valid = (
                 last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
                 and len(self.attempts) < MAXIMUM_PROVIDER_STAGE_ATTEMPTS
+                and last.failure_class in RETRYABLE_PROVIDER_STAGE_FAILURES
             )
         elif self.phase is ProviderStageRetryPhase.RESULT_FROZEN:
             valid = (
@@ -696,7 +761,7 @@ class ProviderStageRetryChainV1:
                 len(self.attempts) == MAXIMUM_PROVIDER_STAGE_ATTEMPTS
                 and self.identity.stage is not ProviderStage.RECORDER
                 and last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
-                and last.failure_class is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+                and last.failure_class in RETRYABLE_PROVIDER_STAGE_FAILURES
                 and self.result_checkpoint is None
                 and self.downstream_intent_sha256 is None
                 and self.downstream_evidence_sha256 is None
@@ -706,7 +771,16 @@ class ProviderStageRetryChainV1:
                 self.identity.stage is ProviderStage.RECORDER
                 and len(self.attempts) == MAXIMUM_PROVIDER_STAGE_ATTEMPTS
                 and last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
-                and last.failure_class is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+                and last.failure_class in RETRYABLE_PROVIDER_STAGE_FAILURES
+                and self.result_checkpoint is None
+                and self.downstream_intent_sha256 is None
+                and self.downstream_evidence_sha256 is None
+            )
+        elif self.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
+            valid = (
+                self.block_reason is None
+                and last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
+                and last.failure_class in NON_RETRYABLE_PROVIDER_STAGE_FAILURES
                 and self.result_checkpoint is None
                 and self.downstream_intent_sha256 is None
                 and self.downstream_evidence_sha256 is None
@@ -759,10 +833,10 @@ class ProviderStageRetryExhaustedV1:
             raise ContractValidationError("provider-stage exhausted owner changed")
         if (
             self.stage is ProviderStage.RECORDER
-            or self.final_failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+            or self.final_failure_class not in RETRYABLE_PROVIDER_STAGE_FAILURES
         ):
             raise ContractValidationError(
-                "Recorder repair or ambiguous custody cannot be reported as exhaustion"
+                "Recorder repair, ambiguity, or non-Retry failure cannot be exhaustion"
             )
         for count_value, field_name in (
             (self.maximum_attempts, "maximum attempts"),
@@ -839,6 +913,10 @@ class ProviderStageRetryBlockedV1:
         expected_provider, expected_model = _STAGE_OWNER[self.stage]
         if (self.provider, self.model_family) != (expected_provider, expected_model):
             raise ContractValidationError("provider-stage blocked owner changed")
+        if self.block_reason is not ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS:
+            raise ContractValidationError(
+                "blocked_ambiguous is reserved for dispatch-custody ambiguity"
+            )
         for count_value, field_name in (
             (self.maximum_attempts, "maximum attempts"),
             (self.attempts_total, "attempts total"),
@@ -877,7 +955,101 @@ class ProviderStageRetryBlockedV1:
         return _payload(self)
 
 
-ProviderStageRetryTerminalV1 = ProviderStageRetryExhaustedV1 | ProviderStageRetryBlockedV1
+@dataclass(frozen=True, slots=True)
+class ProviderStageRecoveryRequiredV1:
+    """Hash-only terminal requiring an explicit operator recovery decision."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_stage_retry_recovery_required.v1"
+
+    schema_version: str
+    severity: str
+    provider: ProviderFamily
+    model_family: ProviderModelFamily
+    stage: ProviderStage
+    maximum_attempts: int
+    attempts_total: int
+    retries_consumed: int
+    story_state_committed: bool
+    failed_stage_effect_committed: bool
+    provider_operations_observed_total: int
+    provider_operations_conservative_total: int
+    final_failure_class: ProviderStageFailureClass | None
+    block_reason: ProviderStageBlockReason | None
+    request_sha256: str
+    stage_input_sha256: str
+    attempt_chain_sha256: str
+    terminal_evidence_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION or self.severity != "critical":
+            raise ContractValidationError("provider-stage recovery terminal schema changed")
+        if (
+            type(self.provider) is not ProviderFamily
+            or type(self.model_family) is not ProviderModelFamily
+            or type(self.stage) is not ProviderStage
+        ):
+            raise ContractValidationError("provider-stage recovery owner enums are not closed")
+        expected_provider, expected_model = _STAGE_OWNER[self.stage]
+        if (self.provider, self.model_family) != (expected_provider, expected_model):
+            raise ContractValidationError("provider-stage recovery owner changed")
+        has_failure = self.final_failure_class is not None
+        has_block = self.block_reason is not None
+        if has_failure is has_block:
+            raise ContractValidationError(
+                "provider-stage recovery requires exactly one closed reason"
+            )
+        if has_failure and self.final_failure_class not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError(
+                "provider-stage recovery failure is not a known non-Retry terminal"
+            )
+        if has_block and (
+            type(self.block_reason) is not ProviderStageBlockReason
+            or self.block_reason is ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS
+        ):
+            raise ContractValidationError(
+                "dispatch ambiguity cannot be projected as operator recovery"
+            )
+        for count_value, field_name in (
+            (self.maximum_attempts, "maximum attempts"),
+            (self.attempts_total, "attempts total"),
+            (self.retries_consumed, "retries consumed"),
+        ):
+            _require_nonnegative_int(count_value, f"provider-stage recovery {field_name}")
+        if (
+            self.maximum_attempts != MAXIMUM_PROVIDER_STAGE_ATTEMPTS
+            or not 0 <= self.attempts_total <= MAXIMUM_PROVIDER_STAGE_ATTEMPTS
+            or self.retries_consumed != max(0, self.attempts_total - 1)
+        ):
+            raise ContractValidationError("provider-stage recovery attempt accounting changed")
+        if self.story_state_committed is not (self.stage is ProviderStage.RECORDER):
+            raise ContractValidationError("provider-stage recovery story boundary changed")
+        if self.failed_stage_effect_committed is not False:
+            raise ContractValidationError("failed provider stage cannot report a committed effect")
+        _require_nonnegative_int(
+            self.provider_operations_observed_total,
+            "provider-stage recovery observed operations",
+        )
+        _require_nonnegative_int(
+            self.provider_operations_conservative_total,
+            "provider-stage recovery conservative operations",
+        )
+        if self.provider_operations_conservative_total < self.provider_operations_observed_total:
+            raise ContractValidationError("provider-stage recovery accounting undercounts")
+        for hash_value, field_name in (
+            (self.request_sha256, "request"),
+            (self.stage_input_sha256, "stage input"),
+            (self.attempt_chain_sha256, "attempt chain"),
+            (self.terminal_evidence_sha256, "terminal evidence"),
+        ):
+            _require_sha256(hash_value, f"provider-stage recovery {field_name}")
+
+    def to_payload(self) -> dict[str, Any]:
+        return _payload(self)
+
+
+ProviderStageRetryTerminalV1 = (
+    ProviderStageRetryExhaustedV1 | ProviderStageRetryBlockedV1 | ProviderStageRecoveryRequiredV1
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -958,6 +1130,10 @@ def provider_stage_terminal_from_payload(value: Any) -> ProviderStageRetryTermin
     if schema_version == ProviderStageRetryBlockedV1.SCHEMA_VERSION:
         decoded = from_mapping(ProviderStageRetryBlockedV1, value)
         assert isinstance(decoded, ProviderStageRetryBlockedV1)
+        return decoded
+    if schema_version == ProviderStageRecoveryRequiredV1.SCHEMA_VERSION:
+        decoded = from_mapping(ProviderStageRecoveryRequiredV1, value)
+        assert isinstance(decoded, ProviderStageRecoveryRequiredV1)
         return decoded
     raise ContractValidationError("provider-stage terminal schema is unknown")
 

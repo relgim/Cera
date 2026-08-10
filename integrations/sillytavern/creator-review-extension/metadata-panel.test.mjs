@@ -400,6 +400,10 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
             stage: 'recorder', attempts: 3, retries: 2, observed: 3, conservative: 3,
             failure: 'provider_completion_incomplete', action: 'repair_recording',
         },
+        recovery_required: {
+            stage: 'writer', attempts: 1, retries: 0, observed: 0, conservative: 0,
+            failure: 'provider_failure_not_retryable', action: 'explicit_recovery',
+        },
     }[state];
     if (!stateValues) throw new TypeError(`unsupported test state ${state}`);
     const chainId = `stage-retry-${chainCharacter.repeat(64)}`;
@@ -1075,7 +1079,7 @@ test('retry status normalizer closes all five backend states and rejects extra a
     }
 });
 
-test('generated provider-stage envelope validates all six states and backend action bindings', async () => {
+test('generated provider-stage envelope validates all seven states and backend action bindings', async () => {
     const { root } = await loadExtension();
     try {
         const actions = await import(
@@ -1091,6 +1095,7 @@ test('generated provider-stage envelope validates all six states and backend act
             'blocked_ambiguous',
             'attempts_exhausted',
             'recording_repair_required',
+            'recovery_required',
         ]) {
             const envelope = providerStageRetryEnvelope(state);
             assert.deepEqual(actions.normalizeProviderStageRetryStatusEnvelope(envelope), envelope);
@@ -1249,6 +1254,28 @@ test('attempt exhaustion exposes explicit recovery but never provider Retry', as
     }
 });
 
+test('known non-Retry terminal exposes only explicit recovery', async () => {
+    const loaded = await loadExtension();
+    try {
+        assert.equal(
+            window.ceraCaptureProviderStageRetryStatus(
+                providerStageRetryEnvelope('recovery_required'),
+            ),
+            true,
+        );
+        assert.ok(buttonByText(loaded.testDocument, 'Explicit Recovery'));
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);
+        assert.match(
+            loaded.testDocument.querySelector('.cera-review-status').textContent,
+            /known non-Retry failure/,
+        );
+    } finally {
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
 test('recording repair status exposes only the separate review repair authority', async () => {
     const reviewId = `review-${'a'.repeat(28)}`;
     const accepted = {
@@ -1278,13 +1305,10 @@ test('recording repair status exposes only the separate review repair authority'
         initialChat: [accepted],
         fetchImpl: async (url, options) => {
             calls.push({ url, options });
-            if (options.method === 'POST') return jsonResponse({ state: 'accepted' });
-            const succeeded = structuredClone(repair);
-            succeeded.status.state = 'succeeded';
-            succeeded.status.failure_category = null;
-            succeeded.status.available_actions = [];
-            succeeded.actions = [];
-            return jsonResponse(succeeded);
+            if (options.method === 'POST') {
+                return jsonResponse({ state: 'accepted', recording_status: 'complete' });
+            }
+            throw new Error('recording repair must not fake generic Retry success via GET');
         },
     });
     try {
@@ -1299,7 +1323,11 @@ test('recording repair status exposes only the separate review repair authority'
             action: 'repair_recording',
             feedback: null,
         });
-        assert.equal(calls[1].options.method, 'GET');
+        assert.equal(calls.length, 1);
+        assert.equal(
+            loaded.testDocument.querySelector('#cera_provider_stage_retry_panel'),
+            null,
+        );
         assert.equal(calls.some(call => call.url.includes('/actions/')), false);
     } finally {
         globalThis.fetch = originalFetch;

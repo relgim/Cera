@@ -51,9 +51,10 @@
         "succeeded",
         "blocked_ambiguous",
         "attempts_exhausted",
-        "recording_repair_required"
+        "recording_repair_required",
+        "recovery_required"
       ],
-      "description": "User-visible state. blocked_ambiguous and attempts_exhausted are distinct."
+      "description": "User-visible state. blocked_ambiguous, attempts_exhausted, and recovery_required are distinct."
     },
     "maximum_attempts": {
       "const": 3,
@@ -98,6 +99,12 @@
         },
         {
           "const": "dispatch_ambiguous"
+        },
+        {
+          "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/non_retryable_failure_category"
+        },
+        {
+          "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/block_reason"
         },
         {
           "type": "null"
@@ -281,6 +288,38 @@
               ]
             }
           }
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "recovery_required"
+            },
+            "stage_attempts_total": {
+              "minimum": 0
+            },
+            "failure_category": {
+              "anyOf": [
+                {
+                  "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/non_retryable_failure_category"
+                },
+                {
+                  "enum": [
+                    "input_changed",
+                    "authority_changed",
+                    "ledger_prefix_changed",
+                    "owner_retirement_unproven",
+                    "result_checkpoint_conflict"
+                  ]
+                }
+              ]
+            },
+            "available_actions": {
+              "const": [
+                "explicit_recovery"
+              ]
+            }
+          },
+          "$comment": "A known non-Retry terminal or non-dispatch custody conflict preserves accepted state and requires explicit recovery."
         }
       ]
     }
@@ -477,6 +516,60 @@
         "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-1212121212121212121212121212121212121212121212121212121212121212",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "writer",
+      "state": "recovery_required",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 1,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 0,
+      "provider_operations_conservative_total": 0,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "provider_failure_not_retryable",
+      "available_actions": [
+        "explicit_recovery"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "2323232323232323232323232323232323232323232323232323232323232323",
+        "request_sha256": "3434343434343434343434343434343434343434343434343434343434343434",
+        "stage_input_sha256": "4545454545454545454545454545454545454545454545454545454545454545",
+        "accepted_state_sha256": "5656565656565656565656565656565656565656565656565656565656565656",
+        "chain_sha256": "6767676767676767676767676767676767676767676767676767676767676767"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-7878787878787878787878787878787878787878787878787878787878787878",
+      "provider": "codex",
+      "model_family": "sol",
+      "stage": "planner",
+      "state": "recovery_required",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 0,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 0,
+      "provider_operations_conservative_total": 0,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "authority_changed",
+      "available_actions": [
+        "explicit_recovery"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "8989898989898989898989898989898989898989898989898989898989898989",
+        "request_sha256": "9090909090909090909090909090909090909090909090909090909090909090",
+        "stage_input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "accepted_state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
     }
   ],
   "x-cera-negative-fixtures": [
@@ -541,6 +634,35 @@
           "op": "replace",
           "path": "/failure_category",
           "value": "semantic_rejection"
+        }
+      ]
+    },
+    {
+      "name": "non_retryable_failure_cannot_offer_retry",
+      "base_example": 6,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state",
+          "value": "eligible"
+        },
+        {
+          "op": "replace",
+          "path": "/available_actions",
+          "value": [
+            "provider_retry"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dispatch_ambiguity_is_not_operator_recovery",
+      "base_example": 6,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/failure_category",
+          "value": "dispatch_ambiguous"
         }
       ]
     },

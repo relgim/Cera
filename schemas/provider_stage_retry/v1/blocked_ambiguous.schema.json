@@ -82,8 +82,8 @@
       "description": "Observed operations plus unresolved possible operations."
     },
     "block_reason": {
-      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/block_reason",
-      "description": "Provider-free reconciliation reason."
+      "const": "dispatch_custody_ambiguous",
+      "description": "Only unresolved dispatch custody is user-visible blocked ambiguity."
     },
     "request_sha256": {
       "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256"
@@ -170,7 +170,7 @@
       "failed_stage_effect_committed": false,
       "provider_operations_observed_total": 0,
       "provider_operations_conservative_total": 1,
-      "block_reason": "owner_retirement_unproven",
+      "block_reason": "dispatch_custody_ambiguous",
       "request_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "stage_input_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "attempt_chain_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
@@ -230,6 +230,17 @@
           "op": "replace",
           "path": "/block_reason",
           "value": "attempts_exhausted"
+        }
+      ]
+    },
+    {
+      "name": "non_dispatch_conflict_is_not_ambiguous",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/block_reason",
+          "value": "authority_changed"
         }
       ]
     }
