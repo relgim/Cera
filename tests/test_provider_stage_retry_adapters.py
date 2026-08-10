@@ -601,6 +601,7 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             invoke,
             serialize_result=lambda value: value.output_text.encode("utf-8"),
             result_receipt_metrics=pi_provider_result_receipt_metrics,
+            maximum_provider_operations=3,
         )
         outcome = _invoke_prepared(owner)
 
@@ -612,6 +613,50 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
         self.assertEqual(outcome.metrics.output_tokens, 120)
         self.assertEqual(outcome.metrics.reasoning_tokens, 40)
         self.assertEqual(outcome.metrics.duration_ms, 2222)
+
+    def test_operation_count_above_frozen_ceiling_requires_recovery(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> str:
+            boundary.provider_calls += 1
+            boundary.advance(3)
+            return "provider crossed the frozen ceiling"
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                maximum_provider_operations=2,
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageNonRetryableFailureV1)
+        assert isinstance(outcome, ProviderStageNonRetryableFailureV1)
+        self.assertIs(outcome.failure_class, ProviderStageFailureClass.CUSTODY_FAILED)
+        self.assertEqual(outcome.metrics.provider_operations_observed, 3)
+        self.assertEqual(outcome.metrics.provider_operations_conservative, 3)
+
+        unresolved_boundary = _Boundary()
+
+        def unresolved(_request: bytes) -> str:
+            unresolved_boundary.provider_calls += 1
+            unresolved_boundary.advance(3)
+            raise RuntimeError("provider disposition unavailable after ceiling overrun")
+
+        unresolved_outcome = _invoke_prepared(
+            _owner(
+                unresolved_boundary,
+                unresolved,
+                maximum_provider_operations=2,
+            )
+        )
+        self.assertIsInstance(unresolved_outcome, ProviderStageNonRetryableFailureV1)
+        assert isinstance(unresolved_outcome, ProviderStageNonRetryableFailureV1)
+        self.assertIs(
+            unresolved_outcome.failure_class,
+            ProviderStageFailureClass.CUSTODY_FAILED,
+        )
+        self.assertEqual(unresolved_outcome.metrics.provider_operations_observed, 3)
 
     def test_codex_receipt_and_operation_telemetry_are_preserved(self) -> None:
         request_sha = _sha("codex-request")

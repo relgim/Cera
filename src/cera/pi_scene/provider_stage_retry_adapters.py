@@ -554,7 +554,16 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
 
         try:
             live_after_session, after = self._read_post_dispatch_identity()
-            self._operation_delta(after)
+            if self._operation_delta(after) > self.maximum_provider_operations:
+                return self._known_local_failure(
+                    StateConflictError(
+                        "provider-stage ledger exceeded the frozen operation ceiling"
+                    ),
+                    after=after,
+                    duration_ms=duration_ms,
+                    failure_class=ProviderStageFailureClass.CUSTODY_FAILED,
+                    disposition="provider_operation_ceiling_exceeded",
+                )
         except Exception as exc:
             return self._ambiguity_without_snapshot(exc, duration_ms=duration_ms)
         try:
@@ -635,6 +644,14 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
             delta = self._operation_delta(after)
         except Exception as exc:
             return self._ambiguity_without_snapshot(exc, duration_ms=duration_ms)
+        if delta > self.maximum_provider_operations:
+            return self._known_local_failure(
+                StateConflictError("provider-stage ledger exceeded the frozen operation ceiling"),
+                after=after,
+                duration_ms=duration_ms,
+                failure_class=ProviderStageFailureClass.CUSTODY_FAILED,
+                disposition="provider_operation_ceiling_exceeded",
+            )
         try:
             receipt = _provider_failure_receipt_metrics(failure)
         except Exception as exc:
@@ -734,7 +751,7 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         failure: Exception,
         *,
         duration_ms: int,
-    ) -> ProviderStageDispatchAmbiguousV1:
+    ) -> ProviderStageDispatchAmbiguousV1 | ProviderStageNonRetryableFailureV1:
         try:
             _, after = self._read_post_dispatch_identity()
         except Exception as exc:
@@ -785,11 +802,19 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         duration_ms: int,
         receipt: ProviderStageReceiptMetricsV1 | None,
         disposition: str,
-    ) -> ProviderStageDispatchAmbiguousV1:
+    ) -> ProviderStageDispatchAmbiguousV1 | ProviderStageNonRetryableFailureV1:
         try:
             delta = self._operation_delta(after)
         except Exception as exc:
             return self._ambiguity_without_snapshot(exc, duration_ms=duration_ms)
+        if delta > self.maximum_provider_operations:
+            return self._known_local_failure(
+                StateConflictError("provider-stage ledger exceeded the frozen operation ceiling"),
+                after=after,
+                duration_ms=duration_ms,
+                failure_class=ProviderStageFailureClass.CUSTODY_FAILED,
+                disposition="provider_operation_ceiling_exceeded",
+            )
         token_receipt = (
             receipt if receipt is not None and receipt.provider_operations == delta else None
         )
