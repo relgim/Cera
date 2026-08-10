@@ -29,18 +29,10 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "generate_ordinary_review_contracts.py"
 PROVIDER_GENERATOR = ROOT / "scripts" / "generate_provider_stage_retry_contracts.py"
 SCHEMA_ROOT = ROOT / "schemas" / "pi_scene" / "ordinary_review" / "v2"
-POSITIVE_FIXTURES = (
-    ROOT / "tests" / "fixtures" / "generated" / "ordinary_review_v2_positive.json"
-)
-NEGATIVE_FIXTURES = (
-    ROOT / "tests" / "fixtures" / "generated" / "ordinary_review_v2_negative.json"
-)
+POSITIVE_FIXTURES = ROOT / "tests" / "fixtures" / "generated" / "ordinary_review_v2_positive.json"
+NEGATIVE_FIXTURES = ROOT / "tests" / "fixtures" / "generated" / "ordinary_review_v2_negative.json"
 JAVASCRIPT_CONTRACTS = (
-    ROOT
-    / "integrations"
-    / "sillytavern"
-    / "generated"
-    / "ordinary-review-contracts-v2.mjs"
+    ROOT / "integrations" / "sillytavern" / "generated" / "ordinary-review-contracts-v2.mjs"
 )
 STAGED_JAVASCRIPT_CONTRACTS = (
     ROOT
@@ -138,9 +130,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
                 result = validate_schema_version(
                     str(case["contract_schema_version"]),
                     value,
-                    external_validators=_external_validators(
-                        case["contract_schema_version"]
-                    ),
+                    external_validators=_external_validators(case["contract_schema_version"]),
                 )
                 self.assertEqual(result, value)
                 self.assertIsNot(result, value)
@@ -152,9 +142,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
                     validate_schema_version(
                         str(case["contract_schema_version"]),
                         case["value"],
-                        external_validators=_external_validators(
-                            case["contract_schema_version"]
-                        ),
+                        external_validators=_external_validators(case["contract_schema_version"]),
                     )
 
     def test_public_roots_are_exact_and_ordinary_only(self) -> None:
@@ -167,9 +155,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             "ordinary",
         )
         self.assertEqual(
-            cast(dict[str, object], review_properties["primary_authority_kind"])[
-                "const"
-            ],
+            cast(dict[str, object], review_properties["primary_authority_kind"])["const"],
             "codex_cognition_plan",
         )
         self.assertTrue(
@@ -191,9 +177,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             "checks_pending",
         )
         self.assertEqual(
-            cast(dict[str, object], lifecycle_properties["terminal_decision"])[
-                "type"
-            ],
+            cast(dict[str, object], lifecycle_properties["terminal_decision"])["type"],
             "null",
         )
 
@@ -228,9 +212,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             ),
         )
         reader = cast(dict[str, object], blocked_reader["reader"])
-        reader_envelope = cast(
-            dict[str, object], reader["provider_stage_retry_status"]
-        )
+        reader_envelope = cast(dict[str, object], reader["provider_stage_retry_status"])
         reader_status = cast(dict[str, object], reader_envelope["status"])
         self.assertEqual(
             (
@@ -263,9 +245,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
                 retry = lane["provider_stage_retry_status"]
                 if retry is None:
                     continue
-                normalized_envelope = validate_provider_stage_retry_status_envelope_v1(
-                    retry
-                )
+                normalized_envelope = validate_provider_stage_retry_status_envelope_v1(retry)
                 status = normalized_envelope["status"]
                 actions = normalized_envelope["actions"]
                 observed.add(
@@ -302,9 +282,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             )
             lane = cast(dict[str, object], checks[lane_name])
             succeeded = lane["provider_stage_retry_status"]
-            self.assertIsNotNone(
-                validate_provider_stage_retry_status_envelope_v1(succeeded)
-            )
+            self.assertIsNotNone(validate_provider_stage_retry_status_envelope_v1(succeeded))
             with self.assertRaises(OrdinaryReviewContractError):
                 validate_ordinary_review_checks_v1(checks)
 
@@ -378,9 +356,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
         )
         self.assertEqual(projection_pending["recording_status"], "projection_pending")
         self.assertIs(
-            cast(dict[str, object], projection_pending["actions"])[
-                "repair_recording_enabled"
-            ],
+            cast(dict[str, object], projection_pending["actions"])["repair_recording_enabled"],
             False,
         )
         repairable = cast(
@@ -392,9 +368,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
         )
         self.assertEqual(repairable["recording_status"], "pending_repair")
         self.assertIs(
-            cast(dict[str, object], repairable["actions"])[
-                "repair_recording_enabled"
-            ],
+            cast(dict[str, object], repairable["actions"])["repair_recording_enabled"],
             True,
         )
 
@@ -528,9 +502,9 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
         unicode_review["story_text"] = "Hana—雪🙂 leaves the choice open."
         detached = copy.deepcopy(unicode_decision)
         cast(dict[str, object], detached["review"])["terminal_decision"] = None
-        cast(dict[str, object], unicode_review["terminal_decision"])[
-            "decision_sha256"
-        ] = _canonical_sha256(detached)
+        cast(dict[str, object], unicode_review["terminal_decision"])["decision_sha256"] = (
+            _canonical_sha256(detached)
+        )
         validate_ordinary_review_decision_v2(unicode_decision)
         script = f"""
 import fs from 'node:fs';
