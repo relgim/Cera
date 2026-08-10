@@ -1,13 +1,13 @@
 {
   "schema_version": "cera.provider_stage_retry_fixture_set.v1",
   "generated_from_sha256": {
-    "action.schema.json": "218097ac12af5a5f89e67135067a99caee28b1f8d2da5d1b0c84bf89d25bab8f",
+    "action.schema.json": "0a9b3d202d7e1383a529e23a463aa1c625c8388c26071f321a2c0751e13507cf",
     "blocked_ambiguous.schema.json": "64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9",
     "common.schema.json": "ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233",
     "compatibility_adapter.schema.json": "8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff",
     "exhausted.schema.json": "53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b",
-    "status.schema.json": "c2935ee88af75dd14ff108641ab6066d408da281fb5faaab48c417704fd1ce34",
-    "status_envelope.schema.json": "caa95ad9b3f7201103fd470ed3f89646d07434eb9390cc5ee36a90e801157d45"
+    "status.schema.json": "36605cf65bb85dd7250663a5c014a4c17fa44938f951d7ecabc39ab719d9a0bd",
+    "status_envelope.schema.json": "7dccaffbe58698bc363fc9e3faee0b14dae4eca7253c69f96a1cc290a88900d9"
   },
   "expected_valid": false,
   "cases": [
@@ -66,6 +66,42 @@
       }
     },
     {
+      "case_id": "action.schema.negative.automatic_prepared_resume",
+      "contract_schema_version": "cera.provider_stage_retry_action.v1",
+      "value": {
+        "schema_version": "cera.provider_stage_retry_action.v1",
+        "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
+        "chain_id": "stage-retry-5555555555555555555555555555555555555555555555555555555555555555",
+        "action_family": "provider_stage_control",
+        "action_kind": "resume_prepared",
+        "automatic": true,
+        "provider_dispatch_authorized": true,
+        "consumes_retry_action": false,
+        "retry_action_ordinal": null,
+        "whole_request_replay_authorized": false,
+        "provider_substitution_authorized": false,
+        "expected_chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    },
+    {
+      "case_id": "action.schema.negative.prepared_resume_consumes_retry",
+      "contract_schema_version": "cera.provider_stage_retry_action.v1",
+      "value": {
+        "schema_version": "cera.provider_stage_retry_action.v1",
+        "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
+        "chain_id": "stage-retry-5555555555555555555555555555555555555555555555555555555555555555",
+        "action_family": "provider_stage_control",
+        "action_kind": "resume_prepared",
+        "automatic": false,
+        "provider_dispatch_authorized": true,
+        "consumes_retry_action": true,
+        "retry_action_ordinal": null,
+        "whole_request_replay_authorized": false,
+        "provider_substitution_authorized": false,
+        "expected_chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    },
+    {
       "case_id": "action.schema.negative.regenerate_is_separate",
       "contract_schema_version": "cera.provider_stage_retry_action.v1",
       "value": {
@@ -75,7 +111,7 @@
         "action_family": "provider_stage_control",
         "action_kind": "regenerate",
         "automatic": false,
-        "provider_dispatch_authorized": false,
+        "provider_dispatch_authorized": true,
         "consumes_retry_action": false,
         "retry_action_ordinal": null,
         "whole_request_replay_authorized": false,
@@ -93,7 +129,7 @@
         "action_family": "provider_stage_control",
         "action_kind": "replan",
         "automatic": false,
-        "provider_dispatch_authorized": false,
+        "provider_dispatch_authorized": true,
         "consumes_retry_action": false,
         "retry_action_ordinal": null,
         "whole_request_replay_authorized": false,
@@ -1285,7 +1321,7 @@
             "action_family": "provider_stage_control",
             "action_kind": "repair_recording",
             "automatic": false,
-            "provider_dispatch_authorized": false,
+            "provider_dispatch_authorized": true,
             "consumes_retry_action": false,
             "retry_action_ordinal": null,
             "whole_request_replay_authorized": false,

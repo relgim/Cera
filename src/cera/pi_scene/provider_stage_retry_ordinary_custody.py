@@ -76,6 +76,15 @@ def _require_chain_id(chain_id: str) -> None:
         raise ContractValidationError("ordinary protected custody chain ID is invalid")
 
 
+def _require_stage_action_id(action_id: str) -> None:
+    if (
+        not isinstance(action_id, str)
+        or not action_id.startswith("stage-action-")
+        or not re_is_sha256(action_id.removeprefix("stage-action-"))
+    ):
+        raise ContractValidationError("ordinary protected custody stage action ID is invalid")
+
+
 def _require_identifier(value: str, field_name: str) -> None:
     if not isinstance(value, str) or not value.strip() or "\x00" in value:
         raise ContractValidationError(f"ordinary protected custody {field_name} is invalid")
@@ -381,6 +390,39 @@ class ProtectedRecorderContinuationV1:
         _require_sha256(self.accepted_receipt_sha256, "accepted receipt hash")
 
 
+@dataclass(frozen=True, slots=True)
+class ProtectedRecorderRepairSuccessorV1:
+    """One non-recursive Recorder repair occurrence bound to its exhausted parent."""
+
+    parent_chain_id: str
+    successor_chain_id: str
+    request_id: str
+    review_id: str
+    accepted_turn_id: str
+    accepted_receipt_sha256: str
+    parent_chain_sha256: str
+    repair_action_id: str
+    repair_action_sha256: str
+    successor_scope_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_chain_id(self.parent_chain_id)
+        _require_chain_id(self.successor_chain_id)
+        if self.parent_chain_id == self.successor_chain_id:
+            raise ContractValidationError("Recorder repair successor reused its parent chain")
+        _require_request_id(self.request_id)
+        _require_identifier(self.review_id, "Recorder repair review ID")
+        _require_identifier(self.accepted_turn_id, "Recorder repair accepted turn ID")
+        _require_stage_action_id(self.repair_action_id)
+        for value, field_name in (
+            (self.accepted_receipt_sha256, "Recorder repair accepted receipt"),
+            (self.parent_chain_sha256, "Recorder repair parent chain"),
+            (self.repair_action_sha256, "Recorder repair action"),
+            (self.successor_scope_sha256, "Recorder repair successor scope"),
+        ):
+            _require_sha256(value, field_name)
+
+
 class ProtectedOrdinaryStageRetryCustodyStoreV1:
     """Atomic trusted-local custody with cross-process Windows file locking."""
 
@@ -389,6 +431,9 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         "cera.ordinary_stage_retry_protected_request_tombstone.v1"
     )
     RECORDER_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_recorder_continuation.v1"
+    RECORDER_REPAIR_SCHEMA_VERSION: ClassVar[str] = (
+        "cera.ordinary_stage_retry_recorder_repair_successor.v1"
+    )
     CHAIN_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_chain_context.v1"
     OCCURRENCE_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_occurrence_binding.v1"
     RESPONSE_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_terminal_response.v1"
@@ -420,6 +465,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         self.review_action_responses_root = self.root / "review_action_responses"
         self.responses_root = self.root / "responses"
         self.recorder_root = self.root / "recorder"
+        self.recorder_repairs_root = self.root / "recorder_repairs"
         self.locks_root = self.root / "locks"
         for path in (
             self.root,
@@ -433,6 +479,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             self.review_action_responses_root,
             self.responses_root,
             self.recorder_root,
+            self.recorder_repairs_root,
             self.locks_root,
         ):
             path.mkdir(parents=True, exist_ok=True)
@@ -670,6 +717,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         scope: ProviderStageRetryOccurrenceScopeV1,
         context_sha256: str,
         semantic_action_boundary: bool = False,
+        recording_repair_boundary: bool = False,
     ) -> ProtectedOrdinaryChainRequestIdentityV1:
         """Advance a request cursor once, never roll it back during cache replay."""
 
@@ -677,6 +725,10 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             raise ContractValidationError("ordinary latest-chain scope changed")
         if type(semantic_action_boundary) is not bool:
             raise ContractValidationError("ordinary latest-chain semantic action boundary changed")
+        if type(recording_repair_boundary) is not bool or (
+            semantic_action_boundary and recording_repair_boundary
+        ):
+            raise ContractValidationError("ordinary latest-chain recording repair boundary changed")
         _require_sha256(context_sha256, "latest-chain context hash")
         pending = self.load_for_scope(scope)
         if pending.context_sha256 != context_sha256:
@@ -688,6 +740,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             "stage": scope.stage.value,
             "stage_ordinal": scope.stage_ordinal,
             "semantic_action_boundary": semantic_action_boundary,
+            "recording_repair_boundary": recording_repair_boundary,
         }
         path = self._latest_chain_path(scope.request_id)
         with self._claim(f"latest-chain:{scope.request_id}"):
@@ -1753,6 +1806,136 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             return None
         return self.load_recorder_continuation(chain_id)
 
+    def bind_recorder_repair_successor(
+        self,
+        authority: ProtectedRecorderRepairSuccessorV1,
+    ) -> ProtectedRecorderRepairSuccessorV1:
+        """Freeze the sole repair successor for one accepted Recorder parent."""
+
+        if type(authority) is not ProtectedRecorderRepairSuccessorV1:
+            raise ContractValidationError("ordinary Recorder repair authority changed")
+        parent = self.load_recorder_continuation(authority.parent_chain_id)
+        if (
+            parent.request_id != authority.request_id
+            or parent.review_id != authority.review_id
+            or parent.accepted_turn_id != authority.accepted_turn_id
+            or parent.accepted_receipt_sha256 != authority.accepted_receipt_sha256
+        ):
+            raise StateConflictError("ordinary Recorder repair changed accepted continuation")
+        parent_context = self.chain_context(authority.parent_chain_id)
+        successor_context = self.chain_context(authority.successor_chain_id)
+        if (
+            parent_context.request_id != authority.request_id
+            or successor_context.request_id != authority.request_id
+            or successor_context.context_sha256 != parent_context.context_sha256
+        ):
+            raise StateConflictError("ordinary Recorder repair changed request custody")
+        projected = to_primitive(authority)
+        if not isinstance(projected, dict):
+            raise ContractValidationError("ordinary Recorder repair did not encode as an object")
+        body = {
+            "schema_version": self.RECORDER_REPAIR_SCHEMA_VERSION,
+            **projected,
+        }
+        payload = {**body, "repair_binding_sha256": canonical_sha256(body)}
+        path = self._recorder_repair_path(authority.parent_chain_id)
+        with self._claim("recorder-repair-authority"):
+            for candidate in self.recorder_repairs_root.glob("*.json"):
+                bound = self._verify_recorder_repair_payload(self._read_json(candidate))
+                if bound.successor_chain_id == authority.parent_chain_id:
+                    raise StateConflictError("ordinary Recorder repair cannot recurse")
+                if (
+                    bound.parent_chain_id == authority.parent_chain_id
+                    or bound.successor_chain_id == authority.successor_chain_id
+                    or bound.review_id == authority.review_id
+                    or bound.accepted_receipt_sha256 == authority.accepted_receipt_sha256
+                ) and bound != authority:
+                    raise StateConflictError("ordinary Recorder repair successor changed")
+            if path.exists():
+                if self._read_json(path) != payload:
+                    raise StateConflictError("ordinary Recorder repair authority changed")
+            else:
+                self._atomic_write(path, payload)
+        return self.load_recorder_repair_successor(authority.parent_chain_id)
+
+    def load_recorder_repair_successor(
+        self,
+        parent_chain_id: str,
+    ) -> ProtectedRecorderRepairSuccessorV1:
+        _require_chain_id(parent_chain_id)
+        authority = self._verify_recorder_repair_payload(
+            self._read_json(self._recorder_repair_path(parent_chain_id))
+        )
+        if authority.parent_chain_id != parent_chain_id:
+            raise StateConflictError("ordinary Recorder repair parent changed")
+        return authority
+
+    def find_recorder_repair_successor(
+        self,
+        parent_chain_id: str,
+    ) -> ProtectedRecorderRepairSuccessorV1 | None:
+        _require_chain_id(parent_chain_id)
+        path = self._recorder_repair_path(parent_chain_id)
+        if not path.exists():
+            return None
+        return self.load_recorder_repair_successor(parent_chain_id)
+
+    def recorder_repair_parent_for_successor(
+        self,
+        successor_chain_id: str,
+    ) -> ProtectedRecorderRepairSuccessorV1 | None:
+        _require_chain_id(successor_chain_id)
+        matched: list[ProtectedRecorderRepairSuccessorV1] = []
+        with self._claim("recorder-repair-authority"):
+            for candidate in self.recorder_repairs_root.glob("*.json"):
+                authority = self._verify_recorder_repair_payload(self._read_json(candidate))
+                if authority.successor_chain_id == successor_chain_id:
+                    matched.append(authority)
+        if len(matched) > 1:
+            raise StateConflictError("ordinary Recorder repair successor is ambiguous")
+        return None if not matched else matched[0]
+
+    def _verify_recorder_repair_payload(
+        self,
+        payload: Mapping[str, Any],
+    ) -> ProtectedRecorderRepairSuccessorV1:
+        expected = {
+            "schema_version",
+            "parent_chain_id",
+            "successor_chain_id",
+            "request_id",
+            "review_id",
+            "accepted_turn_id",
+            "accepted_receipt_sha256",
+            "parent_chain_sha256",
+            "repair_action_id",
+            "repair_action_sha256",
+            "successor_scope_sha256",
+            "repair_binding_sha256",
+        }
+        unsigned = {key: value for key, value in payload.items() if key != "repair_binding_sha256"}
+        if (
+            set(payload) != expected
+            or payload.get("schema_version") != self.RECORDER_REPAIR_SCHEMA_VERSION
+            or canonical_sha256(unsigned) != payload.get("repair_binding_sha256")
+        ):
+            raise StateConflictError("ordinary Recorder repair authority shape changed")
+        try:
+            return ProtectedRecorderRepairSuccessorV1(
+                parent_chain_id=payload["parent_chain_id"],
+                successor_chain_id=payload["successor_chain_id"],
+                request_id=payload["request_id"],
+                review_id=payload["review_id"],
+                accepted_turn_id=payload["accepted_turn_id"],
+                accepted_receipt_sha256=payload["accepted_receipt_sha256"],
+                parent_chain_sha256=payload["parent_chain_sha256"],
+                repair_action_id=payload["repair_action_id"],
+                repair_action_sha256=payload["repair_action_sha256"],
+                successor_scope_sha256=payload["successor_scope_sha256"],
+            )
+        except (ContractValidationError, KeyError, TypeError) as exc:
+            raise StateConflictError("ordinary Recorder repair authority changed") from exc
+
     def _request_path(self, request_id: str) -> Path:
         _require_request_id(request_id)
         return self.requests_root / f"{request_id.removeprefix('request-')}.json"
@@ -1760,6 +1943,10 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
     def _recorder_path(self, chain_id: str) -> Path:
         _require_chain_id(chain_id)
         return self.recorder_root / f"{chain_id.removeprefix('stage-retry-')}.json"
+
+    def _recorder_repair_path(self, parent_chain_id: str) -> Path:
+        _require_chain_id(parent_chain_id)
+        return self.recorder_repairs_root / (f"{parent_chain_id.removeprefix('stage-retry-')}.json")
 
     def _chain_path(self, chain_id: str) -> Path:
         _require_chain_id(chain_id)
@@ -2018,6 +2205,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             "stage",
             "stage_ordinal",
             "semantic_action_boundary",
+            "recording_repair_boundary",
         }
         normalized: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -2044,6 +2232,8 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
                 or type(value["stage_ordinal"]) is not int
                 or value["stage_ordinal"] < 1
                 or type(value["semantic_action_boundary"]) is not bool
+                or type(value["recording_repair_boundary"]) is not bool
+                or (value["semantic_action_boundary"] and value["recording_repair_boundary"])
             ):
                 raise StateConflictError("ordinary latest-chain entry changed")
             seen.add(identity.chain_id)
@@ -2055,10 +2245,11 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
                     normalized[index - 1],
                     value,
                     semantic_action_boundary=value["semantic_action_boundary"],
+                    recording_repair_boundary=value["recording_repair_boundary"],
                 )
-            elif value["semantic_action_boundary"]:
+            elif value["semantic_action_boundary"] or value["recording_repair_boundary"]:
                 raise StateConflictError(
-                    "ordinary latest chain starts with a semantic action boundary"
+                    "ordinary latest chain starts with a continuation boundary"
                 )
             expected_ordinal = stage_counts.get(value["stage"], 0) + 1
             if value["stage_ordinal"] != expected_ordinal:
@@ -2072,6 +2263,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         successor: Mapping[str, Any],
         *,
         semantic_action_boundary: bool | None = None,
+        recording_repair_boundary: bool | None = None,
     ) -> None:
         boundary = (
             successor.get("semantic_action_boundary", False)
@@ -2080,6 +2272,17 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         )
         if type(boundary) is not bool:
             raise StateConflictError("ordinary latest chain semantic action boundary changed")
+        repair_boundary = (
+            successor.get("recording_repair_boundary", False)
+            if recording_repair_boundary is None
+            else recording_repair_boundary
+        )
+        if type(repair_boundary) is not bool or (boundary and repair_boundary):
+            raise StateConflictError("ordinary latest chain recording repair boundary changed")
+        if repair_boundary:
+            if prior["stage"] != "recorder" or successor["stage"] != "recorder":
+                raise StateConflictError("ordinary latest chain changed Recorder repair boundary")
+            return
         if boundary:
             if prior["stage"] not in {"writer", "semantic_validator"} or successor["stage"] not in {
                 "planner",
@@ -2225,4 +2428,5 @@ __all__ = [
     "ProtectedOrdinaryStageRetryCustodyStoreV1",
     "ProtectedOrdinaryTerminalResponseReceiptV1",
     "ProtectedRecorderContinuationV1",
+    "ProtectedRecorderRepairSuccessorV1",
 ]

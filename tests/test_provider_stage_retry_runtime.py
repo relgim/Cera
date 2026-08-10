@@ -626,15 +626,23 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
         self.assertEqual(self.invocations.calls, 0)
         envelope = restarted_a.canonical_status(chain_id=chain.chain_id)
         self.assertEqual(envelope["status"]["state"], "in_progress")
+        self.assertEqual(envelope["status"]["available_actions"], ["resume_prepared"])
+        action = envelope["actions"][0]
         self.assertEqual(self.invocations.calls, 0)
         second_envelope = restarted_b.canonical_status(chain_id=chain.chain_id)
         self.assertEqual(second_envelope, envelope)
         self.assertEqual(self.invocations.calls, 0)
 
+        stale = dict(action)
+        stale["expected_chain_sha256"] = _sha("wrong-prepared-chain")
+        with self.assertRaises(StateConflictError):
+            restarted_a.execute_manual_resume_prepared(stale)
+        self.assertEqual(self.writer_factory.owner_creation_calls, 0)
+
         with ThreadPoolExecutor(max_workers=2) as pool:
             futures = (
-                pool.submit(restarted_a.resume_prepared, chain.chain_id),
-                pool.submit(restarted_b.resume_prepared, chain.chain_id),
+                pool.submit(restarted_a.execute_manual_resume_prepared, action),
+                pool.submit(restarted_b.execute_manual_resume_prepared, action),
             )
             tuple(future.result() for future in futures)
 
@@ -643,6 +651,9 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
             restarted_a.read_chain(chain.chain_id).phase,
             ProviderStageRetryPhase.RESULT_FROZEN,
         )
+        replayed = restarted_a.execute_manual_resume_prepared(action)
+        self.assertEqual(replayed.phase, ProviderStageRetryPhase.RESULT_FROZEN)
+        self.assertEqual(self.invocations.calls, 1)
 
     def test_interrupted_dispatch_recovers_each_closed_outcome_without_invoke(self) -> None:
         cases: tuple[

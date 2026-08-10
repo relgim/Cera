@@ -11,6 +11,7 @@ from typing import Any, cast
 from unittest.mock import patch
 
 from cera.errors import StateConflictError
+from cera.generated.provider_stage_retry_contracts_v1 import ProviderStageRetryActionV1
 from cera.pi_scene.contracts import (
     LeanAcceptedTurnReceiptV1,
     PiWriterReceiptV1,
@@ -605,6 +606,95 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             context=context,
         )
 
+    def _exhaust_accepted_recorder(
+        self,
+        label: str,
+    ) -> tuple[
+        OrdinaryStageRetryRequestContextV1,
+        LeanSceneStore,
+        Path,
+        WriterViewMaterializer,
+        LeanPiSceneCoordinator,
+        str,
+        ProviderStageRetryActionV1,
+    ]:
+        writer_factory = self.factories[ProviderStage.WRITER]
+        writer_factory.initial_outcome_from_input = lambda exact_input: _success(
+            f"{label}:writer",
+            serialize_pi_result(
+                _pi_result(
+                    writer_invocation_from_frozen_input(exact_input),
+                    f"{label}:writer",
+                )
+            ),
+        )
+        recorder_factory = self.factories[ProviderStage.RECORDER]
+        recorder_factory.initial_outcome_from_input = None
+        recorder_factory.outcomes = {
+            1: _failure(f"{label}:recorder:1"),
+            2: _failure(f"{label}:recorder:2"),
+            3: _failure(f"{label}:recorder:3"),
+        }
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / f"{label}-world")
+        review_root = self.root / f"{label}-reviews"
+        views = WriterViewMaterializer(self.root / f"{label}-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            with self.assertRaises(ProviderStageRetryPendingError) as first:
+                coordinator.accept(review.review_id)
+        second = self.integration.execute_action(
+            backend_action_from_envelope(first.exception.envelope)
+        )
+        terminal = self.integration.execute_action(backend_action_from_envelope(second.envelope))
+        self.assertEqual(terminal.envelope["status"]["state"], "recording_repair_required")
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 3)
+        return (
+            context,
+            scene_store,
+            review_root,
+            views,
+            coordinator,
+            review.review_id,
+            backend_action_from_envelope(terminal.envelope),
+        )
+
+    def _set_recorder_success(self, chain_id: str, label: str) -> None:
+        invocation = recorder_invocation_from_frozen_input(self.service.store.load_input(chain_id))
+        recorder_output = json.dumps(
+            {
+                "secondary_canon": [],
+                "resulting_public_state": "The accepted conversation remains open.",
+                "relationship_changes": [],
+                "knowledge_changes": [],
+                "durable_changes": [],
+                "unresolved_threads": ["Ted may respond."],
+            },
+            separators=(",", ":"),
+        )
+        base = _pi_result(invocation, label)
+        result = replace(
+            base,
+            output_text=recorder_output,
+            writer_receipt=replace(
+                base.writer_receipt,
+                output_sha256=text_sha256(recorder_output),
+            ),
+        )
+        self.factories[ProviderStage.RECORDER].outcomes[1] = _success(
+            label,
+            serialize_pi_result(result),
+        )
+
     def test_planner_retry_is_manual_and_cached_request_replay_is_provider_free(self) -> None:
         planner_result = PlannerTurnOutputV1(
             sequence=sequence("after_retry"),
@@ -1055,6 +1145,196 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         self.assertEqual(head.accepted_head_sha256, accepted.receipt_sha256)
         self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 3)
 
+    def test_recorder_repair_is_one_fresh_successor_and_replays_original_route(self) -> None:
+        (
+            context,
+            scene_store,
+            review_root,
+            views,
+            coordinator,
+            review_id,
+            repair_action,
+        ) = self._exhaust_accepted_recorder("repair-success")
+        parent_chain_id = repair_action["chain_id"]
+        parent_before = self.service.read_chain(parent_chain_id)
+        self._set_recorder_success(parent_chain_id, "repair-success:successor:1")
+
+        projection = self.integration.execute_recording_repair(
+            repair_action,
+            continuation=coordinator,
+        )
+        self.assertTrue(projection.result_ready)
+        self.assertNotEqual(projection.chain_id, parent_chain_id)
+        self.assertEqual(projection.envelope["status"]["state"], "succeeded")
+        successor = self.service.read_chain(projection.chain_id)
+        self.assertEqual(len(successor.attempts), 1)
+        self.assertEqual(successor.retries_consumed, 0)
+        self.assertEqual(len(parent_before.attempts), 3)
+        self.assertEqual(parent_before.retries_consumed, 2)
+        self.assertEqual(self.service.read_chain(parent_chain_id), parent_before)
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 4)
+        self.assertFalse(self.integration.recording_repair_action_allowed(projection.chain_id))
+
+        self._restart_runtime()
+        restarted = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        replay = self.integration.execute_recording_repair(
+            repair_action,
+            continuation=restarted,
+        )
+        self.assertEqual(replay.chain_id, projection.chain_id)
+        self.assertEqual(replay.envelope, projection.envelope)
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 4)
+
+        completion = {
+            "id": "completion-repair-success",
+            "choices": [{"message": {"role": "assistant", "content": "Accepted."}}],
+        }
+
+        class _Continuation:
+            def durable_result_for_request(self, **kwargs: Any) -> Any:
+                return restarted.durable_result_for_request(**kwargs)
+
+            def repair_recording(self, requested_review_id: str) -> LeanDecisionResultV1:
+                return restarted.repair_recording(requested_review_id)
+
+            def resume_original_request(
+                self,
+                *,
+                normalized_request: Mapping[str, Any],
+                turn_input: LeanSceneTurnInputV1,
+            ) -> dict[str, Any]:
+                self_outer.assertEqual(normalized_request, _payload())
+                self_outer.assertEqual(
+                    canonical_sha256(turn_input), canonical_sha256(context.turn_input)
+                )
+                return completion
+
+        self_outer = self
+        response = self.integration.resume_succeeded_chain(
+            projection.chain_id,
+            continuation=_Continuation(),
+        )
+        self.assertEqual(response, completion)
+        repaired_review = restarted.get_review(review_id)
+        self.assertIsNotNone(repaired_review.recording_attempt)
+        assert repaired_review.recording_attempt is not None
+        self.assertIs(
+            repaired_review.recording_attempt.status,
+            RecordingStatus.COMPLETE,
+            repaired_review.recording_attempt,
+        )
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 4)
+
+    def test_recorder_repair_crash_before_initial_dispatch_reuses_parent_action(self) -> None:
+        (
+            _,
+            scene_store,
+            review_root,
+            views,
+            coordinator,
+            _,
+            repair_action,
+        ) = self._exhaust_accepted_recorder("repair-crash")
+        parent_chain_id = repair_action["chain_id"]
+        self._set_recorder_success(parent_chain_id, "repair-crash:successor:1")
+
+        with patch.object(self.service, "start_initial", side_effect=OSError("simulated stop")):
+            with self.assertRaisesRegex(OSError, "simulated stop"):
+                self.integration.execute_recording_repair(
+                    repair_action,
+                    continuation=coordinator,
+                )
+        authority = self.custody.load_recorder_repair_successor(parent_chain_id)
+        self.assertEqual(
+            self.service.read_chain(authority.successor_chain_id).phase,
+            ProviderStageRetryPhase.INPUT_FROZEN,
+        )
+        self.assertEqual(
+            self.integration.latest_chain_for_chain(parent_chain_id).chain_id,
+            parent_chain_id,
+        )
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 3)
+
+        self._restart_runtime()
+        restarted = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        resumed = self.integration.execute_recording_repair(
+            repair_action,
+            continuation=restarted,
+        )
+        self.assertEqual(resumed.chain_id, authority.successor_chain_id)
+        self.assertTrue(resumed.result_ready)
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 4)
+        duplicate = self.integration.execute_recording_repair(
+            repair_action,
+            continuation=restarted,
+        )
+        self.assertEqual(duplicate.envelope, resumed.envelope)
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 4)
+
+    def test_exhausted_recorder_repair_successor_is_read_only_and_cannot_recurse(self) -> None:
+        (
+            _,
+            _,
+            _,
+            _,
+            coordinator,
+            _,
+            repair_action,
+        ) = self._exhaust_accepted_recorder("repair-exhausted")
+        parent_chain_id = repair_action["chain_id"]
+        successor_first = self.integration.execute_recording_repair(
+            repair_action,
+            continuation=coordinator,
+        )
+        self.assertFalse(successor_first.result_ready)
+        self.assertNotEqual(successor_first.chain_id, parent_chain_id)
+        successor_second = self.integration.execute_action(
+            backend_action_from_envelope(successor_first.envelope)
+        )
+        successor_terminal = self.integration.execute_action(
+            backend_action_from_envelope(successor_second.envelope)
+        )
+        self.assertEqual(
+            successor_terminal.envelope["status"]["state"],
+            "recording_repair_required",
+        )
+        self.assertEqual(successor_terminal.envelope["actions"], [])
+        self.assertEqual(self.integration.status(successor_first.chain_id)["actions"], [])
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 6)
+
+        unsafe = self.service.canonical_status(
+            chain_id=successor_first.chain_id,
+            recording_repair_action_allowed=True,
+        )
+        recursive_action = backend_action_from_envelope(unsafe)
+        self.assertEqual(recursive_action["action_kind"], "repair_recording")
+        with self.assertRaisesRegex(StateConflictError, "cannot recurse"):
+            self.integration.execute_recording_repair(
+                recursive_action,
+                continuation=coordinator,
+            )
+        replay = self.integration.execute_recording_repair(
+            repair_action,
+            continuation=coordinator,
+        )
+        self.assertEqual(replay.chain_id, successor_first.chain_id)
+        self.assertEqual(replay.envelope["actions"], [])
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 6)
+
     def test_recorder_restart_recovers_after_accept_before_mapping(self) -> None:
         writer_factory = self.factories[ProviderStage.WRITER]
         writer_factory.initial_outcome_from_input = lambda exact_input: _success(
@@ -1144,23 +1424,49 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             session_root=review_root,
             ordinary_stage_retry=self.integration,
         )
-        _, recovered_context = self.integration.pending_request_for_chain(chain_id)
+        recovered_request, recovered_context = self.integration.pending_request_for_chain(chain_id)
         self.assertEqual(
             canonical_sha256(recovered_context.turn_input),
             canonical_sha256(context.turn_input),
         )
-        decision = self.integration.resume_succeeded_chain(
+        completion = {
+            "id": "completion-recorder-restart",
+            "choices": [{"message": {"role": "assistant", "content": "Recovered."}}],
+        }
+
+        class _Continuation:
+            def durable_result_for_request(self, **kwargs: Any) -> Any:
+                return restarted_coordinator.durable_result_for_request(**kwargs)
+
+            def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
+                return restarted_coordinator.repair_recording(review_id)
+
+            def resume_original_request(
+                self,
+                *,
+                normalized_request: Mapping[str, Any],
+                turn_input: LeanSceneTurnInputV1,
+            ) -> dict[str, Any]:
+                self_outer.assertEqual(normalized_request, recovered_request)
+                self_outer.assertEqual(
+                    canonical_sha256(turn_input),
+                    canonical_sha256(context.turn_input),
+                )
+                return completion
+
+        self_outer = self
+        recovered = self.integration.resume_succeeded_chain(
             chain_id,
-            continuation=restarted_coordinator,
+            continuation=_Continuation(),
         )
-        self.assertIsInstance(decision, LeanDecisionResultV1)
-        assert isinstance(decision, LeanDecisionResultV1)
-        self.assertIsNotNone(decision.review.recording_attempt)
-        assert decision.review.recording_attempt is not None
+        self.assertEqual(recovered, completion)
+        decision = restarted_coordinator.get_review(review.review_id)
+        self.assertIsNotNone(decision.recording_attempt)
+        assert decision.recording_attempt is not None
         self.assertIs(
-            decision.review.recording_attempt.status,
+            decision.recording_attempt.status,
             RecordingStatus.COMPLETE,
-            decision.review.recording_attempt,
+            decision.recording_attempt,
         )
         self.assertEqual(
             self.counts.by_stage[ProviderStage.RECORDER],

@@ -41,10 +41,11 @@
       "type": "string",
       "enum": [
         "provider_retry",
+        "resume_prepared",
         "check_status",
         "repair_recording"
       ],
-      "description": "Requested backend action. Only provider_retry may authorize provider transport."
+      "description": "Requested backend action. Manual provider_retry, resume_prepared, and repair_recording may authorize exactly the provider dispatch named by their closed control identity."
     },
     "automatic": {
       "type": "boolean",
@@ -52,7 +53,7 @@
     },
     "provider_dispatch_authorized": {
       "type": "boolean",
-      "description": "True only for a backend-accepted manual provider_retry action."
+      "description": "True only for a backend-issued manual action that names one exact provider dispatch."
     },
     "consumes_retry_action": {
       "type": "boolean",
@@ -69,7 +70,7 @@
           "type": "null"
         }
       ],
-      "description": "One or two for provider Retry; null for provider-free control actions."
+      "description": "One or two for provider Retry; null for controls that do not consume the parent occurrence Retry budget."
     },
     "whole_request_replay_authorized": {
       "const": false,
@@ -109,6 +110,25 @@
     {
       "properties": {
         "action_kind": {
+          "const": "resume_prepared"
+        },
+        "automatic": {
+          "const": false
+        },
+        "provider_dispatch_authorized": {
+          "const": true
+        },
+        "consumes_retry_action": {
+          "const": false
+        },
+        "retry_action_ordinal": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "action_kind": {
           "const": "check_status"
         },
         "automatic": {
@@ -131,10 +151,10 @@
           "const": "repair_recording"
         },
         "automatic": {
-          "type": "boolean"
+          "const": false
         },
         "provider_dispatch_authorized": {
-          "const": false
+          "const": true
         },
         "consumes_retry_action": {
           "const": false
@@ -181,12 +201,26 @@
       "action_family": "provider_stage_control",
       "action_kind": "repair_recording",
       "automatic": false,
-      "provider_dispatch_authorized": false,
+      "provider_dispatch_authorized": true,
       "consumes_retry_action": false,
       "retry_action_ordinal": null,
       "whole_request_replay_authorized": false,
       "provider_substitution_authorized": false,
       "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_action.v1",
+      "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
+      "chain_id": "stage-retry-5555555555555555555555555555555555555555555555555555555555555555",
+      "action_family": "provider_stage_control",
+      "action_kind": "resume_prepared",
+      "automatic": false,
+      "provider_dispatch_authorized": true,
+      "consumes_retry_action": false,
+      "retry_action_ordinal": null,
+      "whole_request_replay_authorized": false,
+      "provider_substitution_authorized": false,
+      "expected_chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
     }
   ],
   "x-cera-negative-fixtures": [
@@ -219,6 +253,28 @@
         {
           "op": "replace",
           "path": "/provider_dispatch_authorized",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "automatic_prepared_resume",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/automatic",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "prepared_resume_consumes_retry",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/consumes_retry_action",
           "value": true
         }
       ]

@@ -64,18 +64,44 @@
           "properties": {
             "status": {
               "properties": {
-                "state": {
-                  "enum": [
-                    "in_progress",
-                    "succeeded",
-                    "attempts_exhausted",
-                    "recovery_required"
-                  ]
+                  "state": {
+                    "enum": [
+                      "in_progress",
+                      "succeeded",
+                      "attempts_exhausted",
+                      "recording_repair_required",
+                      "recovery_required"
+                    ]
                 }
               }
             },
             "actions": {
               "const": []
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "properties": {
+                "state": {
+                  "const": "in_progress"
+                }
+              }
+            },
+            "actions": {
+              "minItems": 1,
+              "maxItems": 1,
+              "prefixItems": [
+                {
+                  "properties": {
+                    "action_kind": {
+                      "const": "resume_prepared"
+                    }
+                  }
+                }
+              ],
+              "items": false
             }
           }
         },
@@ -175,6 +201,16 @@
     },
     {
       "status_example": 7,
+      "action_examples": []
+    },
+    {
+      "status_example": 8,
+      "action_examples": [
+        3
+      ]
+    },
+    {
+      "status_example": 9,
       "action_examples": []
     }
   ],

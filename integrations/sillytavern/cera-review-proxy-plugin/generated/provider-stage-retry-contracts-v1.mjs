@@ -43,10 +43,11 @@ export const CONTRACT_SCHEMAS = deepFreeze({
         "type": "string",
         "enum": [
           "provider_retry",
+          "resume_prepared",
           "check_status",
           "repair_recording"
         ],
-        "description": "Requested backend action. Only provider_retry may authorize provider transport."
+        "description": "Requested backend action. Manual provider_retry, resume_prepared, and repair_recording may authorize exactly the provider dispatch named by their closed control identity."
       },
       "automatic": {
         "type": "boolean",
@@ -54,7 +55,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
       },
       "provider_dispatch_authorized": {
         "type": "boolean",
-        "description": "True only for a backend-accepted manual provider_retry action."
+        "description": "True only for a backend-issued manual action that names one exact provider dispatch."
       },
       "consumes_retry_action": {
         "type": "boolean",
@@ -71,7 +72,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
             "type": "null"
           }
         ],
-        "description": "One or two for provider Retry; null for provider-free control actions."
+        "description": "One or two for provider Retry; null for controls that do not consume the parent occurrence Retry budget."
       },
       "whole_request_replay_authorized": {
         "const": false,
@@ -111,6 +112,25 @@ export const CONTRACT_SCHEMAS = deepFreeze({
       {
         "properties": {
           "action_kind": {
+            "const": "resume_prepared"
+          },
+          "automatic": {
+            "const": false
+          },
+          "provider_dispatch_authorized": {
+            "const": true
+          },
+          "consumes_retry_action": {
+            "const": false
+          },
+          "retry_action_ordinal": {
+            "type": "null"
+          }
+        }
+      },
+      {
+        "properties": {
+          "action_kind": {
             "const": "check_status"
           },
           "automatic": {
@@ -133,10 +153,10 @@ export const CONTRACT_SCHEMAS = deepFreeze({
             "const": "repair_recording"
           },
           "automatic": {
-            "type": "boolean"
+            "const": false
           },
           "provider_dispatch_authorized": {
-            "const": false
+            "const": true
           },
           "consumes_retry_action": {
             "const": false
@@ -861,6 +881,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           "type": "string",
           "enum": [
             "provider_retry",
+            "resume_prepared",
             "check_status",
             "repair_recording"
           ]
@@ -927,7 +948,16 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 "type": "null"
               },
               "available_actions": {
-                "const": []
+                "oneOf": [
+                  {
+                    "const": []
+                  },
+                  {
+                    "const": [
+                      "resume_prepared"
+                    ]
+                  }
+                ]
               }
             },
             "$comment": "Counter relation is enforced by x-cera-invariants below."
@@ -1020,8 +1050,15 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
               },
               "available_actions": {
-                "const": [
-                  "repair_recording"
+                "oneOf": [
+                  {
+                    "const": []
+                  },
+                  {
+                    "const": [
+                      "repair_recording"
+                    ]
+                  }
                 ]
               }
             }
@@ -1165,6 +1202,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                       "in_progress",
                       "succeeded",
                       "attempts_exhausted",
+                      "recording_repair_required",
                       "recovery_required"
                     ]
                   }
@@ -1172,6 +1210,31 @@ export const CONTRACT_SCHEMAS = deepFreeze({
               },
               "actions": {
                 "const": []
+              }
+            }
+          },
+          {
+            "properties": {
+              "status": {
+                "properties": {
+                  "state": {
+                    "const": "in_progress"
+                  }
+                }
+              },
+              "actions": {
+                "minItems": 1,
+                "maxItems": 1,
+                "prefixItems": [
+                  {
+                    "properties": {
+                      "action_kind": {
+                        "const": "resume_prepared"
+                      }
+                    }
+                  }
+                ],
+                "items": false
               }
             }
           },

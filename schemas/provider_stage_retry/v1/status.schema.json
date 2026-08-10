@@ -121,6 +121,7 @@
         "type": "string",
         "enum": [
           "provider_retry",
+          "resume_prepared",
           "check_status",
           "repair_recording"
         ]
@@ -187,7 +188,16 @@
               "type": "null"
             },
             "available_actions": {
-              "const": []
+              "oneOf": [
+                {
+                  "const": []
+                },
+                {
+                  "const": [
+                    "resume_prepared"
+                  ]
+                }
+              ]
             }
           },
           "$comment": "Counter relation is enforced by x-cera-invariants below."
@@ -280,8 +290,15 @@
               "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
             },
             "available_actions": {
-              "const": [
-                "repair_recording"
+              "oneOf": [
+                {
+                  "const": []
+                },
+                {
+                  "const": [
+                    "repair_recording"
+                  ]
+                }
               ]
             }
           }
@@ -558,6 +575,58 @@
         "stage_input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "accepted_state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "writer",
+      "state": "in_progress",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 1,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 0,
+      "provider_operations_conservative_total": 0,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": null,
+      "available_actions": [
+        "resume_prepared"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+        "request_sha256": "d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3",
+        "stage_input_sha256": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+        "accepted_state_sha256": "d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5",
+        "chain_sha256": "d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "recorder",
+      "state": "recording_repair_required",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 3,
+      "retry_actions_accepted": 2,
+      "provider_operations_observed_total": 3,
+      "provider_operations_conservative_total": 3,
+      "story_state_committed": true,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "provider_completion_incomplete",
+      "available_actions": [],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2",
+        "request_sha256": "e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3",
+        "stage_input_sha256": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+        "accepted_state_sha256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "chain_sha256": "e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
       }
     }
   ],

@@ -914,6 +914,15 @@ class _LateBoundOrdinaryHttpContinuationV1:
     def continuation_epoch_for_chain(self, chain_id: str) -> object | None:
         return self._ordinary.review_action_for_chain(chain_id)
 
+    def recording_repair_action_allowed(self, chain_id: str) -> bool:
+        return self._ordinary.recording_repair_action_allowed(chain_id)
+
+    def execute_recording_repair(self, action: object) -> object:
+        return self._ordinary.execute_recording_repair(
+            action,
+            continuation=self._require_adapter(),
+        )
+
     def load_terminal_completion(self, chain_id: str) -> Mapping[str, Any] | None:
         action = self._ordinary.review_action_for_chain(chain_id)
         if action is not None:
@@ -996,6 +1005,11 @@ class _LateBoundOrdinaryHttpContinuationV1:
             "recovery_required",
         }:
             raise StateConflictError("ordinary Retry failure is not terminal")
+        if state == "recording_repair_required":
+            # The accepted story is durable, but the exact request/review
+            # context remains necessary to create and terminalize the sole
+            # bounded Recorder repair successor.
+            return
         action = self._ordinary.review_action_for_chain(chain_id)
         if action is not None:
             # The exact creator action remains protected for explicit recovery.
@@ -1048,6 +1062,14 @@ class _LateBoundAdultHttpContinuationV1:
 
     def continuation_epoch_for_chain(self, chain_id: str) -> object | None:
         return self._actions.review_action_identity_for_chain(chain_id)
+
+    def recording_repair_action_allowed(self, chain_id: str) -> bool:
+        del chain_id
+        return False
+
+    def execute_recording_repair(self, action: object) -> object:
+        del action
+        raise StateConflictError("Recorder repair is unavailable for Adult stages")
 
     def load_terminal_completion(self, chain_id: str) -> Mapping[str, Any] | None:
         action = self._actions.review_action_for_chain(chain_id)

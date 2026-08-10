@@ -277,5 +277,32 @@ class ProviderStageRetryOccurrenceScopeV1:
             raise ContractValidationError("provider-stage occurrence did not encode as an object")
         return payload
 
+    def next_occurrence_with_same_authority(self) -> ProviderStageRetryOccurrenceScopeV1:
+        """Advance only the stage occurrence while retaining exact accepted authority."""
+
+        next_ordinal = self.stage_ordinal + 1
+        return ProviderStageRetryOccurrenceScopeV1(
+            schema_version=self.schema_version,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            request_id=self.request_id,
+            generation_id=self.generation_id,
+            stage=self.stage,
+            stage_ordinal=next_ordinal,
+            accepted_state_sha256=self.accepted_state_sha256,
+            stage_input_sha256=self.stage_input_sha256,
+            authority_binding_sha256=self.authority_binding_sha256,
+            request_sha256=self.request_sha256,
+            authority_sha256=self.authority_sha256,
+            request_occurrence_sha256=_request_occurrence_sha256(
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                request_id=self.request_id,
+                generation_id=self.generation_id,
+                stage=self.stage,
+                stage_ordinal=next_ordinal,
+            ),
+        )
+
 
 __all__ = ["ProviderStageRetryOccurrenceScopeV1", "provider_stage_owner"]

@@ -342,12 +342,9 @@ class ProviderStageRetryExecutorV1:
         with self._begin_lock(scope.identity.chain_id):
             chain = self._store.begin(scope.identity, packet.exact_bytes)
         if chain.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED:
-            current = chain.attempts[-1]
-            if (
-                current.session_scope_sha256 == owner.session_scope_sha256
-                and current.ledger_prefix_before_sha256 == owner.ledger_prefix_before_sha256
-            ):
-                return self._execute_prepared(chain, owner)
+            # A duplicate initial request may observe this owner, but only the
+            # exact backend-issued manual resume_prepared action may authorize
+            # its first provider-dispatch claim.
             return chain
         if chain.phase is not ProviderStageRetryPhase.INPUT_FROZEN:
             return chain
@@ -450,17 +447,23 @@ class ProviderStageRetryExecutorV1:
             )
         return self._execute_prepared(prepared, owner)
 
-    def resume_prepared_attempt(
+    def execute_manual_resume_prepared(
         self,
         *,
-        chain_id: str,
-        owner: ProviderStageAttemptOwnerPort,
+        action: object,
+        owner: ProviderStageAttemptOwnerPort | None,
     ) -> ProviderStageRetryChainV1:
-        """Explicitly resume one prepared, never-dispatched persisted owner."""
+        """Run one exact manually authorized prepared owner, or replay its result."""
 
-        chain = self._store.read(chain_id)
+        validated = validate_provider_stage_retry_action_v1(action)
+        chain = self.authenticate_manual_resume_prepared(validated)
+        prepared = self._prepared_chain_for_action(chain, validated)
         if chain.phase is not ProviderStageRetryPhase.ATTEMPT_PREPARED:
-            raise StateConflictError("provider-stage attempt is not safely resumable")
+            # The exact action already won or lost its one dispatch claim.
+            # Replaying it returns current custody and can never dispatch.
+            return chain
+        if prepared != chain or owner is None:
+            raise StateConflictError("provider-stage prepared action changed owner custody")
         current = chain.attempts[-1]
         if (
             current.session_scope_sha256 != owner.session_scope_sha256
@@ -468,6 +471,20 @@ class ProviderStageRetryExecutorV1:
         ):
             raise StateConflictError("provider-stage prepared owner changed")
         return self._execute_prepared(chain, owner)
+
+    def authenticate_manual_resume_prepared(
+        self,
+        action: object,
+    ) -> ProviderStageRetryChainV1:
+        """Authenticate one exact prepared action without constructing an owner."""
+
+        validated = validate_provider_stage_retry_action_v1(action)
+        self._require_action_kind(validated, "resume_prepared")
+        chain = self._store.read(validated["chain_id"])
+        prepared = self._prepared_chain_for_action(chain, validated)
+        if chain.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED and prepared != chain:
+            raise StateConflictError("provider-stage prepared action changed current attempt")
+        return chain
 
     def close_dispatch_ambiguity(
         self,
@@ -674,8 +691,13 @@ class ProviderStageRetryExecutorV1:
     def status_envelope(
         self,
         scope: ProviderStageRetryOccurrenceScopeV1,
+        *,
+        recording_repair_action_allowed: bool = True,
     ) -> ProviderStageRetryStatusEnvelopeV1:
         """Build and generated-schema validate one authoritative UI envelope."""
+
+        if type(recording_repair_action_allowed) is not bool:
+            raise ContractValidationError("Recorder repair action policy must be boolean")
 
         chain = self._store.read(scope.identity.chain_id)
         if chain.identity != scope.identity:
@@ -686,7 +708,10 @@ class ProviderStageRetryExecutorV1:
         ):
             raise StateConflictError("provider-stage status is unavailable before attempt one")
         retry_count = chain.retries_consumed
-        state, failure_category, available_action = self._public_state(chain)
+        state, failure_category, available_action = self._public_state(
+            chain,
+            recording_repair_action_allowed=recording_repair_action_allowed,
+        )
         status_payload: dict[str, object] = {
             "schema_version": "cera.provider_stage_retry_status.v1",
             "chain_id": chain.chain_id,
@@ -938,6 +963,11 @@ class ProviderStageRetryExecutorV1:
             },
         )
         provider_retry = action_kind == "provider_retry"
+        provider_dispatch = action_kind in {
+            "provider_retry",
+            "resume_prepared",
+            "repair_recording",
+        }
         payload: dict[str, object] = {
             "schema_version": "cera.provider_stage_retry_action.v1",
             "action_id": "stage-action-" + digest,
@@ -945,7 +975,7 @@ class ProviderStageRetryExecutorV1:
             "action_family": "provider_stage_control",
             "action_kind": action_kind,
             "automatic": False,
-            "provider_dispatch_authorized": provider_retry,
+            "provider_dispatch_authorized": provider_dispatch,
             "consumes_retry_action": provider_retry,
             "retry_action_ordinal": retry_action_ordinal,
             "whole_request_replay_authorized": False,
@@ -983,17 +1013,67 @@ class ProviderStageRetryExecutorV1:
             block_evidence_sha256=None,
         )
 
+    @classmethod
+    def _prepared_chain_for_action(
+        cls,
+        chain: ProviderStageRetryChainV1,
+        action: ProviderStageRetryActionV1,
+    ) -> ProviderStageRetryChainV1:
+        """Recover the immutable prepared snapshot named by a replayed action."""
+
+        for retained_count in range(len(chain.attempts), 0, -1):
+            retained = chain.attempts[:retained_count]
+            current = retained[-1]
+            prepared_attempt = replace(
+                current,
+                phase=ProviderStageAttemptPhase.PREPARED,
+                dispatch_evidence_sha256=None,
+                ledger_prefix_after_sha256=None,
+                provider_operations_observed=0,
+                provider_operations_conservative=0,
+                duration_ms=None,
+                input_tokens=None,
+                cached_input_tokens=None,
+                output_tokens=None,
+                reasoning_tokens=None,
+                failure_class=None,
+                failure_evidence_sha256=None,
+                owner_retirement_evidence_sha256=None,
+                result_checkpoint_sha256=None,
+            )
+            candidate = replace(
+                chain,
+                phase=ProviderStageRetryPhase.ATTEMPT_PREPARED,
+                attempts=(*retained[:-1], prepared_attempt),
+                result_checkpoint=None,
+                downstream_intent_sha256=None,
+                downstream_evidence_sha256=None,
+                block_reason=None,
+                block_evidence_sha256=None,
+            )
+            expected = cls._build_action(
+                candidate,
+                action_kind="resume_prepared",
+                retry_action_ordinal=None,
+            )
+            if action == expected:
+                return candidate
+        raise StateConflictError("provider-stage prepared action is stale or not backend-issued")
+
     @staticmethod
     def _public_state(
         chain: ProviderStageRetryChainV1,
+        *,
+        recording_repair_action_allowed: bool,
     ) -> tuple[str, str | None, str | None]:
         if chain.phase is ProviderStageRetryPhase.OWNER_RETIRED:
             failure = chain.attempts[-1].failure_class
             if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
                 raise StateConflictError("eligible provider-stage failure is not closed")
             return "eligible", failure.value, "provider_retry"
+        if chain.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED:
+            return "in_progress", None, "resume_prepared"
         if chain.phase in {
-            ProviderStageRetryPhase.ATTEMPT_PREPARED,
             ProviderStageRetryPhase.DISPATCH_STARTED,
             ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
         }:
@@ -1017,7 +1097,11 @@ class ProviderStageRetryExecutorV1:
             failure = chain.attempts[-1].failure_class
             if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
                 raise StateConflictError("Recorder repair failure is not closed")
-            return "recording_repair_required", failure.value, "repair_recording"
+            return (
+                "recording_repair_required",
+                failure.value,
+                "repair_recording" if recording_repair_action_allowed else None,
+            )
         if chain.phase is ProviderStageRetryPhase.RECOVERY_REQUIRED:
             if chain.block_reason is not None:
                 failure_category = chain.block_reason.value

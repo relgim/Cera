@@ -53,7 +53,10 @@ complete generation, not only one stage.
 The shared states are:
 
 - `eligible`: a closed retryable failure permits a manual Retry;
-- `in_progress`: the current attempt is owned and no other attempt is allowed;
+- `in_progress`: the current attempt is owned and no other attempt is allowed.
+  When and only when that attempt is durably prepared but has never won a
+  provider-dispatch claim, the backend exposes one exact manual
+  `resume_prepared` control;
 - `succeeded`: an exact result is frozen and may continue downstream once;
 - `blocked_ambiguous`: provider disposition is unknown; only Check Status or
   provider-free repair is allowed;
@@ -92,6 +95,16 @@ Recorder exhaustion preserves the accepted assistant prose and enters
 `recording_repair_required`. Continuity-dependent generation remains blocked
 until Recorder is repaired and completed or the branch is explicitly restored
 to its last fully recorded accepted state.
+
+The first exhausted Recorder occurrence may expose one backend-issued manual
+`repair_recording` control. Accepting it creates at most one new Recorder
+stage occurrence bound to the exact accepted review/head, exhausted parent,
+and frozen Recorder input. The repair successor owns a fresh one-initial plus
+two-manual-Retry budget; it is never attempt four of the parent. If that
+successor exhausts, it remains `recording_repair_required` with no repair
+action and no recursive successor. The repair control authorizes only the
+successor's initial Recorder attempt. It never authorizes whole-request replay,
+provider substitution, or replay of any upstream stage.
 
 ## 5. Retryable failure taxonomy
 
@@ -172,6 +185,12 @@ arrive.
 
 Every successful stage result is frozen before downstream work. Downstream
 binding is idempotent and may occur at most once.
+
+A crash after an attempt is durably prepared but before its dispatch claim
+does not authorize automatic redispatch. The backend may issue one exact
+manual `resume_prepared` action bound to that chain hash and persisted owner.
+It resumes the same attempt, consumes no additional Retry action, and is
+idempotent under duplicate clicks or lost responses.
 
 ## 8. Exact frozen stage input
 

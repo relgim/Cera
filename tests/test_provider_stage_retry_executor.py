@@ -665,6 +665,13 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
             ledger_prefix_before_sha256=owner.ledger_prefix_before_sha256,
         )
         self.assertIs(prepared.phase, ProviderStageRetryPhase.ATTEMPT_PREPARED)
+        envelope = self.executor.status_envelope(self.scope)
+        self.assertEqual(envelope["status"]["available_actions"], ["resume_prepared"])
+        action = envelope["actions"][0]
+        self.assertEqual(action["action_kind"], "resume_prepared")
+        self.assertIs(action["provider_dispatch_authorized"], True)
+        self.assertIs(action["consumes_retry_action"], False)
+        self.assertIsNone(action["retry_action_ordinal"])
 
         wrong_owner, _ = self._owner(
             "wrong-owner",
@@ -672,16 +679,27 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
             _success("wrong", "ledger-1"),
         )
         with self.assertRaises(StateConflictError):
-            self.executor.resume_prepared_attempt(
-                chain_id=prepared.chain_id,
+            self.executor.execute_manual_resume_prepared(
+                action=action,
                 owner=wrong_owner,
             )
-        resumed = self.executor.resume_prepared_attempt(
-            chain_id=prepared.chain_id,
+        resumed = self.executor.execute_manual_resume_prepared(
+            action=action,
             owner=owner,
         )
         self.assertIs(resumed.phase, ProviderStageRetryPhase.RESULT_FROZEN)
         self.assertEqual(dispatch.invoke_calls, 1)
+        replayed = self.executor.execute_manual_resume_prepared(
+            action=action,
+            owner=None,
+        )
+        self.assertEqual(replayed, resumed)
+        self.assertEqual(dispatch.invoke_calls, 1)
+
+        stale = dict(action)
+        stale["expected_chain_sha256"] = _sha("stale-prepared-chain")
+        with self.assertRaises(StateConflictError):
+            self.executor.execute_manual_resume_prepared(action=stale, owner=None)
 
     def test_two_executors_claim_one_manual_dispatch(self) -> None:
         owner1, _ = self._owner("attempt-1", "ledger-0", _failure("one", "ledger-1"))

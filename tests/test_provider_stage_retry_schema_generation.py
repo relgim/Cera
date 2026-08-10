@@ -101,10 +101,22 @@ class ProviderStageRetrySchemaGenerationTests(unittest.TestCase):
         self.assertEqual(exhausted["retry_actions_accepted"], 2)
         self.assertNotEqual(exhausted["stage"], "recorder")
 
-        repair = by_state["recording_repair_required"]
-        self.assertEqual(repair["stage"], "recorder")
-        self.assertIs(repair["story_state_committed"], True)
-        self.assertEqual(repair["available_actions"], ["repair_recording"])
+        repair_cases = [
+            value for value in status_cases if value["state"] == "recording_repair_required"
+        ]
+        self.assertEqual(
+            {tuple(cast(list[str], value["available_actions"])) for value in repair_cases},
+            {(), ("repair_recording",)},
+        )
+        for repair in repair_cases:
+            self.assertEqual(repair["stage"], "recorder")
+            self.assertIs(repair["story_state_committed"], True)
+
+        in_progress_cases = [value for value in status_cases if value["state"] == "in_progress"]
+        self.assertEqual(
+            {tuple(cast(list[str], value["available_actions"])) for value in in_progress_cases},
+            {(), ("resume_prepared",)},
+        )
 
         recovery_cases = [value for value in status_cases if value["state"] == "recovery_required"]
         self.assertEqual(

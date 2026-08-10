@@ -40,7 +40,12 @@ from cera.serialization import (
     to_primitive,
 )
 
-from .contracts import LeanAcceptedTurnReceiptV1, PiWriterReceiptV1, SceneRoute
+from .contracts import (
+    LeanAcceptedTurnReceiptV1,
+    PiWriterReceiptV1,
+    RecordingStatus,
+    SceneRoute,
+)
 from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
 from .pi_adapter import PiSceneInvocationResultV1, PiSceneInvocationV1
 from .provider_stage_retry import (
@@ -58,6 +63,7 @@ from .provider_stage_retry_ordinary_custody import (
     ProtectedOrdinaryStageRetryCustodyStoreV1,
     ProtectedOrdinaryTerminalResponseReceiptV1,
     ProtectedRecorderContinuationV1,
+    ProtectedRecorderRepairSuccessorV1,
 )
 from .provider_stage_retry_packets import (
     ImmutableRetrievalSnapshotIdentityV1,
@@ -612,7 +618,19 @@ class OrdinaryProviderStageRetryRuntimeV1:
         self,
         source_chain_id: str,
     ) -> ProtectedOrdinaryChainRequestIdentityV1:
+        repair = self._custody_store.find_recorder_repair_successor(source_chain_id)
+        if repair is not None:
+            successor = self._service.read_chain(repair.successor_chain_id)
+            if successor.phase is ProviderStageRetryPhase.INPUT_FROZEN:
+                # A crash after successor custody but before the manually
+                # authorized initial attempt leaves the parent action usable.
+                return self._custody_store.chain_request_identity(source_chain_id)
         return self._custody_store.latest_chain_for_chain(source_chain_id)
+
+    def recording_repair_action_allowed(self, chain_id: str) -> bool:
+        """Return the protected no-recursion policy for one Recorder chain."""
+
+        return self._custody_store.recorder_repair_parent_for_successor(chain_id) is None
 
     def chain_request_identity(
         self,
@@ -724,6 +742,7 @@ class OrdinaryProviderStageRetryRuntimeV1:
                         raise StateConflictError(
                             "Recorder review action continuation port is unavailable"
                         )
+                    self._select_recorder_continuation_chain(chain_id)
                     self._repair_recorder_result(
                         chain_id=chain_id,
                         context=context,
@@ -743,13 +762,21 @@ class OrdinaryProviderStageRetryRuntimeV1:
                     turn_input=context.turn_input,
                 )
 
-        if not isinstance(continuation, OrdinaryRecorderContinuationPort):
-            raise StateConflictError("Recorder continuation port is unavailable")
+        if not isinstance(continuation, OrdinaryRecorderContinuationPort) or not isinstance(
+            continuation,
+            OrdinaryPipelineReplayPort,
+        ):
+            raise StateConflictError("Recorder request continuation ports are unavailable")
         with self.bind_request(context):
-            return self._repair_recorder_result(
+            self._select_recorder_continuation_chain(chain_id)
+            self._repair_recorder_result(
                 chain_id=chain_id,
                 context=context,
                 continuation=continuation,
+            )
+            return continuation.resume_original_request(
+                normalized_request=normalized_request,
+                turn_input=context.turn_input,
             )
 
     def _repair_recorder_result(
@@ -783,7 +810,23 @@ class OrdinaryProviderStageRetryRuntimeV1:
             or bound.accepted_receipt_sha256 != review.accepted_receipt.receipt_sha256
         ):
             raise StateConflictError("Recorder continuation changed accepted review")
+        if (
+            review.recording_attempt is not None
+            and review.recording_attempt.status is RecordingStatus.COMPLETE
+        ):
+            return None
         return continuation.repair_recording(review.review_id)
+
+    def _select_recorder_continuation_chain(self, chain_id: str) -> None:
+        """Make coordinator Recorder re-entry select this exact frozen occurrence."""
+
+        scope = self._service.scope_for_chain(chain_id)
+        if scope.stage is not ProviderStage.RECORDER:
+            raise StateConflictError("Recorder continuation changed stage")
+        state = self._bound_request.get()
+        if state is None or state.context.binding.request_id != scope.request_id:
+            raise StateConflictError("Recorder continuation lost bound request")
+        state.stage_occurrences[ProviderStage.RECORDER] = scope.stage_ordinal - 1
 
     def bind_recorder_pending(
         self,
@@ -935,8 +978,176 @@ class OrdinaryProviderStageRetryRuntimeV1:
         )
         return deserialize_pi_result(exact_result)
 
+    def execute_recording_repair(
+        self,
+        action: object,
+        *,
+        continuation: OrdinaryRecorderContinuationPort,
+    ) -> ProviderStageActionProjectionV1:
+        """Create or resume the sole manual Recorder repair successor."""
+
+        if not isinstance(continuation, OrdinaryRecorderContinuationPort):
+            raise ContractValidationError("Recorder repair continuation port is unavailable")
+        validated = validate_provider_stage_retry_action_v1(action)
+        if validated["action_kind"] != "repair_recording":
+            raise StateConflictError("provider-stage action is not Recorder repair")
+        parent = self._service.read_chain(validated["chain_id"])
+        if (
+            parent.identity.stage is not ProviderStage.RECORDER
+            or parent.phase is not ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED
+        ):
+            raise StateConflictError("Recorder repair parent is not exhausted")
+        if self._custody_store.recorder_repair_parent_for_successor(parent.chain_id) is not None:
+            raise StateConflictError("Recorder repair successor cannot recurse")
+        issued = self._service.canonical_status(
+            chain_id=parent.chain_id,
+            recording_repair_action_allowed=True,
+        )
+        if issued["actions"] != [validated]:
+            raise StateConflictError("Recorder repair action is stale or not backend-issued")
+
+        normalized_request, context = self.pending_request_for_chain(parent.chain_id)
+        del normalized_request
+        target = self._recorder_repair_target(
+            parent_chain_id=parent.chain_id,
+            context=context,
+            continuation=continuation,
+        )
+        action_sha256 = canonical_sha256(validated)
+        existing = self._custody_store.find_recorder_repair_successor(parent.chain_id)
+        exact_input = self._service.store.load_input(parent.chain_id)
+        packet_payload = _canonical_object(exact_input, "Recorder repair frozen packet")
+        if packet_payload.get("packet_kind") != "recorder":
+            raise StateConflictError("Recorder repair changed frozen packet kind")
+        packet = ProviderStageFrozenPacketV1(
+            schema_version=ProviderStageFrozenPacketV1.SCHEMA_VERSION,
+            stage=ProviderStage.RECORDER,
+            packet_kind="recorder",
+            exact_bytes=exact_input,
+            stage_input_sha256=parent.identity.stage_input_sha256,
+        )
+        if existing is None:
+            latest = self._custody_store.latest_chain_for_chain(parent.chain_id)
+            if latest.chain_id != parent.chain_id:
+                raise StateConflictError("Recorder repair parent is not the accepted branch head")
+            parent_scope = self._service.scope_for_chain(parent.chain_id)
+            # The semantic repair boundary gets a fresh occurrence/budget, but
+            # the accepted task, frozen Recorder packet, and authority remain
+            # byte-identical so coordinator re-entry selects this successor.
+            successor_scope = parent_scope.next_occurrence_with_same_authority()
+            authority = ProtectedRecorderRepairSuccessorV1(
+                parent_chain_id=parent.chain_id,
+                successor_chain_id=successor_scope.identity.chain_id,
+                request_id=context.binding.request_id,
+                review_id=target.review_id,
+                accepted_turn_id=target.accepted_turn_id,
+                accepted_receipt_sha256=target.accepted_receipt_sha256,
+                parent_chain_sha256=parent.chain_sha256,
+                repair_action_id=validated["action_id"],
+                repair_action_sha256=action_sha256,
+                successor_scope_sha256=canonical_sha256(successor_scope.to_payload()),
+            )
+        else:
+            if (
+                existing.parent_chain_sha256 != parent.chain_sha256
+                or existing.repair_action_id != validated["action_id"]
+                or existing.repair_action_sha256 != action_sha256
+                or existing.request_id != context.binding.request_id
+                or existing.review_id != target.review_id
+                or existing.accepted_turn_id != target.accepted_turn_id
+                or existing.accepted_receipt_sha256 != target.accepted_receipt_sha256
+            ):
+                raise StateConflictError("Recorder repair replay changed protected authority")
+            authority = existing
+            successor_scope = self._service.scope_for_chain(existing.successor_chain_id)
+            if (
+                successor_scope.stage is not ProviderStage.RECORDER
+                or canonical_sha256(successor_scope.to_payload()) != existing.successor_scope_sha256
+            ):
+                raise StateConflictError("Recorder repair successor scope changed")
+
+        # Every projection below is idempotent. They precede provider dispatch
+        # so a lost POST can authenticate and discover the successor.
+        self._service.store.begin(successor_scope.identity, packet.exact_bytes)
+        self._service.remember_scope(successor_scope)
+        pending = self._custody_store.load_for_scope(successor_scope)
+        self._custody_store.bind_occurrence(
+            scope=successor_scope,
+            context_sha256=pending.context_sha256,
+        )
+        self._custody_store.bind_chain(
+            chain_id=successor_scope.identity.chain_id,
+            request_id=context.binding.request_id,
+            context_sha256=pending.context_sha256,
+        )
+        review_action = self._custody_store.review_action_for_chain(parent.chain_id)
+        if review_action is not None:
+            self._custody_store.bind_review_action_chain(
+                chain_id=successor_scope.identity.chain_id,
+                action_id=review_action.action_id,
+                request_id=context.binding.request_id,
+                request_sha256=successor_scope.request_sha256,
+                context_sha256=pending.context_sha256,
+            )
+        self._custody_store.bind_recorder_repair_successor(authority)
+        self._custody_store.advance_latest_chain(
+            scope=successor_scope,
+            context_sha256=pending.context_sha256,
+            recording_repair_boundary=True,
+        )
+        successor = self._service.start_initial(scope=successor_scope, packet=packet)
+        result_ready = successor.phase in _RESULT_READY_PHASES
+        if result_ready:
+            self._service.finalize_result_once(successor.chain_id)
+            successor = self._service.read_chain(successor.chain_id)
+        envelope = self._service.canonical_status(
+            chain_id=successor.chain_id,
+            recording_repair_action_allowed=False,
+        )
+        return ProviderStageActionProjectionV1(
+            chain_id=successor.chain_id,
+            stage=ProviderStage.RECORDER,
+            result_ready=result_ready,
+            envelope=envelope,
+        )
+
+    def _recorder_repair_target(
+        self,
+        *,
+        parent_chain_id: str,
+        context: OrdinaryStageRetryRequestContextV1,
+        continuation: OrdinaryRecorderContinuationPort,
+    ) -> ProtectedRecorderContinuationV1:
+        controls = context.turn_input.request_controls
+        if not isinstance(controls, (LeanSceneRequestControlsV1, LeanSceneRequestControlsV2)):
+            raise StateConflictError("Recorder repair lost request controls")
+        review = continuation.durable_result_for_request(
+            world_id=context.binding.world_id,
+            branch_id=context.binding.branch_id,
+            turn_context_sha256=context.turn_context_sha256,
+            exact_user_source=context.turn_input.exact_user_source,
+            request_controls=controls,
+        )
+        if review is None or review.accepted_receipt is None:
+            raise StateConflictError("Recorder repair lacks its accepted durable review")
+        accepted = review.accepted_receipt
+        recovered = ProtectedRecorderContinuationV1(
+            chain_id=parent_chain_id,
+            request_id=context.binding.request_id,
+            review_id=review.review_id,
+            accepted_turn_id=accepted.accepted_turn_id,
+            accepted_receipt_sha256=accepted.receipt_sha256,
+        )
+        existing = self._custody_store.find_recorder_continuation(parent_chain_id)
+        if existing is None:
+            self._custody_store.bind_recorder_continuation(recovered)
+            existing = self._custody_store.load_recorder_continuation(parent_chain_id)
+        if existing != recovered:
+            raise StateConflictError("Recorder repair changed accepted review authority")
+        return existing
+
     def execute_action(self, action: object) -> ProviderStageActionProjectionV1:
-        """Execute only Provider Retry or Check Status under generic authority."""
+        """Execute a generic Retry, prepared-resume, or provider-free status action."""
 
         validated = validate_provider_stage_retry_action_v1(action)
         chain = self._service.read_chain(validated["chain_id"])
@@ -945,15 +1156,22 @@ class OrdinaryProviderStageRetryRuntimeV1:
         kind = validated["action_kind"]
         if kind == "provider_retry":
             chain = self._service.execute_manual_retry(validated)
+        elif kind == "resume_prepared":
+            chain = self._service.execute_manual_resume_prepared(validated)
         elif kind == "check_status":
             chain = self._service.check_status(validated)
         else:
-            raise StateConflictError("provider-stage action is not Provider Retry or Check Status")
+            raise StateConflictError(
+                "provider-stage action requires the dedicated Recorder repair workflow"
+            )
         result_ready = chain.phase in _RESULT_READY_PHASES
         if result_ready:
             self._service.finalize_result_once(chain.chain_id)
             chain = self._service.read_chain(chain.chain_id)
-        envelope = self._service.canonical_status(chain_id=chain.chain_id)
+        envelope = self._service.canonical_status(
+            chain_id=chain.chain_id,
+            recording_repair_action_allowed=self.recording_repair_action_allowed(chain.chain_id),
+        )
         return ProviderStageActionProjectionV1(
             chain_id=chain.chain_id,
             stage=chain.identity.stage,
@@ -967,7 +1185,10 @@ class OrdinaryProviderStageRetryRuntimeV1:
         chain = self._service.read_chain(chain_id)
         if chain.identity.stage not in _ORDINARY_STAGES:
             raise StateConflictError("provider-stage status does not belong to ordinary runtime")
-        return self._service.canonical_status(chain_id=chain_id)
+        return self._service.canonical_status(
+            chain_id=chain_id,
+            recording_repair_action_allowed=self.recording_repair_action_allowed(chain_id),
+        )
 
     def _run_stage(
         self,
@@ -1032,6 +1253,13 @@ class OrdinaryProviderStageRetryRuntimeV1:
             semantic_action_boundary=(
                 packet.stage in {ProviderStage.PLANNER, ProviderStage.WRITER}
                 and state.consume_semantic_action_boundary()
+            ),
+            recording_repair_boundary=(
+                packet.stage is ProviderStage.RECORDER
+                and self._custody_store.recorder_repair_parent_for_successor(
+                    scope.identity.chain_id
+                )
+                is not None
             ),
         )
         chain = self._service.start_initial(scope=scope, packet=packet)

@@ -438,25 +438,34 @@ class ProviderStageRetryRuntimeServiceV1:
             )
         return self._executor.execute_manual_retry(action=validated, owner=owner)
 
-    def resume_prepared(self, chain_id: str) -> ProviderStageRetryChainV1:
-        """Explicitly resume one persisted owner that never won a dispatch claim.
+    def execute_manual_resume_prepared(self, action: object) -> ProviderStageRetryChainV1:
+        """Execute or replay one exact manual prepared-owner control.
 
         This method may contact the provider.  It is never called by service
         construction, status reads, or provider-free reconciliation.
         """
 
-        chain = self._store.read(chain_id)
-        if chain.phase is not ProviderStageRetryPhase.ATTEMPT_PREPARED:
-            raise StateConflictError("provider-stage owner is not durably prepared")
-        attempt = chain.attempts[-1]
-        exact_input = self._store.load_input(chain.chain_id)
-        registration = self._adapters.for_stage(chain.identity.stage)
-        owner = registration.owner_factory.reconstruct_owner(
-            chain=chain,
-            attempt=attempt,
-            exact_input=exact_input,
+        validated = validate_provider_stage_retry_action_v1(action)
+        if validated["action_kind"] != "resume_prepared":
+            raise StateConflictError("provider-stage runtime action is not prepared resume")
+        # Authenticate the exact prepared snapshot before any owner factory or
+        # protected-input reconstruction. The executor repeats this check
+        # immediately before dispatch to close the concurrent-state window.
+        chain = self._executor.authenticate_manual_resume_prepared(validated)
+        owner: ProviderStageAttemptOwnerPort | None = None
+        if chain.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED:
+            attempt = chain.attempts[-1]
+            exact_input = self._store.load_input(chain.chain_id)
+            registration = self._adapters.for_stage(chain.identity.stage)
+            owner = registration.owner_factory.reconstruct_owner(
+                chain=chain,
+                attempt=attempt,
+                exact_input=exact_input,
+            )
+        return self._executor.execute_manual_resume_prepared(
+            action=validated,
+            owner=owner,
         )
-        return self._executor.resume_prepared_attempt(chain_id=chain.chain_id, owner=owner)
 
     def recover_incomplete(self, chain_id: str) -> ProviderStageRetryChainV1:
         """Provider-free restart recovery for a claimed dispatch or failed owner.
@@ -546,6 +555,7 @@ class ProviderStageRetryRuntimeServiceV1:
         *,
         chain_id: str,
         scope: ProviderStageRetryOccurrenceScopeV1 | None = None,
+        recording_repair_action_allowed: bool = True,
     ) -> ProviderStageRetryStatusEnvelopeV1:
         """Return the generated canonical status envelope without dispatching."""
 
@@ -558,7 +568,10 @@ class ProviderStageRetryRuntimeServiceV1:
             raise StateConflictError(
                 "provider-stage full occurrence scope must be reconstructed for status"
             )
-        return self._executor.status_envelope(resolved)
+        return self._executor.status_envelope(
+            resolved,
+            recording_repair_action_allowed=recording_repair_action_allowed,
+        )
 
     def load_exact_result(self, chain_id: str) -> bytes:
         """Load protected result bytes after a provider-free custody check."""
