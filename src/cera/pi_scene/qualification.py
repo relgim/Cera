@@ -95,12 +95,59 @@ FINAL_PROVIDER_FAILURE_CLASSES = frozenset(
     }
 )
 
+QUALIFICATION_ACTION_BUDGETS: Mapping[str, Any] = {
+    "technical_provider_retry": {
+        "authority_scope": "branch_generation_stage_occurrence",
+        "maximum_stage_attempts": 3,
+        "maximum_manual_retry_actions": 2,
+        "automatic_provider_redispatch": False,
+    },
+    "semantic_regenerate": {
+        "authority_scope": "review_candidate",
+        "maximum_explicit_actions_per_rejected_first_pass": 1,
+    },
+    "replan": {
+        "authority_scope": "accepted_generation",
+        "maximum_actions_per_qualification_fixture": 0,
+    },
+    "recorder_repair": {
+        "authority_scope": "accepted_turn_recording",
+        "maximum_actions_per_qualification_fixture": 0,
+        "separate_from_provider_retry": True,
+    },
+}
+
+QUALIFICATION_COMPLETE_GENERATION_CEILINGS: Mapping[str, Any] = {
+    "ordinary": {
+        "maximum_stage_occurrences": {
+            "planner": 1,
+            "writer": 2,
+            "semantic_validator": 2,
+            "recorder": 1,
+        },
+        "maximum_codex_operations": 9,
+        "maximum_deepseek_http_operations": 54,
+    },
+    "adult": {
+        "maximum_stage_occurrences": {
+            "planner_transition": 1,
+            "adult_scene": 1,
+            "adult_filter": 1,
+        },
+        "maximum_codex_operations": 3,
+        "maximum_deepseek_http_operations": 36,
+    },
+    "deepseek_http_operations_per_stage_attempt": DEEPSEEK_PER_INVOCATION_CEILING,
+}
+
 QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "one_sequential_session_per_phase": True,
     "backend_route_order": ["ordinary"] * 5 + ["adult"] * 5 + ["ordinary"] * 5 + ["adult"] * 5,
     "sillytavern_route_order": ["ordinary"] * 3 + ["adult"] * 3 + ["ordinary"] * 2 + ["adult"] * 2,
     "first_pass_outcome_preserved": True,
     "maximum_explicit_regenerates_per_prompt": 1,
+    "action_budgets": deepcopy(QUALIFICATION_ACTION_BUDGETS),
+    "complete_generation_ceilings": deepcopy(QUALIFICATION_COMPLETE_GENERATION_CEILINGS),
     "automatic_retry": False,
     "manual_planner_transport_retry": dict(MANUAL_PLANNER_TRANSPORT_RETRY_POLICY),
     "fallback": False,

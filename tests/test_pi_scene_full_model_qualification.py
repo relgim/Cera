@@ -18,6 +18,8 @@ from cera.errors import StateConflictError
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
+    QUALIFICATION_ACTION_BUDGETS,
+    QUALIFICATION_COMPLETE_GENERATION_CEILINGS,
     QUALIFICATION_EXECUTION_POLICY,
     QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
@@ -1035,6 +1037,38 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(
             QUALIFICATION_EXECUTION_POLICY["semantic_validator_reasoning_effort"],
             "xhigh",
+        )
+
+    def test_retry_regenerate_replan_and_recorder_repair_budgets_are_separate(self) -> None:
+        technical = QUALIFICATION_ACTION_BUDGETS["technical_provider_retry"]
+        self.assertEqual(technical["maximum_stage_attempts"], 3)
+        self.assertEqual(technical["maximum_manual_retry_actions"], 2)
+        self.assertFalse(technical["automatic_provider_redispatch"])
+        self.assertEqual(
+            QUALIFICATION_ACTION_BUDGETS["semantic_regenerate"][
+                "maximum_explicit_actions_per_rejected_first_pass"
+            ],
+            1,
+        )
+        self.assertEqual(
+            QUALIFICATION_ACTION_BUDGETS["replan"]["maximum_actions_per_qualification_fixture"],
+            0,
+        )
+        self.assertEqual(
+            QUALIFICATION_ACTION_BUDGETS["recorder_repair"][
+                "maximum_actions_per_qualification_fixture"
+            ],
+            0,
+        )
+        self.assertEqual(
+            QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"]["maximum_codex_operations"],
+            9,
+        )
+        self.assertEqual(
+            QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"][
+                "maximum_deepseek_http_operations"
+            ],
+            54,
         )
 
     def test_fixture_set_is_two_ordered_sequential_campaigns(self) -> None:
