@@ -235,6 +235,210 @@ export function projectProviderStageRetryStatusEnvelope(value) {
     return normalized;
 }
 
+/**
+ * Authenticated stage continuation returns either another canonical status,
+ * the original chat completion, or the original creator-decision DTO.  The
+ * relay never wraps these results, so SillyTavern can resume its existing
+ * completion/decision flow without inventing a fourth action family.
+ */
+export function projectProviderStageRetryResult(value) {
+    const envelope = normalizeProviderStageRetryStatusEnvelopeV1(value);
+    if (envelope) return envelope;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError('CERA provider stage retry result is invalid');
+    }
+    if (value.object === 'chat.completion') {
+        const choice = value.choices?.[0];
+        if (
+            !exactKeys(value, ['id', 'object', 'created', 'model', 'choices', 'usage', 'cera'])
+            || typeof value.id !== 'string'
+            || !value.id.startsWith('chatcmpl-')
+            || !Number.isSafeInteger(value.created)
+            || value.created < 0
+            || typeof value.model !== 'string'
+            || !Array.isArray(value.choices)
+            || value.choices.length !== 1
+            || !choice
+            || typeof choice !== 'object'
+            || Array.isArray(choice)
+            || !exactKeys(choice, ['index', 'message', 'finish_reason'])
+            || choice.index !== 0
+            || choice.finish_reason !== 'stop'
+            || !exactKeys(choice.message, ['role', 'content'])
+            || choice.message?.role !== 'assistant'
+            || typeof choice.message?.content !== 'string'
+            || !choice.message.content.trim()
+            || !value.usage
+            || typeof value.usage !== 'object'
+            || Array.isArray(value.usage)
+            || !exactKeys(value.usage, ['prompt_tokens', 'completion_tokens', 'total_tokens'])
+            || Object.values(value.usage).some(count => (
+                !Number.isSafeInteger(count) || count < 0
+            ))
+            || !value.cera
+            || typeof value.cera !== 'object'
+            || Array.isArray(value.cera)
+            || typeof value.cera.profile_id !== 'string'
+            || !value.cera.profile_id.startsWith('cera.pi_scene.')
+            || !REQUEST_ID_PATTERN.test(value.cera.request_id)
+            || !SHA256_PATTERN.test(value.cera.provider_stage_request_sha256)
+            || containsUnsafeContinuationKey(value.cera)
+        ) {
+            throw new TypeError('CERA provider stage retry completion is invalid');
+        }
+        return structuredClone(value);
+    }
+    const committed = value.story_state_committed === true;
+    const review = projectProviderStageRetryReview(value.review);
+    const decisionKeys = [
+        'schema_version',
+        'status',
+        'creator_action',
+        'story_state_committed',
+        'retry_mode',
+        'review',
+        'successor',
+        'operational_warnings',
+        ...(committed ? ['accepted_receipt_sha256', 'accepted_turn_id'] : []),
+    ];
+    if (
+        exactKeys(value, decisionKeys)
+        && value.schema_version === 'cera.pi_scene.review_decision.v1'
+        && ['story_committed', 'review_transitioned'].includes(value.status)
+        && value.status === (committed ? 'story_committed' : 'review_transitioned')
+        && [
+            'accept',
+            'accept_provisional',
+            'decline',
+            'regenerate',
+            'replan',
+            'repair_recording',
+        ].includes(value.creator_action)
+        && typeof value.story_state_committed === 'boolean'
+        && value.retry_mode === 'not_applicable'
+        && review !== null
+        && (value.successor === null || (
+            value.successor
+            && typeof value.successor === 'object'
+            && !Array.isArray(value.successor)
+        ))
+        && Array.isArray(value.operational_warnings)
+        && value.operational_warnings.every(warning => (
+            typeof warning === 'string' && warning.length <= 240 && !warning.includes('\0')
+        ))
+        && (!committed || (
+            SHA256_PATTERN.test(value.accepted_receipt_sha256)
+            && typeof value.accepted_turn_id === 'string'
+            && value.accepted_turn_id.length > 0
+        ))
+    ) {
+        const successor = value.successor === null
+            ? null
+            : projectProviderStageRetryResult(value.successor);
+        if (
+            successor !== null
+            && (
+                successor.object !== 'chat.completion'
+                || !['regenerate', 'replan'].includes(value.creator_action)
+            )
+        ) throw new TypeError('CERA provider stage retry result is invalid');
+        return { ...structuredClone(value), review, successor };
+    }
+    throw new TypeError('CERA provider stage retry result is invalid');
+}
+
+function projectProviderStageRetryReview(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const baseKeys = [
+        'schema_version',
+        'review_id',
+        'state',
+        'provisional',
+        'route',
+        'story_text',
+        'candidate_id',
+        'candidate_sha256',
+        'primary_authority_kind',
+        'primary_authority_sha256',
+        'warnings',
+        'warnings_block_accept',
+        'recording_status',
+        'story_state_committed',
+        'canon_status',
+        'semantic_validation',
+        'request_controls',
+        'creator_guidance',
+        'accept_enabled',
+        'provisional_accept_enabled',
+        'decline_enabled',
+        'regenerate_enabled',
+        'replan_enabled',
+        'repair_recording_enabled',
+        'provider_operations',
+    ];
+    const adultKeys = [
+        'provisional_acceptance_status',
+        'automatic_repair_limit',
+        'operation_state',
+    ];
+    const booleanKeys = [
+        'provisional',
+        'warnings_block_accept',
+        'story_state_committed',
+        'accept_enabled',
+        'provisional_accept_enabled',
+        'decline_enabled',
+        'regenerate_enabled',
+        'replan_enabled',
+        'repair_recording_enabled',
+    ];
+    const exactShape = exactKeys(value, baseKeys)
+        || exactKeys(value, [...baseKeys, ...adultKeys]);
+    if (
+        !exactShape
+        || value.schema_version !== 'cera.pi_scene.review.v1'
+        || !/^review-[a-f0-9]{28}$/.test(value.review_id)
+        || ![
+            'review_ready',
+            'accepted',
+            'declined',
+            'rejected',
+            'regenerated',
+            'replanned',
+        ].includes(value.state)
+        || !['ordinary', 'adult'].includes(value.route)
+        || !(value.story_text === null || typeof value.story_text === 'string')
+        || typeof value.candidate_id !== 'string'
+        || !SHA256_PATTERN.test(value.candidate_sha256)
+        || typeof value.primary_authority_kind !== 'string'
+        || !SHA256_PATTERN.test(value.primary_authority_sha256)
+        || !Array.isArray(value.warnings)
+        || booleanKeys.some(key => typeof value[key] !== 'boolean')
+        || !value.provider_operations
+        || typeof value.provider_operations !== 'object'
+        || Array.isArray(value.provider_operations)
+        || Object.entries(value.provider_operations).some(([key, count]) => (
+            typeof key !== 'string' || !Number.isSafeInteger(count) || count < 0
+        ))
+        || containsUnsafeContinuationKey(value)
+    ) return null;
+    return structuredClone(value);
+}
+
+function containsUnsafeContinuationKey(value) {
+    if (Array.isArray(value)) return value.some(containsUnsafeContinuationKey);
+    if (!value || typeof value !== 'object') return false;
+    return Object.entries(value).some(([key, item]) => {
+        const normalized = key.toLowerCase();
+        return normalized === 'raw'
+            || normalized.startsWith('raw_')
+            || normalized.startsWith('exact_')
+            || normalized.endsWith('_path')
+            || ['prompt', 'provider_output', 'protected_full_record'].includes(normalized)
+            || containsUnsafeContinuationKey(item);
+    });
+}
+
 /** Closed provider-stage control action; semantic actions are rejected. */
 export function projectProviderStageRetryAction(value) {
     const normalized = normalizeProviderStageRetryActionV1(value);
@@ -797,7 +1001,7 @@ export async function init(router) {
                 {
                     timeoutMs: GET_TIMEOUT_MS,
                     authorization: request.get('X-Cera-Authorization'),
-                    projectPayload: projectProviderStageRetryStatusEnvelope,
+                    projectPayload: projectProviderStageRetryResult,
                 },
             );
         } catch (error) {
@@ -831,7 +1035,7 @@ export async function init(router) {
                         body,
                         timeoutMs: TRANSPORT_RETRY_TIMEOUT_MS,
                         authorization: request.get('X-Cera-Authorization'),
-                        projectPayload: projectProviderStageRetryStatusEnvelope,
+                        projectPayload: projectProviderStageRetryResult,
                     },
                 );
             } catch (error) {

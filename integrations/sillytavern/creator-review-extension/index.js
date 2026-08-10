@@ -27,6 +27,7 @@ import {
     normalizeProviderStageFailureState,
     normalizeProviderStageRetryExhausted,
     normalizeProviderStageRetryExhaustedError,
+    normalizeProviderStageRetryAction,
     normalizeProviderStageRetryStatusEnvelope,
     normalizeReprojectionRequired,
     normalizeTransportRetryCompletionMarker,
@@ -60,7 +61,11 @@ const PROVIDER_STAGE_FAILURE_STORAGE_KEY = 'cera_provider_stage_failures_v1';
 const PROVIDER_STAGE_FAILURE_STORE_SCHEMA = 'cera.sillytavern.provider_stage_failure_store.v1';
 const PROVIDER_STAGE_FAILURE_STATE_SCHEMA = 'cera.sillytavern.provider_stage_failure_state.v1';
 const PROVIDER_STAGE_RETRY_STORAGE_KEY = 'cera_provider_stage_retry_status_v1';
-const PROVIDER_STAGE_RETRY_STORE_SCHEMA = 'cera.sillytavern.provider_stage_retry_status_store.v1';
+const PROVIDER_STAGE_RETRY_STORE_SCHEMA_V1 = 'cera.sillytavern.provider_stage_retry_status_store.v1';
+const PROVIDER_STAGE_RETRY_STORE_SCHEMA_V2 = 'cera.sillytavern.provider_stage_retry_status_store.v2';
+const PROVIDER_STAGE_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.provider_stage_retry_completion.v1';
+const PROVIDER_STAGE_REQUEST_SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const PROVIDER_STAGE_REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const READABILITY_KEY = 'vera_cast_readability';
 const DEFAULT_SPEAKER_COLORS = Object.freeze({
     hana: '#E7A6B2',
@@ -86,6 +91,8 @@ let transportRetryInFlight = false;
 let transportRetryStatusInFlight = false;
 let providerStageFailureState = null;
 let providerStageRetryEnvelope = null;
+let providerStageRetryLastSubmittedAction = null;
+let providerStageRetryContinuation = null;
 let providerStageRetryInFlight = false;
 
 window.ceraCreatorControls = () => ({ ...readControls() });
@@ -186,18 +193,63 @@ function providerStageRetryEnvelopeFrom(value) {
 }
 
 function normalizeProviderStageRetryStoreEntry(value) {
+    const legacy = value
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && Object.keys(value).sort().join(',') === 'chat_key,envelope';
     if (
         !value
         || typeof value !== 'object'
         || Array.isArray(value)
-        || Object.keys(value).sort().join(',') !== 'chat_key,envelope'
+        || (!legacy && Object.keys(value).sort().join(',')
+            !== 'chat_key,continuation,envelope,last_submitted_action')
         || typeof value.chat_key !== 'string'
         || value.chat_key.length < 1
         || value.chat_key.length > 520
         || /[\u0000-\u001f\u007f]/.test(value.chat_key)
     ) return null;
     const envelope = normalizeProviderStageRetryStatusEnvelope(value.envelope);
-    return envelope ? { chat_key: value.chat_key, envelope } : null;
+    if (!envelope) return null;
+    const lastSubmittedAction = legacy || value.last_submitted_action === null
+        ? null
+        : normalizeProviderStageRetryAction(value.last_submitted_action);
+    if (
+        !legacy
+        && value.last_submitted_action !== null
+        && (
+            !lastSubmittedAction
+            || lastSubmittedAction.action_kind !== 'provider_retry'
+            || lastSubmittedAction.automatic !== false
+        )
+    ) return null;
+    const continuation = legacy || value.continuation === null
+        ? null
+        : normalizeProviderStageRetryContinuation(value.continuation);
+    if (!legacy && value.continuation !== null && !continuation) return null;
+    return {
+        chat_key: value.chat_key,
+        envelope,
+        last_submitted_action: lastSubmittedAction,
+        continuation,
+    };
+}
+
+function normalizeProviderStageRetryContinuation(value) {
+    if (
+        !value
+        || typeof value !== 'object'
+        || Array.isArray(value)
+        || Object.keys(value).sort().join(',') !== 'action,review_id'
+        || !validReviewId(value.review_id)
+        || ![
+            'accept',
+            'accept_provisional',
+            'regenerate',
+            'replan',
+            'repair_recording',
+        ].includes(value.action)
+    ) return null;
+    return { review_id: value.review_id, action: value.action };
 }
 
 function readProviderStageRetryEntries() {
@@ -208,7 +260,10 @@ function readProviderStageRetryEntries() {
             || typeof value !== 'object'
             || Array.isArray(value)
             || Object.keys(value).sort().join(',') !== 'entries,schema_version'
-            || value.schema_version !== PROVIDER_STAGE_RETRY_STORE_SCHEMA
+            || ![
+                PROVIDER_STAGE_RETRY_STORE_SCHEMA_V1,
+                PROVIDER_STAGE_RETRY_STORE_SCHEMA_V2,
+            ].includes(value.schema_version)
             || !Array.isArray(value.entries)
         ) return [];
         return value.entries.map(normalizeProviderStageRetryStoreEntry).filter(Boolean);
@@ -221,7 +276,7 @@ function writeProviderStageRetryEntries(entries) {
     try {
         const normalized = entries.map(normalizeProviderStageRetryStoreEntry).filter(Boolean);
         localStorage.setItem(PROVIDER_STAGE_RETRY_STORAGE_KEY, JSON.stringify({
-            schema_version: PROVIDER_STAGE_RETRY_STORE_SCHEMA,
+            schema_version: PROVIDER_STAGE_RETRY_STORE_SCHEMA_V2,
             entries: normalized,
         }));
         return true;
@@ -230,14 +285,52 @@ function writeProviderStageRetryEntries(entries) {
     }
 }
 
-function persistProviderStageRetryEnvelope(envelope, chatKey) {
+function persistProviderStageRetryEnvelope(
+    envelope,
+    chatKey,
+    { lastSubmittedAction, continuation } = {},
+) {
     const normalized = normalizeProviderStageRetryStatusEnvelope(envelope);
     if (!normalized || !chatKey) return false;
-    const entries = readProviderStageRetryEntries()
-        .filter(entry => entry.chat_key !== chatKey);
-    entries.push({ chat_key: chatKey, envelope: normalized });
+    const allEntries = readProviderStageRetryEntries();
+    const prior = allEntries.find(entry => entry.chat_key === chatKey) ?? null;
+    const sameRequest = prior?.envelope?.status?.technical_details?.request_sha256
+        === normalized.status.technical_details.request_sha256;
+    const action = lastSubmittedAction === undefined
+        ? (sameRequest ? prior?.last_submitted_action ?? null : null)
+        : lastSubmittedAction;
+    const nextContinuation = continuation === undefined
+        ? (sameRequest ? prior?.continuation ?? null : null)
+        : continuation;
+    const normalizedAction = action === null ? null : normalizeProviderStageRetryAction(action);
+    const normalizedContinuation = nextContinuation === null
+        ? null
+        : normalizeProviderStageRetryContinuation(nextContinuation);
+    if (
+        (action !== null && (
+            !normalizedAction
+            || normalizedAction.action_kind !== 'provider_retry'
+            || normalizedAction.automatic !== false
+        ))
+        || (nextContinuation !== null && !normalizedContinuation)
+    ) return false;
+    const entries = allEntries.filter(entry => entry.chat_key !== chatKey);
+    entries.push({
+        chat_key: chatKey,
+        envelope: normalized,
+        last_submitted_action: normalizedAction,
+        continuation: normalizedContinuation,
+    });
     const stored = writeProviderStageRetryEntries(entries);
-    if (stored) providerStageRetryEnvelope = structuredClone(normalized);
+    if (stored) {
+        providerStageRetryEnvelope = structuredClone(normalized);
+        providerStageRetryLastSubmittedAction = normalizedAction === null
+            ? null
+            : structuredClone(normalizedAction);
+        providerStageRetryContinuation = normalizedContinuation === null
+            ? null
+            : structuredClone(normalizedContinuation);
+    }
     return stored;
 }
 
@@ -262,16 +355,26 @@ function sameProviderStageRetryOccurrence(left, right) {
     );
 }
 
-function captureProviderStageRetryStatus(value, chatKey = currentTransportRetryChatKey()) {
+function sameProviderStageRetryRequest(left, right) {
+    const leftHash = left?.status?.technical_details?.request_sha256;
+    const rightHash = right?.status?.technical_details?.request_sha256;
+    return typeof leftHash === 'string' && leftHash === rightHash;
+}
+
+function captureProviderStageRetryStatus(
+    value,
+    chatKey = currentTransportRetryChatKey(),
+    statePatch = {},
+) {
     const envelope = providerStageRetryEnvelopeFrom(value);
     if (!envelope || !chatKey) return false;
     if (providerStageFailureState?.chat_key === chatKey) return false;
     if (
         providerStageRetryEnvelope
-        && providerStageRetryEnvelope.status.state !== 'succeeded'
         && !sameProviderStageRetryOccurrence(providerStageRetryEnvelope, envelope)
+        && !sameProviderStageRetryRequest(providerStageRetryEnvelope, envelope)
     ) return false;
-    if (!persistProviderStageRetryEnvelope(envelope, chatKey)) return false;
+    if (!persistProviderStageRetryEnvelope(envelope, chatKey, statePatch)) return false;
     clearTransportRetryState(null, chatKey);
     renderProviderStageRetryControl();
     syncSendButtons();
@@ -280,13 +383,17 @@ function captureProviderStageRetryStatus(value, chatKey = currentTransportRetryC
 
 function restoreProviderStageRetryForCurrentChat() {
     const chatKey = currentTransportRetryChatKey();
-    providerStageRetryEnvelope = chatKey
-        ? readProviderStageRetryEntries().find(entry => entry.chat_key === chatKey)?.envelope ?? null
+    const stored = chatKey
+        ? readProviderStageRetryEntries().find(entry => entry.chat_key === chatKey) ?? null
         : null;
+    providerStageRetryEnvelope = stored?.envelope ?? null;
+    providerStageRetryLastSubmittedAction = stored?.last_submitted_action ?? null;
+    providerStageRetryContinuation = stored?.continuation ?? null;
     document.querySelector('#cera_provider_stage_retry_panel')?.remove();
     if (!providerStageRetryEnvelope || providerStageFailureState?.chat_key === chatKey) return;
     renderProviderStageRetryControl();
     syncSendButtons();
+    void reconcileProviderStageRetry();
 }
 
 function clearProviderStageRetryEnvelope(chatKey = currentTransportRetryChatKey()) {
@@ -297,6 +404,8 @@ function clearProviderStageRetryEnvelope(chatKey = currentTransportRetryChatKey(
     if (removed) writeProviderStageRetryEntries(remaining);
     if (currentTransportRetryChatKey() === chatKey) {
         providerStageRetryEnvelope = null;
+        providerStageRetryLastSubmittedAction = null;
+        providerStageRetryContinuation = null;
         document.querySelector('#cera_provider_stage_retry_panel')?.remove();
     }
     return removed;
@@ -649,6 +758,9 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
     appendProviderStageRetryTechnicalDetails(panel, envelope);
 
     const action = envelope.actions[0] ?? null;
+    const continueAction = normalizeProviderStageRetryAction(
+        providerStageRetryLastSubmittedAction,
+    );
     const actions = document.createElement('div');
     actions.className = 'cera-review-actions';
     if (allowAction && !providerStageRetryInFlight && action?.action_kind === 'provider_retry') {
@@ -656,6 +768,18 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
             'Retry Provider Stage',
             false,
             () => submitProviderStageControlAction(action),
+        ));
+    } else if (
+        allowAction
+        && !providerStageRetryInFlight
+        && status.state === 'succeeded'
+        && continueAction?.action_kind === 'provider_retry'
+        && continueAction.chain_id === status.chain_id
+    ) {
+        actions.append(actionButton(
+            'Continue',
+            false,
+            () => submitProviderStageControlAction(continueAction),
         ));
     } else if (allowAction && !providerStageRetryInFlight && action?.action_kind === 'check_status') {
         actions.append(actionButton('Check Status', false, () => reconcileProviderStageRetry()));
@@ -716,17 +840,35 @@ function appendProviderStageRetryTechnicalDetails(panel, envelope) {
 async function submitProviderStageControlAction(action) {
     const envelope = normalizeProviderStageRetryStatusEnvelope(providerStageRetryEnvelope);
     const current = envelope?.actions[0];
-    const allowed = (
+    const eligibleRetry = (
         envelope?.status.state === 'eligible'
         && current?.action_kind === 'provider_retry'
     );
+    const storedContinue = normalizeProviderStageRetryAction(
+        providerStageRetryLastSubmittedAction,
+    );
+    const manualContinue = (
+        envelope?.status.state === 'succeeded'
+        && storedContinue?.action_kind === 'provider_retry'
+        && storedContinue.chain_id === envelope.status.chain_id
+    );
+    const selected = eligibleRetry ? current : manualContinue ? storedContinue : null;
     if (
         providerStageRetryInFlight
         || !envelope
-        || !allowed
-        || current.action_id !== action?.action_id
-        || current.expected_chain_sha256 !== action?.expected_chain_sha256
+        || !selected
+        || selected.action_id !== action?.action_id
+        || selected.expected_chain_sha256 !== action?.expected_chain_sha256
     ) return;
+    const chatKey = currentTransportRetryChatKey();
+    if (!persistProviderStageRetryEnvelope(envelope, chatKey, {
+        lastSubmittedAction: selected,
+    })) {
+        renderProviderStageRetryControl({
+            detail: 'CERA could not store the backend-issued action. No provider request was sent.',
+        });
+        return;
+    }
     providerStageRetryInFlight = true;
     deactivateSendButtons();
     renderProviderStageRetryControl({
@@ -735,18 +877,11 @@ async function submitProviderStageControlAction(action) {
     });
     try {
         const result = await requestJson(
-            `/v1/cera/provider-stage-retries/${encodeURIComponent(current.chain_id)}`
-                + `/actions/${encodeURIComponent(current.action_id)}`,
-            { method: 'POST', body: current },
+            `/v1/cera/provider-stage-retries/${encodeURIComponent(selected.chain_id)}`
+                + `/actions/${encodeURIComponent(selected.action_id)}`,
+            { method: 'POST', body: selected },
         );
-        const next = normalizeProviderStageRetryStatusEnvelope(result);
-        if (!next || !sameProviderStageRetryOccurrence(envelope, next)) {
-            throw new CeraReviewRequestError(
-                'invalid_response',
-                'CERA returned a provider-stage status for a different Retry chain.',
-            );
-        }
-        captureProviderStageRetryStatus(next);
+        await handleProviderStageRetryResult(result, envelope, chatKey);
     } catch {
         renderProviderStageRetryControl({
             detail: 'The provider-stage action result is not authoritative yet. No automatic provider redispatch will occur; Check Status is provider-free.',
@@ -764,6 +899,7 @@ async function reconcileProviderStageRetry() {
     const envelope = normalizeProviderStageRetryStatusEnvelope(providerStageRetryEnvelope);
     if (!envelope) return;
     const chainId = envelope.status.chain_id;
+    const chatKey = currentTransportRetryChatKey();
     renderProviderStageRetryControl({
         detail: 'Checking durable status. This read-only request cannot contact a provider.',
         allowAction: false,
@@ -772,19 +908,202 @@ async function reconcileProviderStageRetry() {
         const result = await requestJson(
             `/v1/cera/provider-stage-retries/${encodeURIComponent(chainId)}`,
         );
-        const next = normalizeProviderStageRetryStatusEnvelope(result);
-        if (!next || !sameProviderStageRetryOccurrence(envelope, next)) {
-            throw new CeraReviewRequestError(
-                'invalid_response',
-                'CERA returned a provider-stage status for a different Retry chain.',
-            );
-        }
-        captureProviderStageRetryStatus(next);
+        await handleProviderStageRetryResult(result, envelope, chatKey);
     } catch {
         renderProviderStageRetryControl({
             detail: 'Status remains unavailable. The backend-issued action and chain binding remain stored; no provider request was sent.',
         });
     }
+}
+
+async function handleProviderStageRetryResult(result, priorEnvelope, chatKey) {
+    const next = normalizeProviderStageRetryStatusEnvelope(result);
+    if (next) {
+        if (!sameProviderStageRetryRequest(priorEnvelope, next)) {
+            throw new CeraReviewRequestError(
+                'invalid_response',
+                'CERA returned a provider-stage status for a different protected request.',
+            );
+        }
+        if (!captureProviderStageRetryStatus(next, chatKey)) {
+            throw new CeraReviewRequestError(
+                'storage',
+                'CERA could not retain the authoritative provider-stage status.',
+            );
+        }
+        return;
+    }
+    if (result?.object === 'chat.completion') {
+        await appendProviderStageRetryCompletion(result, priorEnvelope, chatKey);
+        return;
+    }
+    if (result?.schema_version === 'cera.pi_scene.review_decision.v1') {
+        await applyProviderStageReviewDecision(result, chatKey);
+        return;
+    }
+    throw new CeraReviewRequestError(
+        'invalid_response',
+        'CERA returned an unsupported provider-stage continuation result.',
+    );
+}
+
+function normalizeProviderStageRetryCompletionMarker(value) {
+    if (
+        !value
+        || typeof value !== 'object'
+        || Array.isArray(value)
+        || Object.keys(value).sort().join(',')
+            !== 'completion_identity,request_id,request_sha256,schema_version'
+        || value.schema_version !== PROVIDER_STAGE_RETRY_COMPLETION_SCHEMA
+        || !PROVIDER_STAGE_REQUEST_ID_PATTERN.test(value.request_id)
+        || !PROVIDER_STAGE_REQUEST_SHA256_PATTERN.test(value.request_sha256)
+        || typeof value.completion_identity !== 'string'
+        || !value.completion_identity
+        || value.completion_identity.length > 240
+        || /[\u0000-\u001f\u007f]/.test(value.completion_identity)
+    ) return null;
+    return { ...value };
+}
+
+async function appendProviderStageRetryCompletion(result, envelope, chatKey) {
+    if (providerStageRetryContinuation !== null) {
+        throw new CeraReviewRequestError(
+            'invalid_response',
+            'CERA returned a chat completion for a pending creator decision.',
+        );
+    }
+    const storyText = result?.choices?.[0]?.message?.content;
+    const completion = normalizeCompletionMetadata(result?.cera);
+    const requestId = result?.cera?.request_id;
+    const requestSha256 = result?.cera?.provider_stage_request_sha256;
+    const expectedRequestSha256 = envelope?.status?.technical_details?.request_sha256;
+    const identity = completionIdentity(completion);
+    if (
+        typeof storyText !== 'string'
+        || !storyText.trim()
+        || !completion
+        || !identity
+        || !PROVIDER_STAGE_REQUEST_ID_PATTERN.test(requestId)
+        || requestSha256 !== expectedRequestSha256
+        || !PROVIDER_STAGE_REQUEST_SHA256_PATTERN.test(requestSha256)
+        || currentTransportRetryChatKey() !== chatKey
+    ) {
+        throw new CeraReviewRequestError(
+            'invalid_response',
+            'CERA returned a completion that did not match the protected stage request.',
+        );
+    }
+    const marker = normalizeProviderStageRetryCompletionMarker({
+        schema_version: PROVIDER_STAGE_RETRY_COMPLETION_SCHEMA,
+        request_id: requestId,
+        request_sha256: requestSha256,
+        completion_identity: identity,
+    });
+    if (!marker) {
+        throw new CeraReviewRequestError(
+            'invalid_response',
+            'CERA returned an invalid provider-stage completion identity.',
+        );
+    }
+    let messageId = findProviderStageRetryCompletion(marker);
+    let inserted = false;
+    if (messageId === -1) {
+        const reviewId = validReviewId(completion.provisional_review_id)
+            ? completion.provisional_review_id
+            : null;
+        const message = {
+            name: characters[this_chid]?.name ?? 'CERA',
+            is_user: false,
+            is_system: false,
+            send_date: getMessageTimeStamp(),
+            mes: storyText,
+            extra: {
+                [META_KEY]: {
+                    review_id: reviewId,
+                    candidate_id: completion.candidate_id,
+                    state: completion.status,
+                    provisional: Boolean(completion.provisional && reviewId),
+                    completion: structuredClone(completion),
+                    provider_stage_retry_completion: marker,
+                },
+            },
+        };
+        chat.push(message);
+        messageId = chat.length - 1;
+        inserted = true;
+        addOneMessage(message);
+    } else {
+        chat[messageId].extra ??= {};
+        chat[messageId].extra[META_KEY] ??= {};
+        chat[messageId].extra[META_KEY].provider_stage_retry_completion = marker;
+    }
+    await saveChatConditional();
+    clearProviderStageRetryEnvelope(chatKey);
+    if (inserted && currentTransportRetryChatKey() === chatKey) {
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, messageId, 'cera_provider_stage_retry');
+        await eventSource.emit(
+            event_types.CHARACTER_MESSAGE_RENDERED,
+            messageId,
+            'cera_provider_stage_retry',
+        );
+    }
+    if (currentTransportRetryChatKey() !== chatKey) return;
+    renderStoredCompletionMetadata(messageId);
+    if (chat[messageId]?.extra?.[META_KEY]?.provisional) {
+        await resumeReview(messageId);
+    } else {
+        syncSendButtons();
+    }
+}
+
+function findProviderStageRetryCompletion(marker) {
+    for (let index = 0; index < chat.length; index += 1) {
+        const raw = chat[index]?.extra?.[META_KEY]?.provider_stage_retry_completion;
+        if (raw?.request_sha256 !== marker.request_sha256) continue;
+        const normalized = normalizeProviderStageRetryCompletionMarker(raw);
+        if (!normalized || normalized.request_id !== marker.request_id) {
+            throw new CeraReviewRequestError(
+                'identity_conflict',
+                'The chat contains a conflicting provider-stage completion marker.',
+            );
+        }
+        return index;
+    }
+    return -1;
+}
+
+async function applyProviderStageReviewDecision(result, chatKey) {
+    const continuation = normalizeProviderStageRetryContinuation(
+        providerStageRetryContinuation,
+    );
+    if (
+        !continuation
+        || result.creator_action !== continuation.action
+        || result.review?.review_id !== continuation.review_id
+        || currentTransportRetryChatKey() !== chatKey
+    ) {
+        throw new CeraReviewRequestError(
+            'invalid_response',
+            'CERA returned a creator decision for a different protected action.',
+        );
+    }
+    const messageId = chat.findIndex(message => (
+        message?.extra?.[META_KEY]?.review_id === continuation.review_id
+    ));
+    if (messageId < 0) {
+        throw new CeraReviewRequestError(
+            'context_changed',
+            'The protected creator-review message is no longer in this chat.',
+        );
+    }
+    await applyDecisionResult(
+        messageId,
+        { review_id: continuation.review_id },
+        continuation.action,
+        result,
+    );
+    clearProviderStageRetryEnvelope(chatKey);
+    syncSendButtons();
 }
 
 function recordingRepairTarget() {
@@ -1887,7 +2206,6 @@ async function decide(messageId, review, action, feedback = null) {
         statusText(messageId, 'CERA did not supply a valid durable review ID. No action was sent.');
         return;
     }
-    const acceptsCandidate = ['accept', 'false_positive'].includes(action);
     disablePanel(messageId, true);
     statusText(
         messageId,
@@ -1904,22 +2222,53 @@ async function decide(messageId, review, action, feedback = null) {
             `/v1/cera/reviews/${encodeURIComponent(review.review_id)}/decision`,
             { method: 'POST', body: { action, feedback } },
         );
-        const resolvedReview = result?.review ?? result;
-        if (acceptsCandidate) {
-            markCanonical(messageId, result);
-            return;
+        return await applyDecisionResult(messageId, review, action, result);
+    } catch (error) {
+        const pending = providerStageRetryEnvelopeFrom(error?.payload);
+        if (
+            pending
+            && ['accept', 'accept_provisional', 'regenerate', 'replan', 'repair_recording']
+                .includes(action)
+            && captureProviderStageRetryStatus(
+                pending,
+                currentTransportRetryChatKey(),
+                { continuation: { review_id: review.review_id, action } },
+            )
+        ) {
+            statusText(
+                messageId,
+                'The exact creator action is paused at one provider stage. Use the CERA Retry panel to continue it.',
+            );
+            return null;
         }
+        const reconciled = await reconcileDecisionAfterError(messageId, review.review_id);
+        if (reconciled) return reconciled;
+        statusText(messageId, `Save failed - candidate remains provisional: ${String(error)}`);
+        disablePanel(messageId, false);
+        return null;
+    }
+}
+
+async function applyDecisionResult(messageId, review, action, result) {
+    const acceptsCandidate = ['accept', 'false_positive'].includes(action);
+    const resolvedReview = result?.review ?? result;
+    if (acceptsCandidate) {
+        markCanonical(messageId, result);
+        await saveChatConditional();
+        return result;
+    }
         if (action === 'accept_provisional') {
             const reprojection = normalizeReprojectionRequired(result);
             if (reprojection) {
                 storeReprojectionRequired(messageId, reprojection);
                 renderReprojectionRequired(messageId, reprojection);
                 await saveChatConditional();
-                return;
+                return result;
             }
             if (provisionalAcceptanceCommitted(result)) {
                 markCanonical(messageId, result, { canonStatus: 'provisional' });
-                return;
+                await saveChatConditional();
+                return result;
             }
         }
         const successor = result?.successor;
@@ -1940,7 +2289,7 @@ async function decide(messageId, review, action, feedback = null) {
             updateStoredState(messageId, nextReview);
             renderReview(messageId, nextReview);
             await saveChatConditional();
-            return;
+            return result;
         }
         const acceptedSuccessor = acceptedRegenerateSuccessor(result);
         if (acceptedSuccessor) {
@@ -1950,19 +2299,12 @@ async function decide(messageId, review, action, feedback = null) {
             updateMessageBlock(messageId, chat[messageId]);
             markCanonical(messageId, result);
             await saveChatConditional();
-            return;
+            return result;
         }
         updateStoredState(messageId, resolvedReview);
         renderReview(messageId, resolvedReview);
         await saveChatConditional();
         return result;
-    } catch (error) {
-        const reconciled = await reconcileDecisionAfterError(messageId, review.review_id);
-        if (reconciled) return reconciled;
-        statusText(messageId, `Save failed - candidate remains provisional: ${String(error)}`);
-        disablePanel(messageId, false);
-        return null;
-    }
 }
 
 async function reconcileDecisionAfterError(messageId, reviewId) {
@@ -2221,8 +2563,7 @@ function hasPendingReview() {
 }
 
 function syncSendButtons() {
-    const providerStageBlocks = providerStageRetryEnvelope
-        && providerStageRetryEnvelope.status.state !== 'succeeded';
+    const providerStageBlocks = Boolean(providerStageRetryEnvelope);
     if (hasPendingReview() || transportRetryState || providerStageFailureState || providerStageBlocks) {
         deactivateSendButtons();
     }

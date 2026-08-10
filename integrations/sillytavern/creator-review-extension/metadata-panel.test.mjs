@@ -15,8 +15,16 @@ class TestElement {
         this.id = '';
         this.className = '';
         this.textContent = '';
+        this.value = '';
         this.disabled = false;
         this.listeners = new Map();
+        this.classList = {
+            add: (...names) => {
+                const current = new Set(this.className.split(/\s+/).filter(Boolean));
+                for (const name of names) current.add(name);
+                this.className = [...current].join(' ');
+            },
+        };
     }
 
     get nextSibling() {
@@ -63,6 +71,8 @@ class TestElement {
         this.listeners.set(type, handlers);
     }
 
+    focus() {}
+
     async click() {
         if (this.disabled) return;
         for (const handler of this.listeners.get('click') ?? []) await handler({ target: this });
@@ -83,17 +93,33 @@ class TestElement {
 }
 
 class TestDocument {
-    constructor() {
+    constructor(messageCount = 0) {
         this.body = new TestElement('body');
+        const chat = new TestElement('section');
+        chat.id = 'chat';
+        for (let index = 0; index < messageCount; index += 1) {
+            const message = new TestElement('article');
+            message.className = 'mes';
+            message.mesid = String(index);
+            const block = new TestElement('div');
+            block.className = 'mes_block';
+            message.appendChild(block);
+            chat.appendChild(message);
+        }
         const wrapper = new TestElement('main');
         const sendForm = new TestElement('form');
         sendForm.id = 'send_form';
         wrapper.appendChild(sendForm);
-        this.body.appendChild(wrapper);
+        this.body.append(chat, wrapper);
     }
 
     createElement(tagName) { return new TestElement(tagName); }
     querySelector(selector) {
+        const message = /^#chat \.mes\[mesid="(\d+)"\]$/.exec(selector);
+        if (message) {
+            return this.body.querySelectorAll('.mes')
+                .find(element => element.mesid === message[1]) ?? null;
+        }
         if (matchesSimpleSelector(this.body, selector)) return this.body;
         return this.body.querySelector(selector);
     }
@@ -119,6 +145,10 @@ function retryStore(storage) {
 
 function providerFailureStore(storage) {
     return JSON.parse(storage.get('cera_provider_stage_failures_v1') ?? '{}');
+}
+
+function providerRetryStore(storage) {
+    return JSON.parse(storage.get('cera_provider_stage_retry_status_v1') ?? '{}');
 }
 
 function elementText(element) {
@@ -226,7 +256,7 @@ export function updateMessageBlock() {}
         setItem(key, value) { storage.set(key, String(value)); },
         removeItem(key) { storage.delete(key); },
     };
-    const testDocument = new TestDocument();
+    const testDocument = new TestDocument(initialChat.length);
     globalThis.document = testDocument;
     if (fetchImpl) globalThis.fetch = fetchImpl;
     const module = await import(`${pathToFileURL(path.join(extension, 'index.js')).href}?v=${Date.now()}`);
@@ -454,6 +484,112 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         status,
         actions,
     };
+}
+
+function providerStageCompletion(envelope, { content = 'Recovered provider-stage story.' } = {}) {
+    return {
+        id: 'chatcmpl-provider-stage-retry',
+        object: 'chat.completion',
+        choices: [{
+            index: 0,
+            message: { role: 'assistant', content },
+            finish_reason: 'stop',
+        }],
+        cera: {
+            profile_id: 'cera.pi_scene.lean.v1',
+            request_id: `request-${'1'.repeat(64)}`,
+            provider_stage_request_sha256: envelope.status.technical_details.request_sha256,
+            candidate_id: 'candidate:provider-stage-terminal',
+            route_mode: 'ordinary',
+            provisional: false,
+            status: 'accepted',
+            story_state_committed: true,
+        },
+    };
+}
+
+function creatorReview(reviewId, action, { route = 'ordinary' } = {}) {
+    return {
+        schema_version: 'cera.pi_scene.review.v1',
+        review_id: reviewId,
+        state: 'review_ready',
+        provisional: true,
+        route,
+        story_text: 'Original provisional story.',
+        candidate_id: 'candidate:creator-action-test',
+        candidate_sha256: '1'.repeat(64),
+        primary_authority_kind: 'codex_cognition_plan',
+        primary_authority_sha256: '2'.repeat(64),
+        warnings: [],
+        warnings_block_accept: false,
+        recording_status: action === 'repair_recording' ? 'pending_repair' : null,
+        story_state_committed: action === 'repair_recording',
+        canon_status: action === 'repair_recording' ? 'accepted' : 'unaccepted',
+        semantic_validation: null,
+        request_controls: null,
+        creator_guidance: null,
+        accept_enabled: action === 'accept',
+        provisional_accept_enabled: false,
+        decline_enabled: true,
+        regenerate_enabled: action === 'regenerate',
+        replan_enabled: action === 'replan',
+        repair_recording_enabled: action === 'repair_recording',
+        provider_operations: { planner: 1, writer: 1, recorder: 0 },
+    };
+}
+
+function creatorReviewMessage(reviewId, { accepted = false } = {}) {
+    return {
+        name: 'Sakura',
+        is_user: false,
+        mes: 'Original provisional story.',
+        extra: {
+            cera_creator_review: {
+                review_id: reviewId,
+                candidate_id: 'candidate:creator-action-test',
+                state: accepted ? 'accepted' : 'review_ready',
+                provisional: !accepted,
+                completion: {
+                    profile_id: 'cera.pi_scene.lean.v1',
+                    request_id: `request-${'1'.repeat(64)}`,
+                    candidate_id: 'candidate:creator-action-test',
+                    route_mode: 'ordinary',
+                    provisional: !accepted,
+                    status: accepted ? 'accepted' : 'review_ready',
+                    story_state_committed: accepted,
+                },
+            },
+        },
+    };
+}
+
+function creatorDecision(reviewId, action) {
+    const committed = ['accept', 'repair_recording'].includes(action);
+    const review = creatorReview(reviewId, action);
+    review.state = action === 'accept' || action === 'repair_recording'
+        ? 'accepted'
+        : action === 'regenerate'
+            ? 'regenerated'
+            : 'replanned';
+    review.provisional = false;
+    review.story_state_committed = committed;
+    review.canon_status = committed ? 'accepted' : 'unaccepted';
+    review.recording_status = action === 'repair_recording' ? 'complete' : null;
+    const result = {
+        schema_version: 'cera.pi_scene.review_decision.v1',
+        status: committed ? 'story_committed' : 'review_transitioned',
+        creator_action: action,
+        story_state_committed: committed,
+        retry_mode: 'not_applicable',
+        review,
+        successor: null,
+        operational_warnings: [],
+    };
+    if (committed) {
+        result.accepted_turn_id = 'turn-0001-provider-stage-action';
+        result.accepted_receipt_sha256 = '3'.repeat(64);
+    }
+    return result;
 }
 
 function jsonResponse(payload, status = 200) {
@@ -1195,6 +1331,273 @@ test('eligible provider-stage status posts only the exact backend-issued Retry a
     }
 });
 
+test('lost provider-stage POST persists its action and Continue replays without another Retry', async () => {
+    const eligible = providerStageRetryEnvelope('eligible');
+    const succeeded = providerStageRetryEnvelope('succeeded');
+    const completion = providerStageCompletion(eligible);
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    const replies = [
+        new TypeError('simulated lost POST response'),
+        jsonResponse(succeeded),
+        jsonResponse(completion),
+    ];
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            const reply = replies.shift();
+            if (reply instanceof Error) throw reply;
+            return reply;
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(eligible), true);
+        await buttonByText(loaded.testDocument, 'Retry Provider Stage').click();
+
+        assert.deepEqual(calls.map(call => call.options.method), ['POST', 'GET']);
+        const stored = providerRetryStore(loaded.storage);
+        assert.equal(
+            stored.schema_version,
+            'cera.sillytavern.provider_stage_retry_status_store.v2',
+        );
+        assert.deepEqual(stored.entries[0].last_submitted_action, eligible.actions[0]);
+        assert.ok(buttonByText(loaded.testDocument, 'Continue'));
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+
+        await buttonByText(loaded.testDocument, 'Continue').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['POST', 'GET', 'POST']);
+        assert.deepEqual(JSON.parse(calls[2].options.body), eligible.actions[0]);
+        assert.equal(loaded.scriptModule.chat.length, 1);
+        assert.equal(loaded.scriptModule.chat[0].mes, 'Recovered provider-stage story.');
+        assert.equal(loaded.scriptModule.testState.addCount, 1);
+        assert.equal(providerRetryStore(loaded.storage).entries.length, 0);
+        assert.equal(buttonByText(loaded.testDocument, 'Continue'), null);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('creator decision Retry survives reload and returns its exact decision family', async () => {
+    const cases = [
+        { action: 'accept', button: 'Accept', stage: 'recorder' },
+        { action: 'regenerate', button: 'Regenerate', stage: 'writer' },
+        { action: 'replan', button: 'Replan', stage: 'planner' },
+        { action: 'repair_recording', button: 'Repair Recording', stage: 'recorder' },
+    ];
+    const originalFetch = globalThis.fetch;
+    try {
+        for (const [caseIndex, scenario] of cases.entries()) {
+        const reviewId = `review-${String(caseIndex + 1).repeat(28)}`;
+        const pending = providerStageRetryEnvelope('eligible', {
+            chainCharacter: String(caseIndex + 4),
+        });
+        pending.status.stage = scenario.stage;
+        if (scenario.stage === 'planner') {
+            pending.status.provider = 'codex';
+            pending.status.model_family = 'sol';
+        }
+        if (scenario.stage === 'recorder') pending.status.story_state_committed = true;
+        const review = creatorReview(reviewId, scenario.action);
+        const initialMessage = creatorReviewMessage(reviewId, {
+            accepted: scenario.action === 'repair_recording',
+        });
+        const firstCalls = [];
+        const first = await loadExtension({
+            initialChat: [initialMessage],
+            fetchImpl: async (url, options) => {
+                firstCalls.push({ url, options });
+                if (options.method === 'GET' && url.includes(`/reviews/${reviewId}`)) {
+                    return jsonResponse(review);
+                }
+                if (options.method === 'POST' && url.endsWith(`/reviews/${reviewId}/decision`)) {
+                    return jsonResponse(pending, 409);
+                }
+                throw new Error(`unexpected first creator-action request: ${options.method} ${url}`);
+            },
+        });
+        let second = null;
+        try {
+            if (scenario.action === 'repair_recording') {
+                const repair = providerStageRetryEnvelope('recording_repair_required');
+                assert.equal(window.ceraCaptureProviderStageRetryStatus(repair), true);
+                await buttonByText(first.testDocument, scenario.button).click();
+            } else {
+                await first.scriptModule.eventSource.emit(
+                    first.scriptModule.event_types.CHARACTER_MESSAGE_RENDERED,
+                    0,
+                );
+                await buttonByText(first.testDocument, scenario.button).click();
+                if (scenario.action === 'replan') {
+                    await buttonByText(first.testDocument, 'Submit').click();
+                }
+            }
+
+            const decisionPosts = firstCalls.filter(call => (
+                call.options.method === 'POST' && call.url.endsWith('/decision')
+            ));
+            assert.equal(decisionPosts.length, 1, `${scenario.action} dispatched once`);
+            assert.equal(firstCalls.some(call => call.url.includes('/actions/')), false);
+            const retained = providerRetryStore(first.storage).entries[0];
+            assert.deepEqual(retained.continuation, {
+                review_id: reviewId,
+                action: scenario.action,
+            });
+            assert.equal(retained.last_submitted_action, null);
+
+            const secondCalls = [];
+            const decision = creatorDecision(reviewId, scenario.action);
+            second = await loadExtension({
+                initialStorage: Object.fromEntries(first.storage),
+                initialChat: structuredClone(first.scriptModule.chat),
+                fetchImpl: async (url, options) => {
+                    secondCalls.push({ url, options });
+                    if (options.method === 'GET' && url.includes('/provider-stage-retries/')) {
+                        return jsonResponse(pending);
+                    }
+                    if (options.method === 'POST' && url.includes('/actions/')) {
+                        return jsonResponse(decision);
+                    }
+                    throw new Error(`unexpected continued creator-action request: ${options.method} ${url}`);
+                },
+            });
+            await second.scriptModule.eventSource.emit(second.scriptModule.event_types.APP_READY);
+            for (let attempt = 0; attempt < 20; attempt += 1) {
+                if (buttonByText(second.testDocument, 'Retry Provider Stage')) break;
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+            await buttonByText(second.testDocument, 'Retry Provider Stage').click();
+
+            assert.deepEqual(secondCalls.map(call => call.options.method), ['GET', 'POST']);
+            assert.equal(
+                secondCalls.filter(call => call.url.includes('/actions/')).length,
+                1,
+                `${scenario.action} Provider Retry dispatched once`,
+            );
+            assert.equal(second.scriptModule.chat.length, 1);
+            assert.equal(second.scriptModule.testState.addCount, 0);
+            assert.equal(providerRetryStore(second.storage).entries.length, 0);
+            assert.equal(
+                second.scriptModule.chat[0].extra.cera_creator_review.state,
+                decision.review.state,
+            );
+        } finally {
+            await rm(first.root, { recursive: true, force: true });
+            if (second) await rm(second.root, { recursive: true, force: true });
+        }
+        }
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('creator decision continuation rejects review and action drift', async () => {
+    const reviewId = `review-${'a'.repeat(28)}`;
+    const pending = providerStageRetryEnvelope('eligible');
+    const stored = {
+        cera_provider_stage_retry_status_v1: JSON.stringify({
+            schema_version: 'cera.sillytavern.provider_stage_retry_status_store.v2',
+            entries: [{
+                chat_key: JSON.stringify(['0', 'test-chat']),
+                envelope: pending,
+                last_submitted_action: null,
+                continuation: { review_id: reviewId, action: 'regenerate' },
+            }],
+        }),
+    };
+    const originalFetch = globalThis.fetch;
+    const calls = [];
+    const loaded = await loadExtension({
+        initialStorage: stored,
+        initialChat: [creatorReviewMessage(reviewId)],
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            if (options.method === 'GET') return jsonResponse(pending);
+            return jsonResponse(creatorDecision(reviewId, 'replan'));
+        },
+    });
+    try {
+        await loaded.scriptModule.eventSource.emit(loaded.scriptModule.event_types.APP_READY);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (buttonByText(loaded.testDocument, 'Retry Provider Stage')) break;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        await buttonByText(loaded.testDocument, 'Retry Provider Stage').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST', 'GET']);
+        assert.equal(loaded.scriptModule.chat.length, 1);
+        assert.equal(loaded.scriptModule.chat[0].extra.cera_creator_review.state, 'review_ready');
+        assert.deepEqual(providerRetryStore(loaded.storage).entries[0].continuation, {
+            review_id: reviewId,
+            action: 'regenerate',
+        });
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('provider-stage successor may change stage occurrence but not request hash', async () => {
+    const eligible = providerStageRetryEnvelope('eligible', { chainCharacter: 'a' });
+    const successor = providerStageRetryEnvelope('eligible', { chainCharacter: 'b' });
+    successor.status.stage = 'semantic_validator';
+    successor.status.provider = 'codex';
+    successor.status.model_family = 'luna';
+    successor.status.technical_details.request_occurrence_sha256 = '7'.repeat(64);
+    successor.status.technical_details.stage_input_sha256 = '8'.repeat(64);
+    successor.actions[0].chain_id = successor.status.chain_id;
+    const originalFetch = globalThis.fetch;
+    const calls = [];
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            return jsonResponse(successor);
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(eligible), true);
+        await buttonByText(loaded.testDocument, 'Retry Provider Stage').click();
+        assert.equal(calls.length, 1);
+        assert.ok(buttonByText(loaded.testDocument, 'Retry Provider Stage'));
+        assert.match(
+            loaded.testDocument.querySelector('.cera-review-heading').textContent,
+            /Codex Semantic Validator/i,
+        );
+        assert.equal(
+            providerRetryStore(loaded.storage).entries[0].envelope.status.chain_id,
+            successor.status.chain_id,
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('provider-stage completion with a mismatched request hash is never appended', async () => {
+    const eligible = providerStageRetryEnvelope('eligible');
+    const mismatched = providerStageCompletion(eligible);
+    mismatched.cera.provider_stage_request_sha256 = '0'.repeat(64);
+    const succeeded = providerStageRetryEnvelope('succeeded');
+    const methods = [];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return methods.length === 1 ? jsonResponse(mismatched) : jsonResponse(succeeded);
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(eligible), true);
+        await buttonByText(loaded.testDocument, 'Retry Provider Stage').click();
+        assert.deepEqual(methods, ['POST', 'GET']);
+        assert.equal(loaded.scriptModule.chat.length, 0);
+        assert.equal(loaded.scriptModule.testState.addCount, 0);
+        assert.ok(buttonByText(loaded.testDocument, 'Continue'));
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
 test('blocked ambiguity shows Check Status only and reconciliation performs GET only', async () => {
     const calls = [];
     const originalFetch = globalThis.fetch;
@@ -1225,7 +1628,8 @@ test('blocked ambiguity shows Check Status only and reconciliation performs GET 
             loaded.testDocument.querySelector('.cera-review-status').textContent,
             /succeeded/i,
         );
-        assert.ok(loaded.scriptModule.testState.activateCount >= 1);
+        assert.equal(buttonByText(loaded.testDocument, 'Continue'), null);
+        assert.ok(loaded.scriptModule.testState.deactivateCount >= 1);
     } finally {
         globalThis.fetch = originalFetch;
         await rm(loaded.root, { recursive: true, force: true });

@@ -18,6 +18,7 @@ import {
     projectProviderStageRetryAction,
     projectProviderStageRetryBlockedAmbiguous,
     projectProviderStageRetryExhausted,
+    projectProviderStageRetryResult,
     projectProviderStageRetryStatusEnvelope,
     projectTransportRetryPayload,
     projectTransportRetryStatusPayload,
@@ -147,6 +148,36 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         schema_version: 'cera.provider_stage_retry_status_envelope.v1',
         status,
         actions,
+    };
+}
+
+function providerStageReview(reviewId) {
+    return {
+        schema_version: 'cera.pi_scene.review.v1',
+        review_id: reviewId,
+        state: 'regenerated',
+        provisional: false,
+        route: 'ordinary',
+        story_text: 'Visible reviewed story.',
+        candidate_id: 'candidate:provider-stage-review',
+        candidate_sha256: '1'.repeat(64),
+        primary_authority_kind: 'codex_cognition_plan',
+        primary_authority_sha256: '2'.repeat(64),
+        warnings: [],
+        warnings_block_accept: false,
+        recording_status: null,
+        story_state_committed: false,
+        canon_status: 'unaccepted',
+        semantic_validation: null,
+        request_controls: null,
+        creator_guidance: null,
+        accept_enabled: false,
+        provisional_accept_enabled: false,
+        decline_enabled: false,
+        regenerate_enabled: false,
+        replan_enabled: false,
+        repair_recording_enabled: false,
+        provider_operations: { planner: 1, writer: 1, recorder: 0 },
     };
 }
 
@@ -746,6 +777,132 @@ test('provider-stage routes forward read-only GET and one exact backend-issued a
     assert.equal(calls[1].options.method, 'POST');
     assert.deepEqual(JSON.parse(calls[1].options.body), action);
     assert.deepEqual(payloads, [blocked, inProgress]);
+});
+
+test('provider-stage result union accepts bound completion and creator decision only', () => {
+    const completion = {
+        id: 'chatcmpl-stage-continuation',
+        object: 'chat.completion',
+        created: 1,
+        model: 'cera-alpha',
+        choices: [{
+            index: 0,
+            message: { role: 'assistant', content: 'Recovered story.' },
+            finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        cera: {
+            profile_id: 'cera.pi_scene.lean.v1',
+            request_id: `request-${'1'.repeat(64)}`,
+            provider_stage_request_sha256: '2'.repeat(64),
+        },
+    };
+    const decision = {
+        schema_version: 'cera.pi_scene.review_decision.v1',
+        status: 'review_transitioned',
+        creator_action: 'regenerate',
+        story_state_committed: false,
+        retry_mode: 'not_applicable',
+        review: providerStageReview(`review-${'a'.repeat(28)}`),
+        successor: null,
+        operational_warnings: [],
+    };
+    assert.deepEqual(projectProviderStageRetryResult(completion), completion);
+    assert.deepEqual(projectProviderStageRetryResult(decision), decision);
+    assert.deepEqual(
+        projectProviderStageRetryResult(providerStageRetryEnvelope('eligible')),
+        providerStageRetryEnvelope('eligible'),
+    );
+    assert.throws(() => projectProviderStageRetryResult({
+        ...completion,
+        cera: { ...completion.cera, provider_stage_request_sha256: 'wrong' },
+    }));
+    assert.throws(() => projectProviderStageRetryResult({
+        ...completion,
+        cera: { ...completion.cera, raw_provider_output: 'private' },
+    }));
+    assert.throws(() => projectProviderStageRetryResult({
+        ...decision,
+        retry_mode: 'provider_retry',
+    }));
+    assert.throws(() => projectProviderStageRetryResult({
+        ...decision,
+        debug_log_path: 'D:\\private.txt',
+    }));
+    assert.throws(() => projectProviderStageRetryResult({
+        ...decision,
+        review: { ...decision.review, raw_provider_output: 'private' },
+    }));
+    assert.throws(() => projectProviderStageRetryResult({
+        ...decision,
+        review: { ...decision.review, internal_note: 'not a public review field' },
+    }));
+});
+
+test('provider-stage GET and POST preserve durable terminal result shapes', async () => {
+    const routes = new Map();
+    const router = {
+        get(path, handler) { routes.set(`GET ${path}`, handler); },
+        post(path, handler) { routes.set(`POST ${path}`, handler); },
+    };
+    await init(router);
+    const eligible = providerStageRetryEnvelope('eligible');
+    const action = eligible.actions[0];
+    const completion = {
+        id: 'chatcmpl-stage-continuation',
+        object: 'chat.completion',
+        created: 1,
+        model: 'cera-alpha',
+        choices: [{
+            index: 0,
+            message: { role: 'assistant', content: 'Recovered story.' },
+            finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        cera: {
+            profile_id: 'cera.pi_scene.lean.v1',
+            request_id: `request-${'1'.repeat(64)}`,
+            provider_stage_request_sha256: eligible.status.technical_details.request_sha256,
+        },
+    };
+    const decision = {
+        schema_version: 'cera.pi_scene.review_decision.v1',
+        status: 'review_transitioned',
+        creator_action: 'regenerate',
+        story_state_committed: false,
+        retry_mode: 'not_applicable',
+        review: providerStageReview(`review-${'a'.repeat(28)}`),
+        successor: null,
+        operational_warnings: [],
+    };
+    const replies = [completion, decision];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify(replies.shift()), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+    });
+    const payloads = [];
+    const response = {
+        headersSent: false,
+        set() { return this; },
+        status() { return this; },
+        json(value) { payloads.push(value); return this; },
+    };
+    const authorization = `Bearer ${'a'.repeat(43)}`;
+    try {
+        await routes.get('GET /v1/cera/provider-stage-retries/:chainId')({
+            params: { chainId: eligible.status.chain_id },
+            get() { return authorization; },
+        }, response);
+        await routes.get('POST /v1/cera/provider-stage-retries/:chainId/actions/:actionId')({
+            params: { chainId: action.chain_id, actionId: action.action_id },
+            body: action,
+            get() { return authorization; },
+        }, response);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.deepEqual(payloads, [completion, decision]);
 });
 
 test('review authorization accepts only a bounded bearer credential', () => {
