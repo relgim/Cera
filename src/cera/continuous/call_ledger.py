@@ -139,33 +139,50 @@ class ContinuousProviderCallLedger:
             raise ContractValidationError(
                 "provider call requires exactly one dispatch contract"
             )
-        if (
-            self.maximum_calls is not None
-            and self.dispatched_call_count >= self.maximum_calls
-        ):
-            raise StateConflictError("provider call ledger ceiling reached before dispatch")
-        call_id = "call_" + canonical_sha256(
-            {
-                "owner": owner,
-                "operation": operation,
-                "route": route,
-                "model": model,
-                "effort": effort,
-                "next": self.event_count + 1,
-            }
-        )[:24]
-        if operation_evidence is not None:
-            operation_evidence.capture.prepare(
-                operation_evidence,
-                call_id=call_id,
-                owner=owner,
-                operation=operation,
-                route=route,
-                model=model,
-                effort=effort,
+        # Reserve the ceiling slot and call identity as one critical section.
+        # Provider dispatch remains outside this lock, so independent roles may
+        # run concurrently after their immutable PREPARED events exist.  Without
+        # this reservation two concurrent calls could both observe the same
+        # count, derive the same call ID, and overrun the configured ceiling.
+        with self._lock:
+            if (
+                self.maximum_calls is not None
+                and self.dispatched_call_count >= self.maximum_calls
+            ):
+                raise StateConflictError(
+                    "provider call ledger ceiling reached before dispatch"
+                )
+            call_id = "call_" + canonical_sha256(
+                {
+                    "owner": owner,
+                    "operation": operation,
+                    "route": route,
+                    "model": model,
+                    "effort": effort,
+                    "next": self.event_count + 1,
+                }
+            )[:24]
+            if operation_evidence is not None:
+                operation_evidence.capture.prepare(
+                    operation_evidence,
+                    call_id=call_id,
+                    owner=owner,
+                    operation=operation,
+                    route=route,
+                    model=model,
+                    effort=effort,
+                    stored_thread_sha256=stored_thread_sha256,
+                )
+            self._record(
+                call_id,
+                owner,
+                operation,
+                ProviderCallState.PREPARED,
+                route,
+                model,
+                effort,
                 stored_thread_sha256=stored_thread_sha256,
             )
-        self._record(call_id, owner, operation, ProviderCallState.PREPARED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
         invocation_marked = False
         worker_started_marked = False
         worker_preflight_marked = False
@@ -377,9 +394,14 @@ class ContinuousProviderCallLedger:
 
     @property
     def events(self) -> tuple[dict[str, Any], ...]:
-        if not self.path.is_file():
-            return ()
-        return tuple(json.loads(line) for line in self.path.read_text(encoding="utf-8").splitlines() if line.strip())
+        with self._lock:
+            if not self.path.is_file():
+                return ()
+            return tuple(
+                json.loads(line)
+                for line in self.path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
 
     @property
     def event_count(self) -> int:
@@ -454,12 +476,12 @@ def _bind_completed_provider_failure_evidence(
         if isinstance(candidate, str) and re_is_sha256(candidate):
             output_sha256 = candidate
 
-    exc.external_provider_calls_observed = 1
-    exc.provider_call_receipt = receipt
-    exc.operation_telemetry = telemetry
-    exc.completed_provider_result = raw
-    exc.provider_output_sha256 = output_sha256
-    exc.provider_output_bytes = output_bytes
+    setattr(exc, "external_provider_calls_observed", 1)
+    setattr(exc, "provider_call_receipt", receipt)
+    setattr(exc, "operation_telemetry", telemetry)
+    setattr(exc, "completed_provider_result", raw)
+    setattr(exc, "provider_output_sha256", output_sha256)
+    setattr(exc, "provider_output_bytes", output_bytes)
 
 
 def completed_provider_failure_evidence(exc: BaseException) -> dict[str, Any]:
