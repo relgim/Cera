@@ -24,30 +24,45 @@ from .sillytavern_isolation import stage_isolated_sillytavern
 MANIFEST_NAME = "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json"
 _BASE_MANIFEST_NAME = "CERA_ISOLATED_COPY_MANIFEST.json"
 _METADATA_BRIDGE_RELATIVE = Path("public/scripts/openai.js")
-_TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE = Path("src/endpoints/backends/chat-completions.js")
+_PROVIDER_STAGE_RETRY_SERVER_BRIDGE_RELATIVE = Path("src/endpoints/backends/chat-completions.js")
 _STAGED_NODE_SUITE_RELATIVES = (
     Path("plugins/cera-review-proxy/test.mjs"),
     Path("public/scripts/extensions/third-party/cera-creator-review/metadata-panel.test.mjs"),
 )
-TRANSPORT_RETRY_TERMINAL_UI_CONTRACT: dict[str, Any] = {
-    "schema_version": "cera.pi_scene.qualification_critical_provider_stage_ui.v1",
+PROVIDER_STAGE_RETRY_TERMINAL_UI_CONTRACT: dict[str, Any] = {
+    "schema_version": "cera.pi_scene.qualification_critical_provider_stage_ui.v2",
     "projection_key": "critical_provider_stage_failure",
     "severity": "critical",
     "provider_required": True,
     "stage_required": True,
-    "maximum_total_provider_attempts": 3,
-    "maximum_retry_actions": 2,
-    "retry_action_enabled": False,
+    "maximum_attempts_per_stage_occurrence": 3,
+    "maximum_retry_actions_per_stage_occurrence": 2,
+    "maximum_resume_prepared_actions_per_stage_occurrence": 1,
+    "maximum_recording_repair_actions_per_request": 1,
+    "maximum_recording_repair_successor_attempts": 3,
+    "maximum_recording_repair_successor_retry_actions": 2,
+    "manual_resume_prepared_enabled_when_backend_issued": True,
+    "manual_recording_repair_enabled_when_backend_issued": True,
+    "recursive_recording_repair": False,
+    "recording_repair_required_terminal_only_without_action": True,
+    "terminal_states": [
+        "attempts_exhausted",
+        "recording_repair_required",
+        "recovery_required",
+        "blocked_ambiguous_timeout",
+    ],
+    "terminal_provider_retry_enabled": False,
     "collapsible": True,
     "display_fields": [
         "severity",
         "provider",
         "model_family",
         "stage",
+        "state",
         "maximum_attempts",
-        "attempts_total",
-        "retries_consumed",
-        "final_failure_class",
+        "stage_attempts_total",
+        "retry_actions_accepted",
+        "failure_category",
     ],
     "hash_safe_only": True,
     "raw_provider_or_story_prose_allowed": False,
@@ -78,6 +93,12 @@ _STREAMING_ERROR_CAPTURE_TARGET = (
     b"'Chat Completion API');\n"
 )
 _STREAMING_ERROR_CAPTURE_BRIDGE = (
+    b"        if (data?.schema_version === "
+    b"'cera.provider_stage_retry_status_envelope.v1'\n"
+    b"            && typeof window.ceraCaptureProviderStageRetryStatus === "
+    b"'function') {\n"
+    b"            window.ceraCaptureProviderStageRetryStatus(data);\n"
+    b"        }\n"
     b"        if (data.error) {\n"
     b"            if (typeof window.ceraCaptureTransportFailure === 'function') {\n"
     b"                window.ceraCaptureTransportFailure(data);\n"
@@ -95,80 +116,38 @@ _SERVER_ERROR_FORWARD_TARGET = (
     b"                response.send({ error: { message }, quota_error: quota_error });\n"
     b"            } else if (!response.writableEnded) {\n"
 )
-_SERVER_ERROR_FORWARD_BRIDGE = (
+_PROVIDER_STAGE_SERVER_ERROR_FORWARD_BRIDGE = (
     b"            const message = fetchResponse.statusText || 'Unknown error occurred';\n"
     b"            const quota_error = fetchResponse.status === 429 && "
     b"errorData?.error?.type === 'insufficient_quota';\n"
-    b"            const ceraRetry = errorData?.error?.transport_retry;\n"
-    b"            const ceraTransportRetryError = (\n"
+    b"            const ceraProviderStageRetryEnvelope = (\n"
     b"                request.body.chat_completion_source === "
     b"CHAT_COMPLETION_SOURCES.CUSTOM\n"
     b"                && ['cera-alpha', 'cera-pi-scene-ordinary', "
     b"'cera-pi-scene-adult'].includes(request.body.model)\n"
-    b"                && errorData?.status === 'error'\n"
-    b"                && errorData?.story_state_committed === false\n"
-    b"                && errorData?.error?.schema_version === 'cera.error.v1'\n"
-    b"                && errorData.error.error_code === "
-    b"'CERA_PROVIDER_TRANSPORT_FAILED'\n"
-    b"                && /^request-[a-f0-9]{64}$/.test(errorData.error.request_id)\n"
-    b"                && errorData.error.story_state_committed === false\n"
-    b"                && errorData.error.retry_mode === 'manual_transport'\n"
-    b"                && typeof errorData.error.provider_operation_submitted === "
-    b"'boolean'\n"
-    b"                && errorData.error.accepted_state_changed === false\n"
-    b"                && errorData.error.fallback_used === false\n"
-    b"                && errorData.error.next_action === 'use_transport_retry'\n"
-    b"                && errorData.error.retry_transport_enabled === true\n"
-    b"                && ceraRetry?.schema_version === "
-    b"'cera.pi_scene.transport_retry.v1'\n"
-    b"                && /^retry-[a-f0-9]{64}$/.test(ceraRetry.retry_id)\n"
-    b"                && ceraRetry.retry_url === "
-    b"`/v1/cera/transport-retries/${ceraRetry.retry_id}`\n"
-    b"                && ceraRetry.method === 'POST'\n"
-    b"                && ceraRetry.eligible === true\n"
-    b"                && ceraRetry.automatic === false\n"
-    b"                && /^[a-f0-9]{64}$/.test(ceraRetry.effect_proof_sha256)\n"
-    b"                && Object.keys(ceraRetry).sort().join(',') === "
-    b"'automatic,effect_proof_sha256,eligible,method,retry_id,retry_url,schema_version'\n"
-    b"            ) ? {\n"
-    b"                status: 'error',\n"
-    b"                story_state_committed: false,\n"
-    b"                error: {\n"
-    b"                    schema_version: 'cera.error.v1',\n"
-    b"                    error_code: 'CERA_PROVIDER_TRANSPORT_FAILED',\n"
-    b"                    message: 'CERA provider transport failed before any "
-    b"candidate or accepted effect.',\n"
-    b"                    request_id: errorData.error.request_id,\n"
-    b"                    story_state_committed: false,\n"
-    b"                    retry_mode: 'manual_transport',\n"
-    b"                    provider_operation_submitted: "
-    b"errorData.error.provider_operation_submitted,\n"
-    b"                    accepted_state_changed: false,\n"
-    b"                    fallback_used: false,\n"
-    b"                    next_action: 'use_transport_retry',\n"
-    b"                    retry_transport_enabled: true,\n"
-    b"                    transport_retry: {\n"
-    b"                        schema_version: ceraRetry.schema_version,\n"
-    b"                        retry_id: ceraRetry.retry_id,\n"
-    b"                        retry_url: ceraRetry.retry_url,\n"
-    b"                        method: 'POST',\n"
-    b"                        eligible: true,\n"
-    b"                        automatic: false,\n"
-    b"                        effect_proof_sha256: ceraRetry.effect_proof_sha256,\n"
-    b"                    },\n"
-    b"                },\n"
-    b"            } : null;\n"
+    b"                && fetchResponse.status === 409\n"
+    b"                && errorData?.schema_version === "
+    b"'cera.provider_stage_retry_status_envelope.v1'\n"
+    b"                && Object.keys(errorData).sort().join(',') === "
+    b"'actions,schema_version,status'\n"
+    b"                && errorData?.status?.schema_version === "
+    b"'cera.provider_stage_retry_status.v1'\n"
+    b"                && /^stage-retry-[a-f0-9]{64}$/.test("
+    b"errorData.status.chain_id)\n"
+    b"                && Array.isArray(errorData.actions)\n"
+    b"                && errorData.actions.length <= 1\n"
+    b"            ) ? errorData : null;\n"
     b"            console.error(\n"
     b"                'Chat completion request error: ',\n"
     b"                message,\n"
-    b"                ceraTransportRetryError\n"
-    b"                    ? '[CERA transport retry metadata retained]'\n"
+    b"                ceraProviderStageRetryEnvelope\n"
+    b"                    ? '[CERA provider-stage status retained]'\n"
     b"                    : responseText,\n"
     b"            );\n\n"
     b"            if (!response.headersSent) {\n"
-    b"                if (ceraTransportRetryError) {\n"
+    b"                if (ceraProviderStageRetryEnvelope) {\n"
     b"                    return response.status(fetchResponse.status).send(\n"
-    b"                        ceraTransportRetryError,\n"
+    b"                        ceraProviderStageRetryEnvelope,\n"
     b"                    );\n"
     b"                }\n"
     b"                response.send({ error: { message }, quota_error: quota_error });\n"
@@ -204,18 +183,18 @@ def stage_qualification_sillytavern(
     _enable_repository_plugins(target / "config.yaml")
     bridge_path = _within(target, target / _METADATA_BRIDGE_RELATIVE)
     _install_completion_metadata_bridge(bridge_path)
-    transport_retry_server_bridge_path = _within(
+    provider_stage_retry_server_bridge_path = _within(
         target,
-        target / _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE,
+        target / _PROVIDER_STAGE_RETRY_SERVER_BRIDGE_RELATIVE,
     )
-    _install_transport_retry_server_bridge(transport_retry_server_bridge_path)
+    _install_provider_stage_retry_server_bridge(provider_stage_retry_server_bridge_path)
 
     base_manifest_path.unlink()
     entries = _tree_entries(target)
     proxy_entries = _relative_entries(proxy_target, target)
     extension_entries = _relative_entries(extension_target, target)
     body = {
-        "schema_version": "cera.pi_scene.qualification_isolated_sillytavern.v3",
+        "schema_version": "cera.pi_scene.qualification_isolated_sillytavern.v4",
         "base_manifest_sha256": base["manifest_sha256"],
         "base_user_data_copied": base["user_data_copied"],
         "base_plugins_copied": base["plugins_copied"],
@@ -228,15 +207,21 @@ def stage_qualification_sillytavern(
         "metadata_bridge_path": _METADATA_BRIDGE_RELATIVE.as_posix(),
         "metadata_bridge_sha256": bytes_sha256(bridge_path.read_bytes()),
         "metadata_bridge_contract": "cera.full_model.capture_function.v1",
-        "transport_retry_client_bridge_contract": ("cera.transport_retry.capture_function.v1"),
-        "transport_retry_server_bridge_path": (_TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE.as_posix()),
-        "transport_retry_server_bridge_sha256": bytes_sha256(
-            transport_retry_server_bridge_path.read_bytes()
+        "provider_stage_retry_client_bridge_contract": (
+            "cera.provider_stage_retry.capture_function.v1"
         ),
-        "transport_retry_server_bridge_contract": (
-            "cera.transport_retry.closed_error_projection.v1"
+        "provider_stage_retry_server_bridge_path": (
+            _PROVIDER_STAGE_RETRY_SERVER_BRIDGE_RELATIVE.as_posix()
         ),
-        "transport_retry_terminal_ui_contract": dict(TRANSPORT_RETRY_TERMINAL_UI_CONTRACT),
+        "provider_stage_retry_server_bridge_sha256": bytes_sha256(
+            provider_stage_retry_server_bridge_path.read_bytes()
+        ),
+        "provider_stage_retry_server_bridge_contract": (
+            "cera.provider_stage_retry.status_envelope_forward.v1"
+        ),
+        "provider_stage_retry_terminal_ui_contract": dict(
+            PROVIDER_STAGE_RETRY_TERMINAL_UI_CONTRACT
+        ),
         "staged_node_suite_paths": [value.as_posix() for value in _STAGED_NODE_SUITE_RELATIVES],
         "staged_node_suite_source_sha256": canonical_sha256(
             [
@@ -276,7 +261,7 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
     unsigned = {key: item for key, item in value.items() if key != "manifest_sha256"}
     if value.get(
         "schema_version"
-    ) != "cera.pi_scene.qualification_isolated_sillytavern.v3" or expected != canonical_sha256(
+    ) != "cera.pi_scene.qualification_isolated_sillytavern.v4" or expected != canonical_sha256(
         unsigned
     ):
         raise StateConflictError("qualification SillyTavern manifest binding changed")
@@ -316,21 +301,22 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
     ):
         raise StateConflictError("qualification completion metadata bridge changed")
     _verify_completion_metadata_bridge(bridge_path)
-    transport_retry_server_bridge_path = target / _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE
+    provider_stage_retry_server_bridge_path = target / _PROVIDER_STAGE_RETRY_SERVER_BRIDGE_RELATIVE
     if (
-        not transport_retry_server_bridge_path.is_file()
-        or bytes_sha256(transport_retry_server_bridge_path.read_bytes())
-        != value.get("transport_retry_server_bridge_sha256")
-        or value.get("transport_retry_server_bridge_path")
-        != _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE.as_posix()
-        or value.get("transport_retry_client_bridge_contract")
-        != "cera.transport_retry.capture_function.v1"
-        or value.get("transport_retry_server_bridge_contract")
-        != "cera.transport_retry.closed_error_projection.v1"
-        or value.get("transport_retry_terminal_ui_contract") != TRANSPORT_RETRY_TERMINAL_UI_CONTRACT
+        not provider_stage_retry_server_bridge_path.is_file()
+        or bytes_sha256(provider_stage_retry_server_bridge_path.read_bytes())
+        != value.get("provider_stage_retry_server_bridge_sha256")
+        or value.get("provider_stage_retry_server_bridge_path")
+        != _PROVIDER_STAGE_RETRY_SERVER_BRIDGE_RELATIVE.as_posix()
+        or value.get("provider_stage_retry_client_bridge_contract")
+        != "cera.provider_stage_retry.capture_function.v1"
+        or value.get("provider_stage_retry_server_bridge_contract")
+        != "cera.provider_stage_retry.status_envelope_forward.v1"
+        or value.get("provider_stage_retry_terminal_ui_contract")
+        != PROVIDER_STAGE_RETRY_TERMINAL_UI_CONTRACT
     ):
-        raise StateConflictError("qualification transport retry bridge changed")
-    _verify_transport_retry_server_bridge(transport_retry_server_bridge_path)
+        raise StateConflictError("qualification provider-stage retry bridge changed")
+    _verify_provider_stage_retry_server_bridge(provider_stage_retry_server_bridge_path)
     suite_entries = [
         {
             "path": relative.as_posix(),
@@ -506,26 +492,26 @@ def _transport_capture_occurrences(data: bytes) -> int:
     )
 
 
-def _install_transport_retry_server_bridge(path: Path) -> None:
+def _install_provider_stage_retry_server_bridge(path: Path) -> None:
     if path.is_symlink() or not path.is_file():
-        raise StateConflictError("qualification transport retry bridge target is unavailable")
+        raise StateConflictError("qualification provider-stage retry bridge target is unavailable")
     updated = _install_exact_bridge(
         path.read_bytes(),
         target=_SERVER_ERROR_FORWARD_TARGET,
-        replacement=_SERVER_ERROR_FORWARD_BRIDGE,
-        label="server transport retry error projection",
+        replacement=_PROVIDER_STAGE_SERVER_ERROR_FORWARD_BRIDGE,
+        label="server provider-stage status forwarding",
     )
     path.write_bytes(updated)
-    _verify_transport_retry_server_bridge(path)
+    _verify_provider_stage_retry_server_bridge(path)
 
 
-def _verify_transport_retry_server_bridge(path: Path) -> None:
+def _verify_provider_stage_retry_server_bridge(path: Path) -> None:
     data = path.read_bytes()
-    occurrences = data.count(_SERVER_ERROR_FORWARD_BRIDGE) + data.count(
-        _SERVER_ERROR_FORWARD_BRIDGE.replace(b"\n", b"\r\n")
+    occurrences = data.count(_PROVIDER_STAGE_SERVER_ERROR_FORWARD_BRIDGE) + data.count(
+        _PROVIDER_STAGE_SERVER_ERROR_FORWARD_BRIDGE.replace(b"\n", b"\r\n")
     )
     if occurrences != 1 or _SERVER_ERROR_FORWARD_TARGET in data:
-        raise StateConflictError("qualification transport retry server bridge is invalid")
+        raise StateConflictError("qualification provider-stage retry server bridge is invalid")
 
 
 def _install_exact_bridge(
@@ -604,7 +590,7 @@ def _write_new_json(path: Path, payload: dict[str, Any]) -> None:
 
 __all__ = [
     "MANIFEST_NAME",
-    "TRANSPORT_RETRY_TERMINAL_UI_CONTRACT",
+    "PROVIDER_STAGE_RETRY_TERMINAL_UI_CONTRACT",
     "qualification_sillytavern_command",
     "run_staged_sillytavern_node_suites",
     "stage_qualification_sillytavern",

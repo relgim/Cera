@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import traceback
 import unittest
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
@@ -18,14 +17,19 @@ from cera.errors import StateConflictError
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
+    PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS,
     QUALIFICATION_ACTION_BUDGETS,
     QUALIFICATION_COMPLETE_GENERATION_CEILINGS,
     QUALIFICATION_EXECUTION_POLICY,
+    QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_MANIFEST_SCHEMA,
+    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
+    QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
     TERRA_CEILING,
-    TRANSPORT_RETRY_STATUS_TIMEOUT_SECONDS,
+    USER_AUTHORIZED_CODEX_OPERATION_CEILING,
+    USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING,
     ClientResponseV1,
     FullModelQualificationRunner,
     QualificationFixtureV1,
@@ -42,7 +46,7 @@ from cera.pi_scene.qualification_isolation import (
     stage_qualification_sillytavern,
     verify_qualification_sillytavern,
 )
-from cera.serialization import canonical_bytes, canonical_sha256
+from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
 from scripts import run_pi_scene_full_model_qualification as entrypoint
 
 ROOT = Path(__file__).parents[1]
@@ -67,6 +71,8 @@ def _manifest() -> dict[str, Any]:
             "deepseek_http_operations": DEEPSEEK_HTTP_OPERATION_CEILING,
             "deepseek_per_invocation": DEEPSEEK_PER_INVOCATION_CEILING,
             "terra": TERRA_CEILING,
+            "user_authorized_codex_operations": (USER_AUTHORIZED_CODEX_OPERATION_CEILING),
+            "user_authorized_deepseek_operations": (USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING),
         },
         "execution_policy": deepcopy(QUALIFICATION_EXECUTION_POLICY),
         "artifact_categories": {"test": []},
@@ -168,11 +174,16 @@ class _FakeQualificationClient:
             body={"successor": self._accepted_body(fixture, planner=0)},
         )
 
-    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1:
-        raise AssertionError(f"unexpected transport Retry status read: {retry_id}")
+    def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
+        raise AssertionError(f"unexpected provider-stage status read: {chain_id}")
 
-    def retry_transport(self, *, retry_id: str) -> ClientResponseV1:
-        raise AssertionError(f"unexpected transport Retry action: {retry_id}")
+    def provider_stage_retry_action(
+        self,
+        *,
+        chain_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        raise AssertionError(f"unexpected provider-stage action: {chain_id} {action!r}")
 
     def _append_attempt(
         self,
@@ -430,6 +441,7 @@ class _FakeQualificationClient:
             ),
             "summary": "candidate drift",
         }
+        route_validation: dict[str, Any]
         if fixture.expected_route is QualificationRoute.ORDINARY:
             route_validation = {
                 "semantic_validation": {"verdict": "reject", "conflict": conflict},
@@ -506,63 +518,58 @@ class _FakeQualificationClient:
             raise AssertionError(f"{left!r} != {right!r}")
 
 
-class _FakePlannerTransportRetryClient(_FakeQualificationClient):
+class _FakeProviderStageRetryClient(_FakeQualificationClient):
+    _STAGE_OWNER = {
+        "planner": "planner",
+        "semantic_validator": "validator",
+        "writer": "writer",
+        "recorder": "recorder",
+        "adult_scene": "adult-scene",
+        "adult_filter": "adult-filter",
+    }
+
     def __init__(
         self,
         runtime_root: Path,
         *,
         failure_fixture_id: str,
+        stage: str = "planner",
+        failures_before_success: int = 1,
+        later_stage: str | None = None,
+        terminal_state: str | None = None,
         ambiguous_post: bool = False,
-        in_progress_polls: int = 0,
-        failure_owner: str = "planner",
-        failure_submitted: bool = True,
-        failure_terminal_state: str | None = None,
-        retry_failures_before_success: int = 0,
+        failure_on_regenerate: bool = False,
+        prepared_resume: bool = False,
+        repair_successor_exhausts: bool = False,
+        private_sentinel: str = "PRIVATE QUALIFICATION STORY SENTINEL",
     ) -> None:
-        if retry_failures_before_success not in {0, 1, 2}:
-            raise ValueError("fake Retry failure count is outside the qualification bound")
-        self.initial_thread = "a" * 64
-        self.retry_threads = ("b" * 64, "c" * 64)
-        self.replacement_thread = self.retry_threads[
-            min(retry_failures_before_success, len(self.retry_threads) - 1)
-        ]
-        attempted_durations = (240_000, 300_000, 360_000)[: retry_failures_before_success + 2]
-        planner_durations = (*attempted_durations, 180_000)
-        attempted_threads = (self.initial_thread, *self.retry_threads)[
-            : retry_failures_before_success + 2
-        ]
-        planner_threads = (
-            *attempted_threads,
-            *(self.replacement_thread for _ in range(20)),
-        )
-        super().__init__(
-            runtime_root,
-            planner_durations_ms=planner_durations,
-            planner_session_identities=planner_threads,
-        )
+        super().__init__(runtime_root)
+        if stage not in self._STAGE_OWNER or later_stage not in {None, *self._STAGE_OWNER}:
+            raise AssertionError("fake provider stage is invalid")
+        if failures_before_success not in {1, 2}:
+            raise AssertionError("fake failure count is invalid")
         self.failure_fixture_id = failure_fixture_id
+        self.failure_stage = stage
+        self.failures_before_success = failures_before_success
+        self.later_stage = later_stage
+        self.terminal_state = terminal_state
         self.ambiguous_post = ambiguous_post
-        self.in_progress_polls = in_progress_polls
-        self.failure_owner = failure_owner
-        self.failure_submitted = failure_submitted
-        self.failure_terminal_state = failure_terminal_state or (
-            "provider_failed" if failure_submitted else "pretransport_failed"
-        )
-        self.retry_failures_before_success = retry_failures_before_success
-        self.failed = False
-        self.retry_actions = 0
-        self.retry_status_reads = 0
-        self.retry_status_bodies: list[dict[str, Any]] = []
-        self.retry_ids = tuple(f"retry-{character * 64}" for character in "de")
-        self.effect_proof_sha256s = tuple(character * 64 for character in "12")
-        self.retry_id = self.retry_ids[0]
-        self.request_id = "request-" + "a" * 64
-        self.effect_proof_sha256 = self.effect_proof_sha256s[0]
-        self.retry_post_ids: list[str] = []
-        self.retry_outcomes: dict[str, str] = {}
-        self.retry_fixture: QualificationFixtureV1 | None = None
-        self.retry_completions: dict[str, dict[str, Any]] = {}
-        self.terminal_critical: dict[str, Any] | None = None
+        self.failure_on_regenerate = failure_on_regenerate
+        self.prepared_resume = prepared_resume
+        self.repair_successor_exhausts = repair_successor_exhausts
+        self.private_sentinel = private_sentinel
+        self.failed_fixture: QualificationFixtureV1 | None = None
+        self.status_by_chain: dict[str, dict[str, Any]] = {}
+        self.action_by_chain: dict[str, dict[str, Any]] = {}
+        self.latest_by_chain: dict[str, str] = {}
+        self.completion_by_chain: dict[str, dict[str, Any]] = {}
+        self.status_reads: list[str] = []
+        self.action_posts: list[tuple[str, dict[str, Any]]] = []
+        self._ambiguous_raised = False
+        self._completion_planner_override: int | None = None
+        self.repair_successor_chains: set[str] = set()
+        if failure_on_regenerate:
+            self.reject_first = True
 
     def complete(
         self,
@@ -571,7 +578,7 @@ class _FakePlannerTransportRetryClient(_FakeQualificationClient):
         session_id: str,
         payload: dict[str, Any] | Any,
     ) -> ClientResponseV1:
-        if fixture.fixture_id != self.failure_fixture_id or self.failed:
+        if fixture.fixture_id != self.failure_fixture_id or self.failure_on_regenerate:
             return super().complete(fixture=fixture, session_id=session_id, payload=payload)
         value = dict(payload)
         if self.session_id is None:
@@ -579,245 +586,439 @@ class _FakePlannerTransportRetryClient(_FakeQualificationClient):
         self.assert_equal(self.session_id, session_id)
         self.assert_equal(len(value["messages"]), self.calls * 2 + 1)
         self.calls += 1
-        self.failed = True
-        self.retry_fixture = fixture
-        self._append_sol_failure(
-            self.failure_owner,
-            submitted=self.failure_submitted,
-            terminal_state=self.failure_terminal_state,
-        )
-        return self._failure_response(
-            action_index=0,
-            submitted=self.failure_submitted,
-            duration_ms=240_000,
-            transport="fake",
-        )
-
-    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1:
-        try:
-            retry_index = self.retry_ids.index(retry_id)
-        except ValueError as exc:
-            raise AssertionError(f"unexpected Retry identity: {retry_id}") from exc
-        self.retry_status_reads += 1
-        common = {
-            "schema_version": "cera.pi_scene.transport_retry_status.v1",
-            "retry_id": retry_id,
-            "request_id": self.request_id,
-            "effect_proof_sha256": self.effect_proof_sha256s[retry_index],
-        }
-        outcome = self.retry_outcomes.get(retry_id, "eligible")
-        if outcome == "eligible":
-            body = {
-                **common,
-                "state": "eligible",
-                "retry_transport_enabled": True,
-                "transport_retry": self._retry_action(retry_index),
-            }
-        elif self.in_progress_polls > 0:
-            self.in_progress_polls -= 1
-            body = {
-                **common,
-                "state": "in_progress",
-                "retry_transport_enabled": False,
-                "phase": "dispatch_started",
-            }
-        elif outcome == "superseded":
-            successor_index = retry_index + 1
-            body = {
-                **common,
-                "state": "superseded",
-                "retry_transport_enabled": True,
-                "superseded_by_retry_id": self.retry_ids[successor_index],
-                "transport_retry": self._retry_action(successor_index),
-            }
-        elif outcome == "succeeded":
-            completion = self.retry_completions[retry_id]
-            body = {
-                **common,
-                "state": "succeeded",
-                "retry_transport_enabled": False,
-                "completion": completion,
-                "completion_sha256": canonical_sha256(completion),
-            }
-        elif outcome == "attempts_exhausted":
-            if self.terminal_critical is None:
-                raise AssertionError("fake exhausted Retry lacks its critical projection")
-            body = {
-                **common,
-                "schema_version": "cera.pi_scene.transport_retry_status.v2",
-                "state": "attempts_exhausted",
-                "retry_transport_enabled": False,
-                "critical_provider_stage_failure": self.terminal_critical,
-            }
-        else:
-            raise AssertionError(f"unexpected fake Retry outcome: {outcome}")
-        self.retry_status_bodies.append(body)
-        return ClientResponseV1(
-            transport="fake-retry-status",
-            path=f"/v1/cera/transport-retries/{retry_id}",
-            status_code=200,
-            duration_ms=1,
-            body=body,
-        )
-
-    def retry_transport(self, *, retry_id: str) -> ClientResponseV1:
-        if self.retry_fixture is None:
-            raise AssertionError("manual Retry lacks its fixture")
-        if self.retry_actions >= 2:
-            raise AssertionError("qualification dispatched more than two Retry actions")
-        expected_retry_id = self.retry_ids[self.retry_actions]
-        self.assert_equal(retry_id, expected_retry_id)
-        if retry_id in self.retry_post_ids:
-            raise AssertionError("manual Retry repeated one backend-issued identity")
-        self.retry_actions += 1
-        self.retry_post_ids.append(retry_id)
-        action_index = self.retry_actions
-        if action_index <= self.retry_failures_before_success:
-            self._append_sol_failure(
-                "planner",
-                submitted=True,
-                terminal_state="provider_failed",
+        self.failed_fixture = fixture
+        if self.prepared_resume:
+            envelope = self._envelope(
+                self.failure_stage,
+                attempts=1,
+                retries=0,
+                state="in_progress",
+                control_action="resume_prepared",
+                operations_observed=0,
             )
-            if action_index == 2:
-                self.terminal_critical = self._terminal_critical_projection()
-                self.retry_outcomes[retry_id] = "attempts_exhausted"
-                response = self._exhausted_response(
-                    retry_id=retry_id,
-                    critical=self.terminal_critical,
-                )
-            else:
-                self.retry_outcomes[retry_id] = "superseded"
-                response = self._failure_response(
-                    action_index=action_index,
-                    submitted=True,
-                    duration_ms=self.planner_durations_ms[action_index],
-                    transport="fake-retry-action",
-                )
-        else:
-            self._append_attempt(self.retry_fixture, planner=1, accepted=True)
-            completion = self._accepted_body(self.retry_fixture, planner=1)
-            completion["cera"]["request_id"] = self.request_id
-            self.retry_completions[retry_id] = completion
-            self.retry_outcomes[retry_id] = "succeeded"
-            response = ClientResponseV1(
-                transport="fake-retry-action",
-                path=f"/v1/cera/transport-retries/{retry_id}",
+            return ClientResponseV1(
+                transport="fake-provider-stage-prepared",
+                path="/v1/chat/completions",
+                status_code=409,
+                duration_ms=11,
+                body=envelope,
+            )
+        self._append_before_failure(fixture, self.failure_stage)
+        self._append_stage_failure(self.failure_stage)
+        initial_state = (
+            self.terminal_state
+            if self.terminal_state in {"recovery_required", "blocked_ambiguous"}
+            else "eligible"
+        )
+        envelope = self._envelope(
+            self.failure_stage,
+            attempts=1,
+            retries=0,
+            state=(initial_state or "eligible"),
+        )
+        return ClientResponseV1(
+            transport="fake-provider-stage-initial",
+            path="/v1/chat/completions",
+            status_code=409,
+            duration_ms=11,
+            body=envelope,
+        )
+
+    def regenerate(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+    ) -> ClientResponseV1:
+        if not self.failure_on_regenerate or fixture.fixture_id != self.failure_fixture_id:
+            return super().regenerate(fixture=fixture, review_id=review_id)
+        self.assert_equal(review_id, "review-0123456789abcdef0123456789ab")
+        self.regenerates += 1
+        self.failed_fixture = fixture
+        self._completion_planner_override = 0
+        if self.failure_stage in {"semantic_validator", "recorder"}:
+            self._append_deepseek("writer")
+        if self.failure_stage == "recorder":
+            self._append_sol("validator")
+        self._append_stage_failure(self.failure_stage)
+        envelope = self._envelope(
+            self.failure_stage,
+            attempts=1,
+            retries=0,
+            state="eligible",
+        )
+        return ClientResponseV1(
+            transport="fake-provider-stage-regenerate",
+            path=f"/v1/cera/reviews/{review_id}/decision",
+            status_code=409,
+            duration_ms=12,
+            body=envelope,
+        )
+
+    def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
+        self.status_reads.append(chain_id)
+        current = self.latest_by_chain.get(chain_id, chain_id)
+        completion = self.completion_by_chain.get(current)
+        if completion is not None:
+            return ClientResponseV1(
+                transport="fake-provider-stage-get",
+                path=f"/v1/cera/provider-stage-retries/{chain_id}",
                 status_code=200,
-                duration_ms=self.planner_durations_ms[action_index],
+                duration_ms=7,
                 body=completion,
             )
-        if self.ambiguous_post and action_index == 1:
-            raise TimeoutError("simulated response delivery ambiguity")
-        return response
-
-    def _retry_action(self, retry_index: int) -> dict[str, Any]:
-        retry_id = self.retry_ids[retry_index]
-        return {
-            "schema_version": "cera.pi_scene.transport_retry.v1",
-            "retry_id": retry_id,
-            "retry_url": f"/v1/cera/transport-retries/{retry_id}",
-            "method": "POST",
-            "eligible": True,
-            "automatic": False,
-            "effect_proof_sha256": self.effect_proof_sha256s[retry_index],
-        }
-
-    def _failure_response(
-        self,
-        *,
-        action_index: int,
-        submitted: bool,
-        duration_ms: int,
-        transport: str,
-    ) -> ClientResponseV1:
-        action = self._retry_action(action_index)
         return ClientResponseV1(
-            transport=transport,
-            path=(
-                "/v1/chat/completions"
-                if action_index == 0
-                else f"/v1/cera/transport-retries/{self.retry_ids[action_index - 1]}"
-            ),
-            status_code=500,
-            duration_ms=duration_ms,
-            body={
-                "status": "error",
-                "story_state_committed": False,
-                "error": {
-                    "schema_version": "cera.error.v1",
-                    "error_code": "CERA_PROVIDER_TRANSPORT_FAILED",
-                    "message": (
-                        "A provider transport failed with no candidate or story-state effect."
-                    ),
-                    "request_id": self.request_id,
-                    "story_state_committed": False,
-                    "retry_mode": "manual_transport",
-                    "provider_operation_submitted": submitted,
-                    "accepted_state_changed": False,
-                    "fallback_used": False,
-                    "next_action": "use_transport_retry",
-                    "retry_transport_enabled": True,
-                    "transport_retry": action,
-                },
-            },
+            transport="fake-provider-stage-get",
+            path=f"/v1/cera/provider-stage-retries/{chain_id}",
+            status_code=200,
+            duration_ms=7,
+            body=self.status_by_chain[current],
         )
 
-    def _terminal_critical_projection(self) -> dict[str, Any]:
-        observed = (1 if self.failure_submitted else 0) + 2
-        return {
-            "schema_version": "cera.provider_stage_retry_exhausted.v1",
-            "severity": "critical",
-            "provider": "codex",
-            "model_family": "sol",
-            "stage": "planner",
-            "maximum_attempts": 3,
-            "attempts_total": 3,
-            "retries_consumed": 2,
-            "story_state_committed": False,
-            "failed_stage_effect_committed": False,
-            "provider_operations_observed_total": observed,
-            "provider_operations_conservative_total": observed,
-            "final_failure_class": "provider_unavailable",
-            "request_sha256": "4" * 64,
-            "stage_input_sha256": "5" * 64,
-            "attempt_chain_sha256": "6" * 64,
-            "terminal_evidence_sha256": "7" * 64,
-        }
-
-    def _exhausted_response(
+    def provider_stage_retry_action(
         self,
         *,
-        retry_id: str,
-        critical: dict[str, Any],
+        chain_id: str,
+        action: dict[str, Any] | Any,
     ) -> ClientResponseV1:
-        return ClientResponseV1(
-            transport="fake-retry-action",
-            path=f"/v1/cera/transport-retries/{retry_id}",
-            status_code=503,
-            duration_ms=self.planner_durations_ms[2],
-            body={
-                "status": "error",
-                "story_state_committed": False,
-                "error": {
-                    "schema_version": "cera.error.v1",
-                    "error_code": "CERA_PROVIDER_STAGE_RETRY_EXHAUSTED",
-                    "message": "RAW PROVIDER FAILURE PROSE",
-                    "trace_id": "trace:" + "8" * 32,
-                    "request_id": self.request_id,
-                    "branch_id": None,
-                    "generation_id": None,
-                    "stage": "pi_scene_http",
-                    "story_state_committed": False,
-                    "retry_mode": "exhausted",
-                    "details": ["PRIVATE PROVIDER OUTPUT"],
-                    "fallback_used": False,
-                    "provider_operation_submitted": True,
-                    "accepted_state_changed": False,
-                    "next_action": "report_critical_provider_failure",
-                    "debug_log_path": r"D:\private\provider-output.md",
-                    "retry_transport_enabled": False,
-                    "critical_provider_stage_failure": critical,
-                },
+        exact = dict(action)
+        current = self.latest_by_chain.get(chain_id, chain_id)
+        if exact != self.action_by_chain[current]:
+            raise AssertionError("qualification changed the backend-issued action")
+        if any(posted[1]["action_id"] == exact["action_id"] for posted in self.action_posts):
+            raise AssertionError("qualification POSTed one action twice")
+        self.action_posts.append((current, exact))
+        status = self.status_by_chain[current]["status"]
+        stage = str(status["stage"])
+        action_kind = str(exact["action_kind"])
+        if action_kind == "resume_prepared":
+            self._append_stage_success(stage)
+            self._append_after_success(stage)
+            assert self.failed_fixture is not None
+            completion = self._accepted_body(
+                self.failed_fixture,
+                planner=1 if stage == "planner" else 0,
+            )
+            self.completion_by_chain[current] = completion
+            return ClientResponseV1(
+                transport="fake-provider-stage-action",
+                path=(f"/v1/cera/provider-stage-retries/{current}/actions/{exact['action_id']}"),
+                status_code=200,
+                duration_ms=13,
+                body=completion,
+            )
+        if action_kind == "repair_recording":
+            self._append_stage_failure("recorder")
+            successor = self._envelope(
+                "recorder",
+                attempts=1,
+                retries=0,
+                state="eligible",
+            )
+            successor_id = str(successor["status"]["chain_id"])
+            self.repair_successor_chains.add(successor_id)
+            self.latest_by_chain[current] = successor_id
+            return ClientResponseV1(
+                transport="fake-provider-stage-action",
+                path=(f"/v1/cera/provider-stage-retries/{current}/actions/{exact['action_id']}"),
+                status_code=200,
+                duration_ms=13,
+                body=successor,
+            )
+        if action_kind != "provider_retry":
+            raise AssertionError("qualification fake received an unknown stage control")
+        accepted = int(status["retry_actions_accepted"]) + 1
+        attempts = int(status["stage_attempts_total"]) + 1
+        if current in self.repair_successor_chains and not self.repair_successor_exhausts:
+            self._append_stage_success(stage)
+            assert self.failed_fixture is not None
+            completion = self._accepted_body(self.failed_fixture, planner=1)
+            self.completion_by_chain[current] = completion
+            body = completion
+        elif accepted < self.failures_before_success:
+            self._append_stage_failure(stage)
+            body = self._envelope(
+                stage,
+                chain_id=current,
+                attempts=attempts,
+                retries=accepted,
+                state="eligible",
+            )
+        elif self.terminal_state in {
+            "attempts_exhausted",
+            "recording_repair_required",
+        }:
+            self._append_stage_failure(stage)
+            body = self._envelope(
+                stage,
+                chain_id=current,
+                attempts=3,
+                retries=2,
+                state=self.terminal_state,
+                allow_repair_action=current not in self.repair_successor_chains,
+            )
+        else:
+            self._append_stage_success(stage)
+            if self.later_stage is not None and stage == self.failure_stage:
+                self._append_between_stages(stage, self.later_stage)
+                self._append_stage_failure(self.later_stage)
+                successor = self._envelope(
+                    self.later_stage,
+                    attempts=1,
+                    retries=0,
+                    state="eligible",
+                )
+                successor_id = str(successor["status"]["chain_id"])
+                self.latest_by_chain[current] = successor_id
+                body = successor
+            else:
+                self._append_after_success(stage)
+                assert self.failed_fixture is not None
+                completion = self._accepted_body(
+                    self.failed_fixture,
+                    planner=(
+                        self._completion_planner_override
+                        if self._completion_planner_override is not None
+                        else 1
+                        if self.failed_fixture.initial_route is QualificationRoute.ORDINARY
+                        else 0
+                    ),
+                )
+                self.completion_by_chain[current] = completion
+                body = completion
+        response = ClientResponseV1(
+            transport="fake-provider-stage-action",
+            path=(f"/v1/cera/provider-stage-retries/{current}/actions/{exact['action_id']}"),
+            status_code=200,
+            duration_ms=13,
+            body=body,
+        )
+        if self.ambiguous_post and not self._ambiguous_raised:
+            self._ambiguous_raised = True
+            raise OSError(self.private_sentinel)
+        return response
+
+    def _envelope(
+        self,
+        stage: str,
+        *,
+        attempts: int,
+        retries: int,
+        state: str,
+        chain_id: str | None = None,
+        control_action: str | None = None,
+        operations_observed: int | None = None,
+        allow_repair_action: bool = True,
+    ) -> dict[str, Any]:
+        provider = "codex" if stage in {"planner", "semantic_validator"} else "deepseek"
+        model_family = (
+            "sol"
+            if stage == "planner"
+            else "luna"
+            if stage == "semantic_validator"
+            else "deepseek_v4"
+        )
+        identity = chain_id or f"stage-retry-{text_sha256(f'{stage}:{len(self.status_by_chain)}')}"
+        chain_sha256 = text_sha256(f"{identity}:{attempts}:{retries}:{state}")
+        failure_category: str | None = "transport_timeout"
+        available_actions: list[str] = []
+        actions: list[dict[str, Any]] = []
+        if state == "eligible":
+            available_actions = ["provider_retry"]
+            action = {
+                "schema_version": "cera.provider_stage_retry_action.v1",
+                "action_id": f"stage-action-{text_sha256(f'{identity}:{retries + 1}')}",
+                "chain_id": identity,
+                "action_family": "provider_stage_control",
+                "action_kind": "provider_retry",
+                "automatic": False,
+                "provider_dispatch_authorized": True,
+                "consumes_retry_action": True,
+                "retry_action_ordinal": retries + 1,
+                "whole_request_replay_authorized": False,
+                "provider_substitution_authorized": False,
+                "expected_chain_sha256": chain_sha256,
+            }
+            actions = [action]
+            self.action_by_chain[identity] = action
+        elif state == "in_progress" and control_action == "resume_prepared":
+            failure_category = None
+            available_actions = ["resume_prepared"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{identity}:resume')}",
+                    "chain_id": identity,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "resume_prepared",
+                    "automatic": False,
+                    "provider_dispatch_authorized": True,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+            self.action_by_chain[identity] = actions[0]
+        elif state == "blocked_ambiguous":
+            failure_category = "dispatch_ambiguous"
+            available_actions = ["check_status"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{identity}:check')}",
+                    "chain_id": identity,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "check_status",
+                    "automatic": False,
+                    "provider_dispatch_authorized": False,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+        elif state == "recording_repair_required" and allow_repair_action:
+            available_actions = ["repair_recording"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{identity}:repair')}",
+                    "chain_id": identity,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "repair_recording",
+                    "automatic": False,
+                    "provider_dispatch_authorized": True,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+            self.action_by_chain[identity] = actions[0]
+        elif state == "recovery_required":
+            failure_category = "configuration_failed"
+        elif state in {"in_progress", "succeeded"}:
+            failure_category = None
+        status = {
+            "schema_version": "cera.provider_stage_retry_status.v1",
+            "chain_id": identity,
+            "provider": provider,
+            "model_family": model_family,
+            "stage": stage,
+            "state": state,
+            "maximum_attempts": 3,
+            "stage_attempts_total": attempts,
+            "retry_actions_accepted": retries,
+            "provider_operations_observed_total": (
+                attempts if operations_observed is None else operations_observed
+            ),
+            "provider_operations_conservative_total": (
+                attempts if operations_observed is None else operations_observed
+            ),
+            "story_state_committed": stage == "recorder",
+            "branch_preserved_at_last_accepted_head": True,
+            "failure_category": failure_category,
+            "available_actions": available_actions,
+            "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "1" * 64,
+                "request_sha256": "2" * 64,
+                "stage_input_sha256": text_sha256(f"input:{stage}"),
+                "accepted_state_sha256": "3" * 64,
+                "chain_sha256": chain_sha256,
+            },
+        }
+        envelope = {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": status,
+            "actions": actions,
+        }
+        self.status_by_chain[identity] = envelope
+        self.latest_by_chain.setdefault(identity, identity)
+        return envelope
+
+    def _append_before_failure(self, fixture: QualificationFixtureV1, stage: str) -> None:
+        if stage != "planner" and fixture.initial_route is QualificationRoute.ORDINARY:
+            self._append_sol("planner")
+        if stage in {"semantic_validator", "recorder"}:
+            self._append_deepseek("writer")
+        if stage == "recorder":
+            self._append_sol("validator")
+        if stage == "adult_filter":
+            self._append_deepseek("adult-scene")
+
+    def _append_between_stages(self, source: str, target: str) -> None:
+        if source == "writer" and target == "semantic_validator":
+            return
+        raise AssertionError("unsupported fake later-stage transition")
+
+    def _append_after_success(self, stage: str) -> None:
+        if stage == "planner":
+            self._append_deepseek("writer")
+            self._append_sol("validator")
+            self._append_deepseek("recorder")
+        elif stage == "writer":
+            self._append_sol("validator")
+            self._append_deepseek("recorder")
+        elif stage == "semantic_validator":
+            self._append_deepseek("recorder")
+        elif stage == "adult_scene":
+            self._append_deepseek("adult-filter")
+
+    def _append_stage_success(self, stage: str) -> None:
+        owner = self._STAGE_OWNER[stage]
+        if stage in {"planner", "semantic_validator"}:
+            self._append_sol(owner)
+        else:
+            self._append_deepseek(owner)
+
+    def _append_stage_failure(self, stage: str) -> None:
+        owner = self._STAGE_OWNER[stage]
+        if stage in {"planner", "semantic_validator"}:
+            self._append_sol_failure(owner, submitted=True, terminal_state="provider_failed")
+            return
+        path = self.runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl"
+        existing = _jsonl(path)
+        global_index = (
+            sum(value.get("event") == "provider_operation_started" for value in existing) + 1
+        )
+        invocation_id = f"piop-{global_index:04d}-{owner}-failed"
+        timestamp = datetime.now(UTC).isoformat(timespec="microseconds")
+        _append_jsonl(
+            path,
+            {
+                "schema_version": "cera.pi_scene.provider_operation_ledger.v1",
+                "event": "invocation_prepared",
+                "invocation_id": invocation_id,
+                "candidate_id_sha256": "a" * 64,
+                "purpose": owner,
+                "route": "adult" if owner.startswith("adult-") else "ordinary",
+                "request_sha256": "b" * 64,
+                "reserved_operations": DEEPSEEK_PER_INVOCATION_CEILING,
+                "recorded_at_utc": timestamp,
+            },
+        )
+        _append_jsonl(
+            path,
+            {
+                "event": "provider_operation_started",
+                "invocation_id": invocation_id,
+                "operation_index": 1,
+                "global_operation_index": global_index,
+                "recorded_at_utc": timestamp,
+            },
+        )
+        _append_jsonl(
+            path,
+            {
+                "event": "invocation_failed",
+                "invocation_id": invocation_id,
+                "failure_receipt_sha256": "9" * 64,
+                "recorded_at_utc": timestamp,
             },
         )
 
@@ -828,40 +1029,13 @@ class _FakePlannerTransportRetryClient(_FakeQualificationClient):
         submitted: bool,
         terminal_state: str,
     ) -> None:
-        if submitted is (terminal_state == "pretransport_failed"):
-            raise AssertionError("fake failure submission and terminal state disagree")
+        if submitted is not True or terminal_state != "provider_failed":
+            raise AssertionError("generic fake only models submitted provider failure")
         path = self.runtime_root / "SOL_PROVIDER_CALLS.jsonl"
         existing = _jsonl(path)
         call_id = f"call-{len(existing) + 1}-{owner}-failed"
-        started = datetime.now(UTC)
-        planner_index = self.planner_duration_index
-        duration_ms = (
-            self.planner_durations_ms[planner_index]
-            if planner_index < len(self.planner_durations_ms)
-            else 1_000
-        )
-        stored_thread_sha256 = (
-            self.planner_session_identities[planner_index]
-            if planner_index < len(self.planner_session_identities)
-            else self.replacement_thread
-        )
-        self.planner_duration_index += 1
-        if terminal_state == "pretransport_failed":
-            states = ("prepared_not_invoked", "pretransport_failed")
-        elif terminal_state == "provider_completed_post_validation_failed":
-            states = (
-                "transport_invoked",
-                "provider_completed",
-                "provider_completed_post_validation_failed",
-            )
-        else:
-            states = ("transport_invoked", "provider_failed")
-        for state in states:
-            timestamp = (
-                started
-                if state in {"prepared_not_invoked", "transport_invoked"}
-                else started + timedelta(milliseconds=duration_ms)
-            ).isoformat(timespec="microseconds")
+        timestamp = datetime.now(UTC).isoformat(timespec="microseconds")
+        for state in ("transport_invoked", "provider_failed"):
             event = {
                 "event_index": len(existing) + 1,
                 "call_id": call_id,
@@ -870,8 +1044,8 @@ class _FakePlannerTransportRetryClient(_FakeQualificationClient):
                 "state": state,
                 "route": "fake",
                 "model": "gpt-5.6-luna" if owner == "validator" else "gpt-5.6-sol",
-                "stored_thread_sha256": stored_thread_sha256,
-                "failure_receipt_sha256": str((planner_index + 1) % 10) * 64,
+                "stored_thread_sha256": text_sha256(call_id),
+                "failure_receipt_sha256": "9" * 64,
                 "recorded_at_utc": timestamp,
             }
             _append_jsonl(path, event)
@@ -880,15 +1054,15 @@ class _FakePlannerTransportRetryClient(_FakeQualificationClient):
 
 class FullModelQualificationTests(unittest.TestCase):
     def test_outer_http_timeout_exceeds_every_bounded_provider_stage(self) -> None:
-        self.assertEqual(entrypoint.QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 4_200)
+        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 4_800)
         self.assertGreater(
-            entrypoint.QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
-            entrypoint.QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES
-            * entrypoint.QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
+            QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+            QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES
+            * QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
         )
         self.assertEqual(
-            TRANSPORT_RETRY_STATUS_TIMEOUT_SECONDS,
-            entrypoint.QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS + 15,
+            PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS,
+            QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS + 15,
         )
 
     def test_qualification_service_passes_exact_runtime_retry_seams_provider_free(self) -> None:
@@ -900,11 +1074,25 @@ class FullModelQualificationTests(unittest.TestCase):
             "transport_completed_planner_abandoner": lambda *_args: None,
         }
         closed: list[bool] = []
+
+        class FakeProviderStageRetry:
+            def __init__(self) -> None:
+                self.adapter: object | None = None
+                self.status_reader = object()
+
+            def http_adapter_kwargs(self) -> dict[str, object]:
+                return {"provider_stage_retry_status_reader": self.status_reader}
+
+            def bind_http_adapter(self, adapter: object) -> None:
+                self.adapter = adapter
+
+        provider_stage_retry = FakeProviderStageRetry()
         runtime = SimpleNamespace(
             coordinator=object(),
             store=object(),
             readable_debug=object(),
             full_model_controller=object(),
+            provider_stage_retry=provider_stage_retry,
             world_resolver=object(),
             close=lambda: closed.append(True),
             **seams,
@@ -939,6 +1127,11 @@ class FullModelQualificationTests(unittest.TestCase):
         kwargs = adapter.call_args.kwargs
         for name, seam in seams.items():
             self.assertIs(kwargs[name], seam)
+        self.assertIs(
+            kwargs["provider_stage_retry_status_reader"],
+            provider_stage_retry.status_reader,
+        )
+        self.assertIs(provider_stage_retry.adapter, adapter.return_value)
         self.assertEqual(closed, [True])
 
     def test_sillytavern_startup_retries_and_discards_console_content(self) -> None:
@@ -961,7 +1154,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     return_value=("node", "server.js"),
                 ),
                 patch.object(
-                    entrypoint.subprocess,
+                    subprocess,
                     "Popen",
                     return_value=process,
                 ) as popen,
@@ -970,8 +1163,11 @@ class FullModelQualificationTests(unittest.TestCase):
                     "urlopen",
                     side_effect=(OSError("transient readiness miss"), ReadyResponse()),
                 ) as ready,
-                patch.object(entrypoint.time, "monotonic", side_effect=(0.0, 0.0, 0.1)),
-                patch.object(entrypoint.time, "sleep"),
+                patch(
+                    "scripts.run_pi_scene_full_model_qualification.time.monotonic",
+                    side_effect=(0.0, 0.0, 0.1),
+                ),
+                patch("scripts.run_pi_scene_full_model_qualification.time.sleep"),
                 patch.object(entrypoint, "_stop_process") as stop,
             ):
                 observed = entrypoint._start_qualification_sillytavern(
@@ -982,8 +1178,8 @@ class FullModelQualificationTests(unittest.TestCase):
 
         self.assertIs(observed, process)
         self.assertEqual(ready.call_count, 2)
-        self.assertEqual(popen.call_args.kwargs["stdout"], entrypoint.subprocess.DEVNULL)
-        self.assertEqual(popen.call_args.kwargs["stderr"], entrypoint.subprocess.DEVNULL)
+        self.assertEqual(popen.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(popen.call_args.kwargs["stderr"], subprocess.DEVNULL)
         raw_console_sentinel = (
             "adult-prose-requestBody-sentinel | /private/error/path | raw-response-body"
         )
@@ -996,7 +1192,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v3_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v4_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -1018,9 +1214,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 with self.assertRaisesRegex(StateConflictError, "execution policy changed"):
                     validate_qualification_manifest(manifest)
         manifest = _manifest()
-        manifest["execution_policy"]["manual_planner_transport_retry"]["terminal_status_state"] = (
-            "superseded"
-        )
+        manifest["execution_policy"]["manual_provider_stage_retry"]["maximum_actions_per_chain"] = 3
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         with self.assertRaisesRegex(StateConflictError, "execution policy changed"):
@@ -1044,6 +1238,10 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(technical["maximum_stage_attempts"], 3)
         self.assertEqual(technical["maximum_manual_retry_actions"], 2)
         self.assertFalse(technical["automatic_provider_redispatch"])
+        prepared = QUALIFICATION_ACTION_BUDGETS["prepared_dispatch_resume"]
+        self.assertEqual(prepared["maximum_actions_per_stage_occurrence"], 1)
+        self.assertFalse(prepared["consumes_retry_action"])
+        self.assertFalse(prepared["automatic"])
         self.assertEqual(
             QUALIFICATION_ACTION_BUDGETS["semantic_regenerate"][
                 "maximum_explicit_actions_per_rejected_first_pass"
@@ -1058,8 +1256,9 @@ class FullModelQualificationTests(unittest.TestCase):
             QUALIFICATION_ACTION_BUDGETS["recorder_repair"][
                 "maximum_actions_per_qualification_fixture"
             ],
-            0,
+            1,
         )
+        self.assertFalse(QUALIFICATION_ACTION_BUDGETS["recorder_repair"]["recursive_repair"])
         self.assertEqual(
             QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"]["maximum_codex_operations"],
             9,
@@ -1068,7 +1267,7 @@ class FullModelQualificationTests(unittest.TestCase):
             QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"][
                 "maximum_deepseek_http_operations"
             ],
-            54,
+            72,
         )
 
     def test_fixture_set_is_two_ordered_sequential_campaigns(self) -> None:
@@ -1095,6 +1294,8 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(stage_latency["adult_scene"]["operations_total"], 10)
             self.assertEqual(stage_latency["adult_filter"]["operations_total"], 10)
             self.assertEqual(stage_latency["writer"]["average_duration_ms"], 0)
+            self.assertEqual(stage_latency["writer"]["n"], 10)
+            self.assertEqual(stage_latency["writer"]["p95_duration_ms"], 0)
             self.assertEqual(
                 stage_latency["writer"]["prepared_to_terminal"]["average_duration_ms"],
                 0,
@@ -1108,6 +1309,40 @@ class FullModelQualificationTests(unittest.TestCase):
                 backend["non_provider_http_latency_summary"]["measured_samples"],
                 20,
             )
+            self.assertEqual(
+                backend["phase_timing_evidence"]["http_total"]["total_duration_ms"],
+                200,
+            )
+            self.assertEqual(
+                backend["phase_timing_evidence"]["sillytavern_overhead"]["availability"],
+                "not_applicable",
+            )
+            provider_latency = backend["provider_transport_latency_evidence"]
+            self.assertEqual(
+                provider_latency["attempt_number_dimension"],
+                {
+                    "availability": "unavailable",
+                    "unavailable_operations": 62,
+                    "reason": ("provider_ledgers_do_not_bind_stage_occurrence_attempt_ordinals"),
+                    "status_counters_preserved_in": (
+                        "provider_stage_retry_chains.status_observations"
+                    ),
+                },
+            )
+            writer_group = next(
+                value
+                for value in provider_latency["groups"]
+                if value["provider"] == "deepseek"
+                and value["model"] == "deepseek-v4-flash"
+                and value["stage"] == "writer"
+                and value["outcome"] == "success"
+            )
+            self.assertIsNone(writer_group["attempt_number"])
+            self.assertEqual(writer_group["n"], 10)
+            self.assertEqual(writer_group["mean_duration_ms"], 0)
+            self.assertEqual(writer_group["median_duration_ms"], 0)
+            self.assertEqual(writer_group["p95_duration_ms"], 0)
+            self.assertEqual(writer_group["maximum_duration_ms"], 0)
             routes = [value["expected_route"] for value in backend["results"]]
             self.assertEqual(
                 routes, ["ordinary"] * 5 + ["adult"] * 5 + ["ordinary"] * 5 + ["adult"] * 5
@@ -1152,6 +1387,21 @@ class FullModelQualificationTests(unittest.TestCase):
                 QualificationPhase.SILLYTAVERN,
                 fixtures,
                 _FakeQualificationClient(st_runtime),
+            )
+            self.assertEqual(
+                st_result["phase_timing_evidence"]["http_total"]["total_duration_ms"],
+                100,
+            )
+            self.assertEqual(
+                st_result["phase_timing_evidence"]["sillytavern_overhead"],
+                {
+                    "availability": "unavailable",
+                    "total_duration_ms": None,
+                    "reason": (
+                        "end_to_end_timer_does_not_isolate_sillytavern_from_backend_processing"
+                    ),
+                    "estimated": False,
+                },
             )
             st_boundaries = {
                 value["fixture_id"]: (
@@ -1217,6 +1467,22 @@ class FullModelQualificationTests(unittest.TestCase):
                     "average_retained_latency_ms": 32_727,
                 },
             )
+            planner_sessions = result["planner_session_latency_summary"]
+            self.assertEqual(planner_sessions["categories"]["cold"]["n"], 1)
+            self.assertEqual(
+                planner_sessions["categories"]["cold"]["p95_duration_ms"],
+                420_000,
+            )
+            self.assertEqual(planner_sessions["categories"]["rehydrated"]["n"], 0)
+            self.assertEqual(planner_sessions["categories"]["retained"]["n"], 11)
+            self.assertEqual(
+                planner_sessions["categories"]["retained"]["mean_duration_ms"],
+                32_727,
+            )
+            self.assertEqual(
+                planner_sessions["retained_transport_concern"]["scope"],
+                "retained_planner_provider_transport_duration_ms_only",
+            )
 
     def test_planner_thread_rotation_is_cold_then_retained_at_inclusive_threshold(
         self,
@@ -1276,501 +1542,511 @@ class FullModelQualificationTests(unittest.TestCase):
                 36_000,
             )
 
-    def test_manual_planner_retry_chain_is_hash_safe_and_latency_complete(self) -> None:
+    def test_manual_provider_stage_retry_uses_exact_action_and_get_authority(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
                 failure_fixture_id="backend-ordinary-01",
-                ambiguous_post=True,
+                stage="writer",
             )
             result = FullModelQualificationRunner(
                 manifest=_manifest(),
-                runtime_root=runtime,
+                runtime_root=root / "runtime",
                 evidence_root=root / "evidence",
             ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-
+            self.assertEqual(result["provider_stage_retry_actions"], 1)
+            self.assertEqual(result["provider_stage_retry_chains"], 1)
+            self.assertEqual(len(client.action_posts), 1)
+            posted_chain, posted_action = client.action_posts[0]
+            self.assertEqual(posted_action, client.action_by_chain[posted_chain])
+            self.assertGreaterEqual(client.status_reads.count(posted_chain), 2)
             first = result["results"][0]
-            second = result["results"][1]
-            chain = first["transport_retry_chains"][0]
-            action = chain["actions"][0]
-            self.assertEqual(first["transport_retry_actions"], 1)
-            self.assertEqual(result["transport_retry_actions"], 1)
-            self.assertEqual(result["transport_retry_chains"], 1)
-            self.assertEqual(result["automatic_transport_retry_actions"], 0)
-            self.assertEqual(client.retry_actions, 1)
-            self.assertEqual(client.retry_status_reads, 2)
-            self.assertFalse(action["post_response_observed"])
-            self.assertIsNone(action["post_response_sha256"])
-            self.assertEqual(action["post_failure"]["failure_type"], "TimeoutError")
-            self.assertEqual(action["post_failure"]["failure_category"], "transport_timeout")
-            self.assertRegex(action["post_failure"]["failure_sha256"], r"^[a-f0-9]{64}$")
-            self.assertEqual(chain["failed_call"]["terminal_state"], "provider_failed")
-            self.assertTrue(chain["failed_call"]["submitted"])
-            self.assertTrue(chain["failed_call"]["charged"])
-            self.assertEqual(chain["replacement_call"]["terminal_state"], "typed_accepted")
-            self.assertNotEqual(
-                chain["failed_call"]["call_id"],
-                chain["replacement_call"]["call_id"],
-            )
-            self.assertEqual(
-                chain["failed_call"]["stored_thread_sha256"],
-                client.initial_thread,
-            )
-            self.assertEqual(
-                chain["replacement_call"]["stored_thread_sha256"],
-                client.replacement_thread,
-            )
-            self.assertEqual(
-                chain["chain_sha256"],
-                canonical_sha256(
-                    {key: value for key, value in chain.items() if key != "chain_sha256"}
-                ),
-            )
-            self.assertEqual(first["sol_http_operations"], 3)
-            self.assertEqual(first["sol_charged_operations"], 3)
-            self.assertEqual(
-                result["sol_submitted_operations"],
-                result["sol_charged_operations"],
-            )
-            observations = [*first["planner_latency"], *second["planner_latency"]]
-            self.assertEqual(
-                [value["latency_class"] for value in observations],
-                ["cold_start", "cold_rehydration", "retained_latency_concern"],
-            )
-            self.assertEqual(
-                [value["duration_ms"] for value in observations],
-                [240_000, 300_000, 180_000],
-            )
-            self.assertEqual(
-                [value["session_identity_sha256"] for value in observations],
-                [client.initial_thread, client.replacement_thread, client.replacement_thread],
-            )
+            chain = first["provider_stage_retry_chains"][0]
+            self.assertEqual(chain["retry_action_count"], 1)
+            self.assertEqual(chain["terminal_state"], "eligible")
+            self.assertNotIn(client.private_sentinel, json.dumps(result, sort_keys=True))
 
-    def test_manual_planner_retry_follows_one_successor_then_succeeds(self) -> None:
+    def test_manual_provider_stage_retry_covers_all_six_live_stages(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
-                failure_fixture_id="backend-ordinary-01",
-                retry_failures_before_success=1,
-                ambiguous_post=True,
-            )
-            result = FullModelQualificationRunner(
-                manifest=_manifest(),
-                runtime_root=runtime,
-                evidence_root=root / "evidence",
-            ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-
-            first = result["results"][0]
-            second = result["results"][1]
-            chain = first["transport_retry_chains"][0]
-            self.assertEqual(client.retry_post_ids, list(client.retry_ids[:2]))
-            self.assertEqual(client.retry_status_reads, 4)
-            terminal_status = client.retry_status_bodies[-1]
-            self.assertEqual(terminal_status["state"], "succeeded")
-            self.assertFalse(terminal_status["retry_transport_enabled"])
-            self.assertNotIn("transport_retry", terminal_status)
-            self.assertNotIn("superseded_by_retry_id", terminal_status)
-            self.assertEqual(result["transport_retry_actions"], 2)
-            self.assertEqual(result["transport_retry_chain_actions"], 2)
-            self.assertEqual(result["transport_retry_chains"], 1)
-            self.assertEqual(result["transport_retry_terminal_critical_failures"], 0)
-            self.assertEqual(chain["retry_action_count"], 2)
-            self.assertEqual(chain["provider_attempt_count"], 3)
-            self.assertEqual(
-                [action["post_status_state"] for action in chain["actions"]],
-                ["superseded", "succeeded"],
-            )
-            self.assertFalse(chain["actions"][0]["post_response_observed"])
-            self.assertEqual(
-                chain["actions"][0]["post_failure"]["failure_category"],
-                "transport_timeout",
-            )
-            self.assertEqual(len(chain["failed_calls"]), 2)
-            self.assertEqual(len(chain["failure_chain"]), 2)
-            self.assertEqual(
-                [value["attempt_number"] for value in chain["failure_chain"]],
-                [1, 2],
-            )
-            call_ids = {
-                *(value["call_id"] for value in chain["failed_calls"]),
-                chain["replacement_call"]["call_id"],
-            }
-            thread_ids = {
-                *(value["stored_thread_sha256"] for value in chain["failed_calls"]),
-                chain["replacement_call"]["stored_thread_sha256"],
-            }
-            self.assertEqual(len(call_ids), 3)
-            self.assertEqual(len(thread_ids), 3)
-            self.assertEqual(first["sol_http_operations"], 4)
-            self.assertEqual(first["sol_charged_operations"], 4)
-            self.assertEqual(
-                result["sol_submitted_operations"],
-                result["sol_charged_operations"],
-            )
-            self.assertEqual(
-                [
-                    value["latency_class"]
-                    for value in [*first["planner_latency"], *second["planner_latency"]]
-                ],
-                [
-                    "cold_start",
-                    "cold_rehydration",
-                    "cold_rehydration",
-                    "retained_latency_concern",
-                ],
-            )
-            self.assertEqual(
-                chain["chain_sha256"],
-                canonical_sha256(
-                    {key: value for key, value in chain.items() if key != "chain_sha256"}
-                ),
-            )
-            self.assertTrue(
-                all(
-                    action["action_sha256"]
-                    == canonical_sha256(
-                        {key: value for key, value in action.items() if key != "action_sha256"}
-                    )
-                    for action in chain["actions"]
+        cases = (
+            ("planner", "backend-ordinary-01"),
+            ("semantic_validator", "backend-ordinary-01"),
+            ("writer", "backend-ordinary-01"),
+            ("recorder", "backend-ordinary-01"),
+            ("adult_scene", "backend-adult-01"),
+            ("adult_filter", "backend-adult-01"),
+        )
+        for stage, fixture_id in cases:
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                client = _FakeProviderStageRetryClient(
+                    root / "runtime",
+                    failure_fixture_id=fixture_id,
+                    stage=stage,
                 )
-            )
+                result = FullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=root / "runtime",
+                    evidence_root=root / "evidence",
+                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+                self.assertEqual(result["provider_stage_retry_actions"], 1)
+                status = result["results"][0 if "ordinary" in fixture_id else 5][
+                    "provider_stage_retry_chains"
+                ][0]["status_observations"][0]["status"]
+                self.assertEqual(status["stage"], stage)
+                self.assertIn(status["provider"], {"codex", "deepseek"})
 
-    def test_third_failed_planner_attempt_stops_with_critical_projection(self) -> None:
+    def test_manual_resume_prepared_is_separate_from_retry_budget(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            runtime = root / "runtime"
-            evidence = root / "evidence"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
                 failure_fixture_id="backend-ordinary-01",
-                retry_failures_before_success=2,
+                stage="planner",
+                prepared_resume=True,
             )
-            runner = FullModelQualificationRunner(
+            result = FullModelQualificationRunner(
                 manifest=_manifest(),
-                runtime_root=runtime,
-                evidence_root=evidence,
+                runtime_root=root / "runtime",
+                evidence_root=root / "evidence",
+            ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            chain = result["results"][0]["provider_stage_retry_chains"][0]
+            self.assertEqual(chain["retry_action_count"], 0)
+            self.assertEqual(chain["resume_prepared_action_count"], 1)
+            self.assertEqual(chain["control_action_count"], 1)
+            self.assertEqual(result["provider_stage_retry_actions"], 0)
+            self.assertEqual(result["provider_stage_resume_prepared_actions"], 1)
+            self.assertEqual(
+                [value[1]["action_kind"] for value in client.action_posts],
+                ["resume_prepared"],
+            )
+
+    def test_later_stage_successor_has_distinct_chain_and_budget(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
+                failure_fixture_id="backend-ordinary-01",
+                stage="writer",
+                later_stage="semantic_validator",
+            )
+            result = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=root / "runtime",
+                evidence_root=root / "evidence",
+            ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            self.assertEqual(result["provider_stage_retry_actions"], 2)
+            self.assertEqual(result["provider_stage_retry_chains"], 2)
+            chain = result["results"][0]["provider_stage_retry_chains"][0]
+            self.assertEqual(len(chain["chain_ids"]), 2)
+            self.assertEqual(len(set(chain["chain_ids"])), 2)
+            self.assertEqual(
+                {observation["status"]["stage"] for observation in chain["status_observations"]},
+                {"writer", "semantic_validator"},
+            )
+            self.assertEqual(
+                [post[1]["retry_action_ordinal"] for post in client.action_posts], [1, 1]
+            )
+
+    def test_semantic_regenerate_response_uses_its_own_provider_retry_continuation(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
+                failure_fixture_id="backend-ordinary-01",
+                stage="writer",
+                failure_on_regenerate=True,
+            )
+            result = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=root / "runtime",
+                evidence_root=root / "evidence",
+            ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            first = result["results"][0]
+            self.assertFalse(first["first_pass_accepted"])
+            self.assertEqual(first["explicit_regenerate_actions"], 1)
+            self.assertEqual(first["provider_stage_retry_actions"], 1)
+            self.assertEqual(client.regenerates, 1)
+            self.assertEqual(len(client.action_posts), 1)
+            self.assertEqual(first["provider_operations"]["planner"], 0)
+
+    def test_ambiguous_post_reconciles_by_get_without_reposting_or_leaking(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        sentinel = "PRIVATE FEEDBACK STORY SENTINEL"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
+                failure_fixture_id="backend-ordinary-01",
+                stage="writer",
+                ambiguous_post=True,
+                private_sentinel=sentinel,
+            )
+            result = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=root / "runtime",
+                evidence_root=root / "evidence",
+            ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            self.assertEqual(len(client.action_posts), 1)
+            self.assertGreaterEqual(len(client.status_reads), 2)
+            evidence = (root / "evidence" / "QUALIFICATION_EVENTS.jsonl").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn(sentinel, evidence)
+            self.assertNotIn(sentinel, json.dumps(result, sort_keys=True))
+            receipt = result["results"][0]["provider_stage_retry_chains"][0]["actions"][0]
+            self.assertEqual(receipt["post_failure"]["failure_category"], "transport_io")
+
+    def test_attempt_exhaustion_stops_after_two_exact_actions_with_no_fourth(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
+                failure_fixture_id="backend-ordinary-01",
+                stage="planner",
+                failures_before_success=2,
+                terminal_state="attempts_exhausted",
             )
             with self.assertRaisesRegex(
                 StateConflictError,
                 "provider_stage_attempts_exhausted",
             ):
-                runner.run_phase(QualificationPhase.BACKEND, fixtures, client)
-
-            result = json.loads((evidence / "BACKEND_RESULT.json").read_text(encoding="utf-8"))
-            first = result["results"][0]
-            critical = first["critical_provider_stage_failure"]
-            chain = first["transport_retry_chains"][0]
-            self.assertEqual(client.retry_post_ids, list(client.retry_ids[:2]))
-            self.assertEqual(client.retry_status_reads, 4)
-            terminal_status = client.retry_status_bodies[-1]
+                FullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=root / "runtime",
+                    evidence_root=root / "evidence",
+                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            self.assertEqual(len(client.action_posts), 2)
             self.assertEqual(
-                set(terminal_status),
-                {
-                    "schema_version",
-                    "retry_id",
-                    "request_id",
-                    "effect_proof_sha256",
-                    "state",
-                    "retry_transport_enabled",
-                    "critical_provider_stage_failure",
-                },
+                [post[1]["retry_action_ordinal"] for post in client.action_posts],
+                [1, 2],
             )
-            self.assertEqual(terminal_status["state"], "attempts_exhausted")
-            self.assertFalse(terminal_status["retry_transport_enabled"])
-            self.assertNotIn("transport_retry", terminal_status)
-            self.assertNotIn("superseded_by_retry_id", terminal_status)
-            self.assertEqual(result["status"], "failed")
-            self.assertEqual(result["transport_retry_actions"], 2)
-            self.assertEqual(result["transport_retry_chain_actions"], 2)
-            self.assertEqual(result["transport_retry_chains"], 1)
-            self.assertEqual(result["transport_retry_terminal_critical_failures"], 1)
-            self.assertEqual(result["sol_submitted_operations"], 3)
-            self.assertEqual(result["sol_charged_operations"], 3)
-            self.assertEqual(first["sol_operations_observed"], 3)
-            self.assertEqual(first["sol_charged_operations_observed"], 3)
-            self.assertEqual(first["deepseek_operations_observed"], 0)
-            self.assertEqual(critical["severity"], "critical")
-            self.assertEqual(critical["provider"], "codex")
-            self.assertEqual(critical["model_family"], "sol")
-            self.assertEqual(critical["stage"], "planner")
-            self.assertEqual(critical["maximum_attempts"], 3)
-            self.assertEqual(critical["attempts_total"], 3)
-            self.assertEqual(critical["retries_consumed"], 2)
-            self.assertEqual(critical["provider_operations_observed_total"], 3)
-            self.assertEqual(critical["provider_operations_conservative_total"], 3)
-            self.assertEqual(critical["final_failure_class"], "provider_unavailable")
-            self.assertEqual(len(chain["failed_calls"]), 3)
-            self.assertEqual(len(chain["failure_chain"]), 3)
-            self.assertIsNone(chain["replacement_call"])
-            self.assertIsNone(chain["completion_sha256"])
+            result = json.loads((root / "evidence" / "BACKEND_RESULT.json").read_text())
+            failure = result["results"][0]
+            self.assertEqual(failure["failure_category"], "provider_stage_attempts_exhausted")
             self.assertEqual(
-                len({value["call_id"] for value in chain["failed_calls"]}),
+                failure["critical_provider_stage_failure"]["stage_attempts_total"],
                 3,
             )
-            self.assertEqual(
-                len({value["stored_thread_sha256"] for value in chain["failed_calls"]}),
-                3,
-            )
-            self.assertEqual(
-                [value["latency_class"] for value in first["planner_latency"]],
-                ["cold_start", "cold_rehydration", "cold_rehydration"],
-            )
-            self.assertEqual(chain["critical_failure_sha256"], canonical_sha256(critical))
-            self.assertEqual(
-                [action["post_status_state"] for action in chain["actions"]],
-                ["superseded", "attempts_exhausted"],
-            )
-            self.assertEqual(
-                chain["chain_sha256"],
-                canonical_sha256(
-                    {key: value for key, value in chain.items() if key != "chain_sha256"}
-                ),
-            )
-            artifact_text = "\n".join(
-                path.read_text(encoding="utf-8") for path in evidence.rglob("*") if path.is_file()
-            )
-            for raw in (
-                *client.retry_ids,
-                client.request_id,
-                "RAW PROVIDER FAILURE PROSE",
-                "PRIVATE PROVIDER OUTPUT",
-                r"D:\private\provider-output.md",
-            ):
-                self.assertNotIn(raw, artifact_text)
 
-    def test_reduced_direct_exhaustion_envelope_is_rejected(self) -> None:
+    def test_nonretry_terminal_never_dispatches(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            runtime = root / "runtime"
-            evidence = root / "evidence"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
                 failure_fixture_id="backend-ordinary-01",
-                retry_failures_before_success=2,
+                stage="planner",
+                terminal_state="recovery_required",
             )
-            critical = client._terminal_critical_projection()
-            reduced = ClientResponseV1(
-                transport="fake-retry-action",
-                path=f"/v1/cera/transport-retries/{client.retry_ids[1]}",
-                status_code=503,
-                duration_ms=360_000,
-                body={
-                    "status": "error",
-                    "story_state_committed": False,
-                    "error": {
-                        "schema_version": "cera.error.v1",
-                        "error_code": "CERA_PROVIDER_STAGE_RETRY_EXHAUSTED",
-                        "message": "REDUCED RAW ERROR",
-                        "retry_mode": "exhausted",
-                        "next_action": "report_critical_provider_failure",
-                        "retry_transport_enabled": False,
-                        "critical_provider_stage_failure": critical,
-                    },
-                },
-            )
-            with (
-                patch.object(client, "_exhausted_response", return_value=reduced),
-                self.assertRaisesRegex(StateConflictError, "state_conflict"),
-            ):
+            with self.assertRaisesRegex(StateConflictError, "recovery_required"):
                 FullModelQualificationRunner(
                     manifest=_manifest(),
-                    runtime_root=runtime,
-                    evidence_root=evidence,
-                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-
-            result = json.loads((evidence / "BACKEND_RESULT.json").read_text(encoding="utf-8"))
-            self.assertEqual(client.retry_actions, 2)
-            self.assertEqual(client.retry_status_reads, 4)
-            self.assertEqual(result["status"], "failed")
-            self.assertEqual(result["transport_retry_terminal_critical_failures"], 0)
-            self.assertNotIn(
-                "REDUCED RAW ERROR",
-                "\n".join(
-                    path.read_text(encoding="utf-8")
-                    for path in evidence.rglob("*")
-                    if path.is_file()
-                ),
-            )
-
-    def test_ambiguous_retry_timing_includes_post_and_poll_wall_clock(self) -> None:
-        fixtures = load_qualification_fixtures(FIXTURES)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
-                failure_fixture_id="backend-ordinary-01",
-                ambiguous_post=True,
-                in_progress_polls=1,
-            )
-            post_end_ns = 4_200_000_000_000
-            poll_end_ns = post_end_ns + 500_000_000
-            with (
-                patch(
-                    "cera.pi_scene.qualification.time.perf_counter_ns",
-                    side_effect=(0, post_end_ns, post_end_ns, poll_end_ns),
-                ),
-                patch("cera.pi_scene.qualification.time.sleep") as poll_sleep,
-            ):
-                result = FullModelQualificationRunner(
-                    manifest=_manifest(),
-                    runtime_root=runtime,
+                    runtime_root=root / "runtime",
                     evidence_root=root / "evidence",
                 ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            self.assertEqual(client.action_posts, [])
 
-            first = result["results"][0]
-            chain = first["transport_retry_chains"][0]
-            action = chain["actions"][0]
-            self.assertEqual(action["post_dispatch_duration_ms"], 4_200_000)
-            self.assertEqual(action["status_reconciliation_duration_ms"], 500)
-            self.assertEqual(first["latency_ms"], 4_440_501)
-            self.assertEqual(client.retry_actions, 1)
-            self.assertEqual(client.retry_status_reads, 3)
-            poll_sleep.assert_called_once_with(0.25)
-
-    def test_retry_exception_evidence_excludes_raw_identity_content(self) -> None:
+    def test_recorder_repair_uses_one_fresh_successor_chain(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            runtime = root / "runtime"
-            evidence = root / "evidence"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
                 failure_fixture_id="backend-ordinary-01",
-            )
-            sentinels = (
-                client.retry_id,
-                f"/v1/cera/transport-retries/{client.retry_id}",
-                "adult-prose-sentinel-Mia-Hana",
-                r"C:\private\qualification\sentinel.log",
-                '{"error":{"message":"raw-error-body-sentinel"}}',
-            )
-            with patch.object(
-                client,
-                "transport_retry_status",
-                side_effect=OSError(" | ".join(sentinels)),
-            ):
-                with self.assertRaisesRegex(StateConflictError, "transport_io") as failure:
-                    FullModelQualificationRunner(
-                        manifest=_manifest(),
-                        runtime_root=runtime,
-                        evidence_root=evidence,
-                    ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-
-            artifact_text = "\n".join(
-                path.read_text(encoding="utf-8") for path in evidence.rglob("*") if path.is_file()
-            )
-            self.assertNotIn("failure_message", artifact_text)
-            console_text = "".join(traceback.format_exception(failure.exception))
-            self.assertNotIn("raw-error-body-sentinel", console_text)
-            for sentinel in sentinels:
-                self.assertNotIn(sentinel, artifact_text)
-                self.assertNotIn(sentinel, console_text)
-            result = json.loads((evidence / "BACKEND_RESULT.json").read_text(encoding="utf-8"))
-            failed = result["results"][0]
-            self.assertEqual(failed["failure_type"], "OSError")
-            self.assertEqual(failed["failure_category"], "transport_io")
-            self.assertRegex(failed["failure_sha256"], r"^[a-f0-9]{64}$")
-
-    def test_manual_transport_retry_never_dispatches_for_adult_route(self) -> None:
-        fixtures = load_qualification_fixtures(FIXTURES)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
-                failure_fixture_id="backend-adult-01",
-            )
-            with self.assertRaisesRegex(StateConflictError, "state_conflict"):
-                FullModelQualificationRunner(
-                    manifest=_manifest(),
-                    runtime_root=runtime,
-                    evidence_root=root / "evidence",
-                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-            self.assertEqual(client.retry_actions, 0)
-            self.assertEqual(client.retry_status_reads, 0)
-
-    def test_manual_transport_retry_rejects_nonplanner_failure_before_get(self) -> None:
-        fixtures = load_qualification_fixtures(FIXTURES)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
-                failure_fixture_id="backend-ordinary-01",
-                failure_owner="validator",
-            )
-            with self.assertRaisesRegex(StateConflictError, "state_conflict"):
-                FullModelQualificationRunner(
-                    manifest=_manifest(),
-                    runtime_root=runtime,
-                    evidence_root=root / "evidence",
-                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-            self.assertEqual(client.retry_actions, 0)
-            self.assertEqual(client.retry_status_reads, 0)
-
-    def test_pretransport_failure_is_evidenced_but_not_submitted_or_charged(self) -> None:
-        fixtures = load_qualification_fixtures(FIXTURES)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
-                failure_fixture_id="backend-ordinary-01",
-                failure_submitted=False,
+                stage="recorder",
+                failures_before_success=2,
+                terminal_state="recording_repair_required",
             )
             result = FullModelQualificationRunner(
                 manifest=_manifest(),
-                runtime_root=runtime,
+                runtime_root=root / "runtime",
                 evidence_root=root / "evidence",
             ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-
             first = result["results"][0]
-            chain = first["transport_retry_chains"][0]
-            failed = chain["failed_call"]
-            replacement = chain["replacement_call"]
-            self.assertEqual(failed["terminal_state"], "pretransport_failed")
-            self.assertFalse(failed["submitted"])
-            self.assertFalse(failed["charged"])
-            self.assertTrue(replacement["submitted"])
-            self.assertTrue(replacement["charged"])
-            self.assertNotEqual(
-                failed["stored_thread_sha256"],
-                replacement["stored_thread_sha256"],
+            chain = first["provider_stage_retry_chains"][0]
+            self.assertEqual(chain["retry_action_count"], 3)
+            self.assertEqual(chain["repair_recording_action_count"], 1)
+            self.assertEqual(chain["control_action_count"], 4)
+            self.assertEqual(len(chain["chain_ids"]), 2)
+            self.assertEqual(
+                [action[1]["action_kind"] for action in client.action_posts],
+                ["provider_retry", "provider_retry", "repair_recording", "provider_retry"],
             )
-            self.assertEqual(first["sol_http_operations"], 2)
-            self.assertEqual(first["sol_charged_operations"], 2)
-            self.assertEqual(first["transport_retry_actions"], 1)
-            self.assertEqual(client.retry_actions, 1)
-            self.assertEqual(first["planner_latency"][0]["latency_class"], "cold_rehydration")
-            self.assertEqual(first["planner_latency"][0]["planner_call_index"], 1)
+            self.assertEqual(
+                [
+                    action[1]["retry_action_ordinal"]
+                    for action in client.action_posts
+                    if action[1]["action_kind"] == "provider_retry"
+                ],
+                [1, 2, 1],
+            )
+            self.assertEqual(result["provider_stage_repair_recording_actions"], 1)
+            self.assertEqual(result["automatic_provider_stage_control_actions"], 0)
 
-    def test_post_validation_planner_failure_never_gets_transport_retry(self) -> None:
+    def test_recorder_repair_successor_exhaustion_never_repairs_recursively(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
                 failure_fixture_id="backend-ordinary-01",
-                failure_terminal_state="provider_completed_post_validation_failed",
+                stage="recorder",
+                failures_before_success=2,
+                terminal_state="recording_repair_required",
+                repair_successor_exhausts=True,
             )
-            with self.assertRaisesRegex(StateConflictError, "state_conflict"):
+            with self.assertRaisesRegex(StateConflictError, "recording_repair_required"):
                 FullModelQualificationRunner(
                     manifest=_manifest(),
-                    runtime_root=runtime,
+                    runtime_root=root / "runtime",
                     evidence_root=root / "evidence",
                 ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-            self.assertEqual(client.retry_actions, 0)
-            self.assertEqual(client.retry_status_reads, 0)
+            action_kinds = [action[1]["action_kind"] for action in client.action_posts]
+            self.assertEqual(action_kinds.count("repair_recording"), 1)
+            self.assertEqual(action_kinds.count("provider_retry"), 4)
+            result = json.loads((root / "evidence" / "BACKEND_RESULT.json").read_text())
+            failure = result["results"][0]
+            self.assertEqual(
+                failure["critical_provider_stage_failure"]["state"],
+                "recording_repair_required",
+            )
+            self.assertEqual(failure["provider_stage_repair_recording_actions"], 1)
+
+    def test_blocked_ambiguity_timeout_is_get_only_and_critical(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            client = _FakeProviderStageRetryClient(
+                root / "runtime",
+                failure_fixture_id="backend-ordinary-01",
+                stage="writer",
+                terminal_state="blocked_ambiguous",
+            )
+            with (
+                patch(
+                    "cera.pi_scene.qualification.time.monotonic",
+                    side_effect=(
+                        0.0,
+                        0.0,
+                        float(PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS + 1),
+                    ),
+                ),
+                self.assertRaisesRegex(StateConflictError, "blocked_ambiguous"),
+            ):
+                FullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=root / "runtime",
+                    evidence_root=root / "evidence",
+                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+            self.assertEqual(client.action_posts, [])
+            self.assertEqual(client.status_reads, [])
+            result = json.loads((root / "evidence" / "BACKEND_RESULT.json").read_text())
+            critical = result["results"][0]["critical_provider_stage_failure"]
+            self.assertEqual(critical["state"], "blocked_ambiguous")
+            self.assertEqual(critical["stop_reason"], "blocked_ambiguous_timeout")
+
+    def test_direct_generic_relay_preflight_is_exact_reload_safe_and_provider_free(self) -> None:
+        token = "relay-token-" + "x" * 32
+        port = entrypoint._available_port_excluding(5101)
+        upstream = entrypoint._GenericFakeRelayUpstreamV1(
+            port=port,
+            decline_review_id="review-0123456789abcdef0123456789ab",
+            regenerate_review_id="review-fedcba9876543210fedcba987654",
+            authorization_token=token,
+            chain_id="stage-retry-" + "1" * 64,
+        )
+        upstream.start()
+        try:
+            client = entrypoint.DirectCeraQualificationClient(
+                base_url=f"http://127.0.0.1:{port}",
+                token=token,
+            )
+            first = client.provider_stage_retry_status(chain_id=upstream.exhaustion_chain_id)
+            action_1 = first.body["actions"][0]
+            ambiguous = client.provider_stage_retry_action(
+                chain_id=upstream.exhaustion_chain_id,
+                action=action_1,
+            )
+            reloaded = entrypoint.DirectCeraQualificationClient(
+                base_url=f"http://127.0.0.1:{port}",
+                token=token,
+            )
+            second = reloaded.provider_stage_retry_status(chain_id=upstream.exhaustion_chain_id)
+            action_2 = second.body["actions"][0]
+            reloaded.provider_stage_retry_action(
+                chain_id=upstream.exhaustion_chain_id,
+                action=action_2,
+            )
+            exhausted = reloaded.provider_stage_retry_status(chain_id=upstream.exhaustion_chain_id)
+            source = client.provider_stage_retry_status(chain_id=upstream.successor_source_chain_id)
+            client.provider_stage_retry_action(
+                chain_id=upstream.successor_source_chain_id,
+                action=source.body["actions"][0],
+            )
+            later = client.provider_stage_retry_status(chain_id=upstream.successor_source_chain_id)
+            self.assertEqual(
+                later.body["status"]["chain_id"],
+                upstream.successor_later_chain_id,
+            )
+            client.provider_stage_retry_action(
+                chain_id=upstream.successor_later_chain_id,
+                action=later.body["actions"][0],
+            )
+            completion = client.provider_stage_retry_status(
+                chain_id=upstream.successor_source_chain_id
+            )
+            recovery = client.provider_stage_retry_status(chain_id=upstream.recovery_chain_id)
+            blocked = client.provider_stage_retry_status(chain_id=upstream.blocked_chain_id)
+            prepared = client.provider_stage_retry_status(
+                chain_id=upstream.resume_prepared_chain_id
+            )
+            prepared_action = prepared.body["actions"][0]
+            client.provider_stage_retry_action(
+                chain_id=upstream.resume_prepared_chain_id,
+                action=prepared_action,
+            )
+            prepared_completion = client.provider_stage_retry_status(
+                chain_id=upstream.resume_prepared_chain_id
+            )
+            repair = client.provider_stage_retry_status(chain_id=upstream.repair_source_chain_id)
+            repair_action = repair.body["actions"][0]
+            client.provider_stage_retry_action(
+                chain_id=upstream.repair_source_chain_id,
+                action=repair_action,
+            )
+            repair_successor = client.provider_stage_retry_status(
+                chain_id=upstream.repair_source_chain_id
+            )
+            client.provider_stage_retry_action(
+                chain_id=upstream.repair_successor_chain_id,
+                action=repair_successor.body["actions"][0],
+            )
+            repair_completion = client.provider_stage_retry_status(
+                chain_id=upstream.repair_source_chain_id
+            )
+            repair_terminal = client.provider_stage_retry_status(
+                chain_id=upstream.repair_terminal_chain_id
+            )
+            proof = upstream.retry_proof()
+        finally:
+            upstream.close()
+        self.assertEqual(ambiguous.status_code, 504)
+        self.assertEqual(action_1["retry_action_ordinal"], 1)
+        self.assertEqual(action_2["retry_action_ordinal"], 2)
+        self.assertEqual(exhausted.body["status"]["state"], "attempts_exhausted")
+        self.assertEqual(exhausted.body["actions"], [])
+        self.assertEqual(completion.body["schema_version"], "cera.pi_scene.review_decision.v1")
+        self.assertEqual(recovery.body["status"]["state"], "recovery_required")
+        self.assertEqual(blocked.body["status"]["state"], "blocked_ambiguous")
+        self.assertEqual(prepared_action["action_kind"], "resume_prepared")
+        self.assertFalse(prepared_action["consumes_retry_action"])
+        self.assertEqual(
+            prepared_completion.body["schema_version"],
+            "cera.pi_scene.review_decision.v1",
+        )
+        self.assertEqual(repair_action["action_kind"], "repair_recording")
+        self.assertFalse(repair_action["consumes_retry_action"])
+        self.assertEqual(
+            repair_successor.body["status"]["chain_id"],
+            upstream.repair_successor_chain_id,
+        )
+        self.assertEqual(
+            repair_completion.body["schema_version"],
+            "cera.pi_scene.review_decision.v1",
+        )
+        self.assertEqual(repair_terminal.body["actions"], [])
+        self.assertEqual(proof["exact_action_posts"], 7)
+        self.assertEqual(proof["provider_calls"], 0)
+
+    def test_isolated_client_relays_exact_generic_action_without_invention(self) -> None:
+        chain_id = "stage-retry-" + "a" * 64
+        action = {
+            "schema_version": "cera.provider_stage_retry_action.v1",
+            "action_id": "stage-action-" + "b" * 64,
+            "chain_id": chain_id,
+            "action_family": "provider_stage_control",
+            "action_kind": "provider_retry",
+            "automatic": False,
+            "provider_dispatch_authorized": True,
+            "consumes_retry_action": True,
+            "retry_action_ordinal": 1,
+            "whole_request_replay_authorized": False,
+            "provider_substitution_authorized": False,
+            "expected_chain_sha256": "c" * 64,
+        }
+        client = object.__new__(entrypoint.IsolatedSillyTavernQualificationClient)
+        response = ClientResponseV1(
+            transport="fake",
+            path="/relay",
+            status_code=200,
+            duration_ms=0,
+            body={"ok": True},
+        )
+        with patch.object(client, "_relay", return_value=response) as relay:
+            observed = client.provider_stage_retry_action(
+                chain_id=chain_id,
+                action=action,
+            )
+        self.assertIs(observed, response)
+        relay.assert_called_once_with(
+            path=(
+                "/api/plugins/cera-review/v1/cera/provider-stage-retries/"
+                f"{chain_id}/actions/{action['action_id']}"
+            ),
+            method="POST",
+            payload=action,
+        )
+
+    def test_isolated_client_relays_exact_manual_control_actions(self) -> None:
+        client = object.__new__(entrypoint.IsolatedSillyTavernQualificationClient)
+        response = ClientResponseV1(
+            transport="fake",
+            path="/relay",
+            status_code=200,
+            duration_ms=0,
+            body={"ok": True},
+        )
+        for index, action_kind in enumerate(
+            ("resume_prepared", "repair_recording"),
+            start=1,
+        ):
+            with self.subTest(action_kind=action_kind):
+                chain_id = f"stage-retry-{index:064x}"
+                action = {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{index + 2:064x}",
+                    "chain_id": chain_id,
+                    "action_family": "provider_stage_control",
+                    "action_kind": action_kind,
+                    "automatic": False,
+                    "provider_dispatch_authorized": True,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": f"{index + 4:064x}",
+                }
+                with patch.object(client, "_relay", return_value=response) as relay:
+                    observed = client.provider_stage_retry_action(
+                        chain_id=chain_id,
+                        action=action,
+                    )
+                self.assertIs(observed, response)
+                relay.assert_called_once_with(
+                    path=(
+                        "/api/plugins/cera-review/v1/cera/provider-stage-retries/"
+                        f"{chain_id}/actions/{action['action_id']}"
+                    ),
+                    method="POST",
+                    payload=action,
+                )
 
     def test_one_noncritical_rejection_allows_one_explicit_regenerate(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
@@ -2069,30 +2345,45 @@ class FullModelQualificationTests(unittest.TestCase):
                 "cera.full_model.capture_function.v1",
             )
             self.assertEqual(
-                frozen["transport_retry_server_bridge_contract"],
-                "cera.transport_retry.closed_error_projection.v1",
+                frozen["provider_stage_retry_server_bridge_contract"],
+                "cera.provider_stage_retry.status_envelope_forward.v1",
             )
             self.assertEqual(
-                frozen["transport_retry_terminal_ui_contract"],
+                frozen["provider_stage_retry_terminal_ui_contract"],
                 {
-                    "schema_version": ("cera.pi_scene.qualification_critical_provider_stage_ui.v1"),
+                    "schema_version": ("cera.pi_scene.qualification_critical_provider_stage_ui.v2"),
                     "projection_key": "critical_provider_stage_failure",
                     "severity": "critical",
                     "provider_required": True,
                     "stage_required": True,
-                    "maximum_total_provider_attempts": 3,
-                    "maximum_retry_actions": 2,
-                    "retry_action_enabled": False,
+                    "maximum_attempts_per_stage_occurrence": 3,
+                    "maximum_retry_actions_per_stage_occurrence": 2,
+                    "maximum_resume_prepared_actions_per_stage_occurrence": 1,
+                    "maximum_recording_repair_actions_per_request": 1,
+                    "maximum_recording_repair_successor_attempts": 3,
+                    "maximum_recording_repair_successor_retry_actions": 2,
+                    "manual_resume_prepared_enabled_when_backend_issued": True,
+                    "manual_recording_repair_enabled_when_backend_issued": True,
+                    "recursive_recording_repair": False,
+                    "recording_repair_required_terminal_only_without_action": True,
+                    "terminal_states": [
+                        "attempts_exhausted",
+                        "recording_repair_required",
+                        "recovery_required",
+                        "blocked_ambiguous_timeout",
+                    ],
+                    "terminal_provider_retry_enabled": False,
                     "collapsible": True,
                     "display_fields": [
                         "severity",
                         "provider",
                         "model_family",
                         "stage",
+                        "state",
                         "maximum_attempts",
-                        "attempts_total",
-                        "retries_consumed",
-                        "final_failure_class",
+                        "stage_attempts_total",
+                        "retry_actions_accepted",
+                        "failure_category",
                     ],
                     "hash_safe_only": True,
                     "raw_provider_or_story_prose_allowed": False,
@@ -2142,8 +2433,8 @@ class FullModelQualificationTests(unittest.TestCase):
             proxy.mkdir()
             extension.mkdir()
             (proxy / "index.js").write_text(
-                "router.get('/v1/cera/transport-retries/:retryId');"
-                "cera.pi_scene.transport_retry_status.v1",
+                "router.get('/v1/cera/provider-stage-retries/:chainId');"
+                "cera.provider_stage_retry_status_envelope.v1",
                 encoding="utf-8",
             )
             (proxy / "package.json").write_text("{}", encoding="utf-8")
@@ -2152,9 +2443,9 @@ class FullModelQualificationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (extension / "index.js").write_text(
-                "cera_transport_retry_receipts_v1;"
-                "restoreTransportRetryForCurrentChat({ reconcile: true });"
-                "transport_retry_completion",
+                "cera_provider_stage_retry_receipts_v1;"
+                "restoreProviderStageRetryForCurrentChat({ reconcile: true });"
+                "provider_stage_retry_completion",
                 encoding="utf-8",
             )
             (extension / "metadata-panel.test.mjs").write_text(
@@ -2183,40 +2474,43 @@ class FullModelQualificationTests(unittest.TestCase):
             staged_proxy = (target / "plugins/cera-review-proxy/index.js").read_text(
                 encoding="utf-8"
             )
-            self.assertIn("/v1/cera/transport-retries/:retryId", staged_proxy)
-            self.assertIn("cera.pi_scene.transport_retry_status.v1", staged_proxy)
+            self.assertIn("/v1/cera/provider-stage-retries/:chainId", staged_proxy)
+            self.assertIn("cera.provider_stage_retry_status_envelope.v1", staged_proxy)
             staged_extension = (
                 target / "public/scripts/extensions/third-party/cera-creator-review/index.js"
             ).read_text(encoding="utf-8")
-            self.assertIn("cera_transport_retry_receipts_v1", staged_extension)
-            self.assertIn("restoreTransportRetryForCurrentChat", staged_extension)
-            self.assertIn("transport_retry_completion", staged_extension)
+            self.assertIn("cera_provider_stage_retry_receipts_v1", staged_extension)
+            self.assertIn("restoreProviderStageRetryForCurrentChat", staged_extension)
+            self.assertIn("provider_stage_retry_completion", staged_extension)
             openai = (target / "public/scripts/openai.js").read_text(encoding="utf-8")
             self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", openai)
+            self.assertEqual(openai.count("window.ceraCaptureProviderStageRetryStatus(data)"), 1)
             self.assertEqual(openai.count("window.ceraCaptureTransportFailure(data)"), 1)
             self.assertNotIn("data?.cera?.provisional", openai)
             backend = (target / "src/endpoints/backends/chat-completions.js").read_text(
                 encoding="utf-8"
             )
-            self.assertIn("CERA_PROVIDER_TRANSPORT_FAILED", backend)
-            self.assertIn("ceraTransportRetryError", backend)
+            self.assertIn("cera.provider_stage_retry_status_envelope.v1", backend)
+            self.assertIn("ceraProviderStageRetryEnvelope", backend)
             self.assertNotIn("debug_log_path", backend)
             manifest_path = target / "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json"
             changed_manifest = deepcopy(manifest)
-            changed_manifest["transport_retry_terminal_ui_contract"]["maximum_retry_actions"] = 3
+            changed_manifest["provider_stage_retry_terminal_ui_contract"][
+                "maximum_retry_actions_per_stage_occurrence"
+            ] = 3
             unsigned = {
                 key: value for key, value in changed_manifest.items() if key != "manifest_sha256"
             }
             changed_manifest["manifest_sha256"] = canonical_sha256(unsigned)
             manifest_path.write_bytes(canonical_bytes(changed_manifest) + b"\n")
-            with self.assertRaisesRegex(StateConflictError, "transport retry bridge changed"):
+            with self.assertRaisesRegex(StateConflictError, "provider-stage retry bridge changed"):
                 verify_qualification_sillytavern(target)
             manifest_path.write_bytes(canonical_bytes(manifest) + b"\n")
             (target / "src/endpoints/backends/chat-completions.js").write_text(
                 "tampered",
                 encoding="utf-8",
             )
-            with self.assertRaisesRegex(StateConflictError, "transport retry bridge changed"):
+            with self.assertRaisesRegex(StateConflictError, "provider-stage retry bridge changed"):
                 verify_qualification_sillytavern(target)
 
     def test_staged_repository_node_suites_execute_from_hash_bound_copy(self) -> None:
@@ -2251,176 +2545,22 @@ class FullModelQualificationTests(unittest.TestCase):
                 ),
             )
 
-    def test_staged_proxy_projects_full_exhaustion_for_qualification(self) -> None:
-        node = shutil.which("node")
-        self.assertIsNotNone(node)
-        fixtures = load_qualification_fixtures(FIXTURES)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            target = root / "target"
-            stage_qualification_sillytavern(
-                _fake_sillytavern_source(root),
-                target,
-                repository_proxy_root=(ROOT / "integrations/sillytavern/cera-review-proxy-plugin"),
-                repository_extension_root=(
-                    ROOT / "integrations/sillytavern/creator-review-extension"
-                ),
-            )
-            runtime = root / "runtime"
-            client = _FakePlannerTransportRetryClient(
-                runtime,
-                failure_fixture_id="backend-ordinary-01",
-                retry_failures_before_success=2,
-            )
-            critical = client._terminal_critical_projection()
-            full = client._exhausted_response(
-                retry_id=client.retry_ids[1],
-                critical=critical,
-            )
-            module_url = (target / "plugins" / "cera-review-proxy" / "index.js").resolve().as_uri()
-            source = (
-                f"import {{ projectTransportRetryPayload }} from {json.dumps(module_url)};"
-                "const value = JSON.parse(process.argv[1]);"
-                "process.stdout.write(JSON.stringify(projectTransportRetryPayload(value)));"
-            )
-            completed = subprocess.run(
-                (str(node), "--input-type=module", "--eval", source, json.dumps(full.body)),
-                cwd=target,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                check=False,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            projected = json.loads(completed.stdout)
-            self.assertEqual(
-                set(projected["error"]),
-                {
-                    "schema_version",
-                    "error_code",
-                    "message",
-                    "story_state_committed",
-                    "retry_mode",
-                    "provider_operation_submitted",
-                    "accepted_state_changed",
-                    "fallback_used",
-                    "next_action",
-                    "retry_transport_enabled",
-                    "critical_provider_stage_failure",
-                },
-            )
-            self.assertEqual(
-                projected["error"]["message"],
-                "CERA stopped after three failed attempts at one provider stage.",
-            )
-            self.assertEqual(projected["error"]["critical_provider_stage_failure"], critical)
-            projected_text = json.dumps(projected, sort_keys=True)
-            for sentinel in (
-                "RAW PROVIDER FAILURE PROSE",
-                "PRIVATE PROVIDER OUTPUT",
-                "provider-output.md",
-                client.request_id,
-                "trace:" + "8" * 32,
-            ):
-                self.assertNotIn(sentinel, projected_text)
-
-            relay_response = ClientResponseV1(
-                transport="isolated-sillytavern-proxy",
-                path=f"/v1/cera/transport-retries/{client.retry_ids[1]}",
-                status_code=503,
-                duration_ms=360_000,
-                body=projected,
-            )
-            with (
-                patch.object(client, "_exhausted_response", return_value=relay_response),
-                self.assertRaisesRegex(
-                    StateConflictError,
-                    "provider_stage_attempts_exhausted",
-                ),
-            ):
-                FullModelQualificationRunner(
-                    manifest=_manifest(),
-                    runtime_root=runtime,
-                    evidence_root=root / "evidence",
-                ).run_phase(QualificationPhase.BACKEND, fixtures, client)
-
-    def test_fake_retry_relay_upstream_requires_auth_and_two_empty_posts(self) -> None:
-        token = "relay-token-" + "x" * 32
-        retry_id = "retry-" + "1" * 64
-        request_id = "request-" + "2" * 64
-        effect_sha256 = "3" * 64
-        port = entrypoint._available_port_excluding(5101)
-        upstream = entrypoint._FakeRelayUpstream(
-            port=port,
-            decline_review_id="review-0123456789abcdef0123456789ab",
-            regenerate_review_id="review-fedcba9876543210fedcba987654",
-            authorization_token=token,
-            retry_id=retry_id,
-            retry_request_id=request_id,
-            retry_effect_proof_sha256=effect_sha256,
-        )
-        upstream.start()
-        try:
-            client = entrypoint.DirectCeraQualificationClient(
-                base_url=f"http://127.0.0.1:{port}",
-                token=token,
-            )
-            retry_1_eligible = client.transport_retry_status(retry_id=retry_id)
-            retry_1_action = client.retry_transport(retry_id=retry_id)
-            retry_1_terminal = client.transport_retry_status(retry_id=retry_id)
-            successor_id = retry_1_terminal.body["superseded_by_retry_id"]
-            retry_2_eligible = client.transport_retry_status(retry_id=successor_id)
-            retry_2_action = client.retry_transport(retry_id=successor_id)
-            retry_2_terminal = client.transport_retry_status(retry_id=successor_id)
-            proof = upstream.retry_proof()
-        finally:
-            upstream.close()
-        self.assertEqual(retry_1_eligible.body["state"], "eligible")
-        self.assertEqual(retry_1_action.status_code, 500)
-        self.assertEqual(retry_1_terminal.body["state"], "superseded")
-        self.assertEqual(retry_2_eligible.body["state"], "eligible")
-        self.assertEqual(retry_2_action.status_code, 503)
-        self.assertEqual(
-            set(retry_2_action.body["error"]),
-            {
-                "schema_version",
-                "error_code",
-                "message",
-                "trace_id",
-                "request_id",
-                "branch_id",
-                "generation_id",
-                "stage",
-                "story_state_committed",
-                "retry_mode",
-                "details",
-                "fallback_used",
-                "provider_operation_submitted",
-                "accepted_state_changed",
-                "next_action",
-                "debug_log_path",
-                "retry_transport_enabled",
-                "critical_provider_stage_failure",
-            },
-        )
-        self.assertEqual(retry_2_action.body["error"]["request_id"], request_id)
-        self.assertEqual(retry_2_terminal.body["state"], "attempts_exhausted")
-        self.assertFalse(retry_2_terminal.body["retry_transport_enabled"])
-        self.assertNotIn("transport_retry", retry_2_terminal.body)
-        self.assertEqual(proof["authenticated_gets"], 4)
-        self.assertEqual(proof["authenticated_posts"], 2)
-        self.assertEqual(proof["exact_empty_posts"], 2)
-        self.assertEqual(proof["provider_calls"], 0)
-
     def test_provider_free_entrypoint_reports_exact_campaign_counts(self) -> None:
         result = entrypoint.provider_free_check(fixture_path=FIXTURES)
         self.assertEqual(result["provider_calls"], 0)
         self.assertEqual(result["backend"], 20)
         self.assertEqual(result["sillytavern"], 10)
-        self.assertEqual(result["maximum_manual_transport_retry_actions_per_prompt"], 2)
-        self.assertEqual(result["maximum_total_planner_provider_attempts"], 3)
-        self.assertEqual(result["automatic_transport_retry_actions"], 0)
+        self.assertTrue(result["manual_provider_stage_retry_authorized"])
+        self.assertEqual(result["maximum_manual_retry_actions_per_stage_occurrence"], 2)
+        self.assertEqual(result["maximum_provider_attempts_per_stage_occurrence"], 3)
+        self.assertEqual(
+            result["maximum_manual_resume_prepared_actions_per_stage_occurrence"],
+            1,
+        )
+        self.assertEqual(result["maximum_manual_recording_repair_actions_per_request"], 1)
+        self.assertFalse(result["recursive_recording_repair"])
+        self.assertEqual(result["automatic_provider_stage_retry_actions"], 0)
+        self.assertEqual(result["automatic_provider_stage_control_actions"], 0)
 
 
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:

@@ -5,12 +5,13 @@ clean exact Git tree before ``live`` can construct provider transports.  The
 live phase performs 10 ordinary plus 10 adult direct-backend requests, then 5
 ordinary plus 5 adult requests through a disposable SillyTavern copy.  Each
 phase is one retained ``cera-alpha`` story branch. No automatic retry or
-fallback exists. Up to two exact manifest-authorized manual Planner transport
-Retry actions may follow naturally occurring closed ordinary failures, for
-three total Planner provider attempts. Attempt exhaustion is a critical
-Codex/Planner failure with no further action. One explicit creator Regenerate
-may follow a noncritical rejected first pass; every earlier outcome remains in
-evidence.
+fallback exists. Any of the six provider stages may expose an exact generated
+manual ``provider_retry`` action, with at most two Retry actions and three
+attempts for that unique stage occurrence. Exact manual ``resume_prepared`` and
+one nonrecursive Recorder ``repair_recording`` control have separate budgets.
+The runner POSTs each backend-issued action once and reconciles only through
+authenticated GET. One explicit creator Regenerate may follow a noncritical
+rejected first pass; every earlier outcome remains in evidence.
 """
 
 from __future__ import annotations
@@ -36,6 +37,10 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from cera.continuous.path_policy import preflight_windows_legacy_paths
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.provider_stage_retry_contracts_v1 import (
+    validate_provider_stage_retry_action_v1,
+    validate_provider_stage_retry_status_envelope_v1,
+)
 from cera.pi_scene.context import initial_hanezawa_doorway_seed
 from cera.pi_scene.http import PiSceneHttpAdapter, PiSceneServerConfigV1, build_pi_scene_server
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV2
@@ -60,7 +65,6 @@ from cera.pi_scene.qualification_isolation import (
     MANIFEST_NAME as ISOLATED_ST_MANIFEST_NAME,
 )
 from cera.pi_scene.qualification_isolation import (
-    TRANSPORT_RETRY_TERMINAL_UI_CONTRACT,
     qualification_sillytavern_command,
     run_staged_sillytavern_node_suites,
     stage_qualification_sillytavern,
@@ -297,22 +301,30 @@ class DirectCeraQualificationClient:
             path=f"/v1/cera/reviews/{review_id}/decision",
         )
 
-    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1:
-        path = f"/v1/cera/transport-retries/{retry_id}"
+    def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
+        path = f"/v1/cera/provider-stage-retries/{chain_id}"
         return _get_json_response(
             self.base_url + path,
             token=self.token,
-            transport="direct_cera_transport_retry_status",
+            transport="direct_cera_provider_stage_retry_status",
             path=path,
         )
 
-    def retry_transport(self, *, retry_id: str) -> ClientResponseV1:
-        path = f"/v1/cera/transport-retries/{retry_id}"
+    def provider_stage_retry_action(
+        self,
+        *,
+        chain_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        exact = validate_provider_stage_retry_action_v1(action)
+        if exact["chain_id"] != chain_id:
+            raise StateConflictError("qualification provider-stage action changed chain")
+        path = f"/v1/cera/provider-stage-retries/{chain_id}/actions/{exact['action_id']}"
         return _post_json(
             self.base_url + path,
             token=self.token,
-            payload={},
-            transport="direct_cera_transport_retry_action",
+            payload=dict(exact),
+            transport="direct_cera_provider_stage_retry_action",
             path=path,
         )
 
@@ -417,32 +429,46 @@ class IsolatedSillyTavernQualificationClient:
             payload={"action": "regenerate"},
         )
 
-    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1:
+    def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
         return self._relay(
-            path=(f"/api/plugins/cera-review/v1/cera/transport-retries/{retry_id}"),
+            path=(f"/api/plugins/cera-review/v1/cera/provider-stage-retries/{chain_id}"),
             method="GET",
         )
 
-    def retry_transport(self, *, retry_id: str) -> ClientResponseV1:
+    def provider_stage_retry_action(
+        self,
+        *,
+        chain_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        exact = validate_provider_stage_retry_action_v1(action)
+        if exact["chain_id"] != chain_id:
+            raise StateConflictError("qualification provider-stage relay action changed chain")
         return self._relay(
-            path=(f"/api/plugins/cera-review/v1/cera/transport-retries/{retry_id}"),
+            path=(
+                "/api/plugins/cera-review/v1/cera/provider-stage-retries/"
+                f"{chain_id}/actions/{exact['action_id']}"
+            ),
             method="POST",
-            payload={},
+            payload=dict(exact),
         )
 
-    def probe_relay(
+    def probe_provider_stage_relay(
         self,
         *,
         decline_review_id: str,
         regenerate_review_id: str,
-        retry_id: str,
-        retry_request_id: str,
-        retry_effect_proof_sha256: str,
+        exhaustion_chain_id: str,
+        successor_source_chain_id: str,
+        successor_later_chain_id: str,
+        recovery_chain_id: str,
+        blocked_chain_id: str,
+        resume_prepared_chain_id: str,
+        repair_source_chain_id: str,
+        repair_successor_chain_id: str,
+        repair_terminal_chain_id: str,
     ) -> dict[str, Any]:
-        health = self._relay(
-            path="/api/plugins/cera-review/health",
-            method="GET",
-        )
+        health = self._relay(path="/api/plugins/cera-review/health", method="GET")
         decline_review = self._relay(
             path=f"/api/plugins/cera-review/v1/cera/reviews/{decline_review_id}",
             method="GET",
@@ -452,129 +478,199 @@ class IsolatedSillyTavernQualificationClient:
             method="GET",
         )
         decline = self._relay(
-            path=(f"/api/plugins/cera-review/v1/cera/reviews/{decline_review_id}/decision"),
+            path=f"/api/plugins/cera-review/v1/cera/reviews/{decline_review_id}/decision",
             method="POST",
             payload={"action": "decline"},
         )
         regenerate = self._relay(
-            path=(f"/api/plugins/cera-review/v1/cera/reviews/{regenerate_review_id}/decision"),
+            path=f"/api/plugins/cera-review/v1/cera/reviews/{regenerate_review_id}/decision",
             method="POST",
             payload={"action": "regenerate"},
         )
-        retry_1_eligible = self.transport_retry_status(retry_id=retry_id)
-        retry_1_action = self.retry_transport(retry_id=retry_id)
-        retry_1_terminal = self.transport_retry_status(retry_id=retry_id)
-        successor_action = retry_1_terminal.body.get("transport_retry")
-        successor_id = (
-            successor_action.get("retry_id") if isinstance(successor_action, dict) else None
+
+        exhaustion_1 = self.provider_stage_retry_status(chain_id=exhaustion_chain_id)
+        exhaustion_1_envelope = validate_provider_stage_retry_status_envelope_v1(exhaustion_1.body)
+        exhaustion_1_action = validate_provider_stage_retry_action_v1(
+            exhaustion_1_envelope["actions"][0]
         )
-        if not isinstance(successor_id, str):
-            raise StateConflictError("qualification Retry relay omitted its one successor")
-        retry_2_eligible = self.transport_retry_status(retry_id=successor_id)
-        retry_2_action = self.retry_transport(retry_id=successor_id)
-        retry_2_terminal = self.transport_retry_status(retry_id=successor_id)
-        ordinary_successes = (
-            health,
-            decline_review,
-            regenerate_review,
-            decline,
-            regenerate,
-            retry_1_eligible,
-            retry_1_terminal,
-            retry_2_eligible,
-            retry_2_terminal,
+        ambiguous_post = self.provider_stage_retry_action(
+            chain_id=exhaustion_chain_id,
+            action=exhaustion_1_action,
         )
+        exhaustion_2 = self.provider_stage_retry_status(chain_id=exhaustion_chain_id)
+        exhaustion_2_envelope = validate_provider_stage_retry_status_envelope_v1(exhaustion_2.body)
+        exhaustion_2_action = validate_provider_stage_retry_action_v1(
+            exhaustion_2_envelope["actions"][0]
+        )
+        exhaustion_post = self.provider_stage_retry_action(
+            chain_id=exhaustion_chain_id,
+            action=exhaustion_2_action,
+        )
+        exhaustion_terminal = self.provider_stage_retry_status(chain_id=exhaustion_chain_id)
+        terminal_envelope = validate_provider_stage_retry_status_envelope_v1(
+            exhaustion_terminal.body
+        )
+
+        successor_source = self.provider_stage_retry_status(chain_id=successor_source_chain_id)
+        source_envelope = validate_provider_stage_retry_status_envelope_v1(successor_source.body)
+        source_action = validate_provider_stage_retry_action_v1(source_envelope["actions"][0])
+        successor_post = self.provider_stage_retry_action(
+            chain_id=successor_source_chain_id,
+            action=source_action,
+        )
+        successor_from_source = self.provider_stage_retry_status(chain_id=successor_source_chain_id)
+        later_envelope = validate_provider_stage_retry_status_envelope_v1(
+            successor_from_source.body
+        )
+        if later_envelope["status"]["chain_id"] != successor_later_chain_id:
+            raise StateConflictError("qualification relay changed later-stage successor")
+        later_reload = self.provider_stage_retry_status(chain_id=successor_later_chain_id)
+        reloaded_envelope = validate_provider_stage_retry_status_envelope_v1(later_reload.body)
+        later_action = validate_provider_stage_retry_action_v1(reloaded_envelope["actions"][0])
+        later_post = self.provider_stage_retry_action(
+            chain_id=successor_later_chain_id,
+            action=later_action,
+        )
+        terminal_completion = self.provider_stage_retry_status(chain_id=successor_source_chain_id)
+
+        recovery = self.provider_stage_retry_status(chain_id=recovery_chain_id)
+        recovery_envelope = validate_provider_stage_retry_status_envelope_v1(recovery.body)
+        blocked_1 = self.provider_stage_retry_status(chain_id=blocked_chain_id)
+        blocked_2 = self.provider_stage_retry_status(chain_id=blocked_chain_id)
+        blocked_envelope_1 = validate_provider_stage_retry_status_envelope_v1(blocked_1.body)
+        blocked_envelope_2 = validate_provider_stage_retry_status_envelope_v1(blocked_2.body)
+
+        prepared = self.provider_stage_retry_status(chain_id=resume_prepared_chain_id)
+        prepared_envelope = validate_provider_stage_retry_status_envelope_v1(prepared.body)
+        prepared_action = validate_provider_stage_retry_action_v1(prepared_envelope["actions"][0])
+        prepared_post = self.provider_stage_retry_action(
+            chain_id=resume_prepared_chain_id,
+            action=prepared_action,
+        )
+        prepared_completion = self.provider_stage_retry_status(chain_id=resume_prepared_chain_id)
+
+        repair = self.provider_stage_retry_status(chain_id=repair_source_chain_id)
+        repair_envelope = validate_provider_stage_retry_status_envelope_v1(repair.body)
+        repair_action = validate_provider_stage_retry_action_v1(repair_envelope["actions"][0])
+        repair_post = self.provider_stage_retry_action(
+            chain_id=repair_source_chain_id,
+            action=repair_action,
+        )
+        repair_successor = self.provider_stage_retry_status(chain_id=repair_source_chain_id)
+        repair_successor_envelope = validate_provider_stage_retry_status_envelope_v1(
+            repair_successor.body
+        )
+        if repair_successor_envelope["status"]["chain_id"] != repair_successor_chain_id:
+            raise StateConflictError("qualification relay changed Recorder repair successor")
+        repair_successor_action = validate_provider_stage_retry_action_v1(
+            repair_successor_envelope["actions"][0]
+        )
+        repair_successor_post = self.provider_stage_retry_action(
+            chain_id=repair_successor_chain_id,
+            action=repair_successor_action,
+        )
+        repair_completion = self.provider_stage_retry_status(chain_id=repair_source_chain_id)
+        repair_terminal = self.provider_stage_retry_status(chain_id=repair_terminal_chain_id)
+        repair_terminal_envelope = validate_provider_stage_retry_status_envelope_v1(
+            repair_terminal.body
+        )
+
         if (
-            any(value.status_code != 200 for value in ordinary_successes)
-            or retry_1_action.status_code != 500
-            or retry_2_action.status_code != 503
-        ):
-            raise StateConflictError("qualification CERA review relay failed")
-        if (
-            decline_review.body.get("review_id") != decline_review_id
-            or regenerate_review.body.get("review_id") != regenerate_review_id
-            or decline.body.get("review_id") != decline_review_id
-            or regenerate.body.get("review_id") != regenerate_review_id
-        ):
-            raise StateConflictError("qualification CERA review relay changed identity")
-        eligible_action = retry_1_eligible.body.get("transport_retry")
-        retry_1_error = retry_1_action.body.get("error")
-        retry_2_error = retry_2_action.body.get("error")
-        critical = retry_2_terminal.body.get("critical_provider_stage_failure")
-        projected_exhausted_error_keys = {
-            "schema_version",
-            "error_code",
-            "message",
-            "story_state_committed",
-            "retry_mode",
-            "provider_operation_submitted",
-            "accepted_state_changed",
-            "fallback_used",
-            "next_action",
-            "retry_transport_enabled",
-            "critical_provider_stage_failure",
-        }
-        if (
-            retry_1_eligible.body.get("state") != "eligible"
-            or retry_1_eligible.body.get("request_id") != retry_request_id
-            or retry_1_eligible.body.get("effect_proof_sha256") != retry_effect_proof_sha256
-            or not isinstance(eligible_action, dict)
-            or eligible_action.get("retry_id") != retry_id
-            or not isinstance(retry_1_error, dict)
-            or retry_1_error.get("transport_retry") != successor_action
-            or retry_1_terminal.body.get("state") != "superseded"
-            or retry_1_terminal.body.get("superseded_by_retry_id") != successor_id
-            or retry_2_eligible.body.get("state") != "eligible"
-            or retry_2_eligible.body.get("transport_retry") != successor_action
-            or not isinstance(retry_2_error, dict)
-            or set(retry_2_action.body) != {"status", "story_state_committed", "error"}
-            or retry_2_action.body.get("status") != "error"
-            or retry_2_action.body.get("story_state_committed") is not False
-            or set(retry_2_error) != projected_exhausted_error_keys
-            or retry_2_error.get("message")
-            != "CERA stopped after three failed attempts at one provider stage."
-            or retry_2_error.get("provider_operation_submitted") is not True
-            or retry_2_error.get("accepted_state_changed") is not False
-            or retry_2_error.get("fallback_used") is not False
-            or retry_2_error.get("critical_provider_stage_failure") != critical
-            or retry_2_terminal.body.get("schema_version")
-            != "cera.pi_scene.transport_retry_status.v2"
-            or retry_2_terminal.body.get("state") != "attempts_exhausted"
-            or retry_2_terminal.body.get("retry_transport_enabled") is not False
-            or "transport_retry" in retry_2_terminal.body
-            or "superseded_by_retry_id" in retry_2_terminal.body
-            or not isinstance(critical, dict)
-            or critical.get("provider") != "codex"
-            or critical.get("model_family") != "sol"
-            or critical.get("stage") != "planner"
-            or any(
-                sentinel in json.dumps(retry_2_action.body, sort_keys=True)
-                for sentinel in (
-                    "RAW PROVIDER FAILURE PROSE",
-                    "PRIVATE PROVIDER OUTPUT",
-                    "provider-output.md",
-                    "trace:" + "a" * 32,
-                    retry_request_id,
+            any(
+                value.status_code != 200
+                for value in (
+                    health,
+                    decline_review,
+                    regenerate_review,
+                    decline,
+                    regenerate,
+                    exhaustion_1,
+                    exhaustion_2,
+                    exhaustion_post,
+                    exhaustion_terminal,
+                    successor_source,
+                    successor_post,
+                    successor_from_source,
+                    later_reload,
+                    later_post,
+                    terminal_completion,
+                    recovery,
+                    blocked_1,
+                    blocked_2,
+                    prepared,
+                    prepared_post,
+                    prepared_completion,
+                    repair,
+                    repair_post,
+                    repair_successor,
+                    repair_successor_post,
+                    repair_completion,
+                    repair_terminal,
                 )
+                if value is not ambiguous_post
             )
+            or ambiguous_post.status_code != 504
+            or exhaustion_1_envelope["status"]["state"] != "eligible"
+            or exhaustion_2_envelope["status"]["state"] != "eligible"
+            or exhaustion_1_action["retry_action_ordinal"] != 1
+            or exhaustion_2_action["retry_action_ordinal"] != 2
+            or terminal_envelope["status"]["state"] != "attempts_exhausted"
+            or terminal_envelope["actions"] != []
+            or source_action["retry_action_ordinal"] != 1
+            or later_action["retry_action_ordinal"] != 1
+            or recovery_envelope["status"]["state"] != "recovery_required"
+            or recovery_envelope["actions"] != []
+            or blocked_envelope_1 != blocked_envelope_2
+            or blocked_envelope_1["status"]["state"] != "blocked_ambiguous"
+            or prepared_action["action_kind"] != "resume_prepared"
+            or prepared_action["consumes_retry_action"] is not False
+            or prepared_envelope["status"]["retry_actions_accepted"] != 0
+            or prepared_completion.body.get("schema_version") != "cera.pi_scene.review_decision.v1"
+            or repair_action["action_kind"] != "repair_recording"
+            or repair_action["consumes_retry_action"] is not False
+            or repair_successor_action["action_kind"] != "provider_retry"
+            or repair_successor_action["retry_action_ordinal"] != 1
+            or repair_completion.body.get("schema_version") != "cera.pi_scene.review_decision.v1"
+            or repair_terminal_envelope["status"]["state"] != "recording_repair_required"
+            or repair_terminal_envelope["actions"] != []
+            or terminal_completion.body.get("schema_version") != "cera.pi_scene.review_decision.v1"
         ):
-            raise StateConflictError("qualification CERA transport Retry relay changed")
+            raise StateConflictError("qualification generic provider-stage relay changed")
+        values = {
+            "health": health.body,
+            "decline_review": decline_review.body,
+            "regenerate_review": regenerate_review.body,
+            "decline": decline.body,
+            "regenerate": regenerate.body,
+            "ambiguous_post": ambiguous_post.body,
+            "exhaustion_terminal": exhaustion_terminal.body,
+            "successor_post": successor_post.body,
+            "later_post": later_post.body,
+            "terminal_completion": terminal_completion.body,
+            "recovery": recovery.body,
+            "blocked": blocked_2.body,
+            "prepared_post": prepared_post.body,
+            "prepared_completion": prepared_completion.body,
+            "repair_post": repair_post.body,
+            "repair_successor_post": repair_successor_post.body,
+            "repair_completion": repair_completion.body,
+            "repair_terminal": repair_terminal.body,
+        }
         return {
-            "health_sha256": canonical_sha256(health.body),
-            "decline_review_sha256": canonical_sha256(decline_review.body),
-            "regenerate_review_sha256": canonical_sha256(regenerate_review.body),
-            "decline_decision_sha256": canonical_sha256(decline.body),
-            "regenerate_decision_sha256": canonical_sha256(regenerate.body),
-            "retry_1_eligible_sha256": canonical_sha256(retry_1_eligible.body),
-            "retry_1_action_sha256": canonical_sha256(retry_1_action.body),
-            "retry_1_terminal_sha256": canonical_sha256(retry_1_terminal.body),
-            "retry_2_eligible_sha256": canonical_sha256(retry_2_eligible.body),
-            "retry_2_action_sha256": canonical_sha256(retry_2_action.body),
-            "retry_2_terminal_sha256": canonical_sha256(retry_2_terminal.body),
-            "critical_provider_stage_failure_sha256": canonical_sha256(critical),
-            "critical_provider_stage_ui_contract_sha256": canonical_sha256(
-                TRANSPORT_RETRY_TERMINAL_UI_CONTRACT
-            ),
+            "schema_version": "cera.pi_scene.qualification_provider_stage_relay.v1",
+            **{f"{key}_sha256": canonical_sha256(value) for key, value in values.items()},
+            "exact_action_sha256s": [
+                canonical_sha256(value)
+                for value in (
+                    exhaustion_1_action,
+                    exhaustion_2_action,
+                    source_action,
+                    later_action,
+                    prepared_action,
+                    repair_action,
+                    repair_successor_action,
+                )
+            ],
             "provider_calls": 0,
         }
 
@@ -668,10 +764,24 @@ def provider_free_check(
         "sol_ceiling": SOL_FAMILY_CEILING,
         "deepseek_http_operation_ceiling": DEEPSEEK_HTTP_OPERATION_CEILING,
         "deepseek_per_invocation_ceiling": DEEPSEEK_PER_INVOCATION_CEILING,
-        "manual_planner_transport_retry_authorized": True,
-        "maximum_manual_transport_retry_actions_per_prompt": 2,
-        "maximum_total_planner_provider_attempts": 3,
-        "automatic_transport_retry_actions": 0,
+        "manual_provider_stage_retry_authorized": True,
+        "provider_stage_retry_stages": [
+            "planner",
+            "semantic_validator",
+            "writer",
+            "recorder",
+            "adult_scene",
+            "adult_filter",
+        ],
+        "maximum_manual_retry_actions_per_stage_occurrence": 2,
+        "maximum_provider_attempts_per_stage_occurrence": 3,
+        "maximum_manual_resume_prepared_actions_per_stage_occurrence": 1,
+        "maximum_manual_recording_repair_actions_per_request": 1,
+        "maximum_recording_repair_successor_attempts": 3,
+        "maximum_recording_repair_successor_retry_actions": 2,
+        "recursive_recording_repair": False,
+        "automatic_provider_stage_retry_actions": 0,
+        "automatic_provider_stage_control_actions": 0,
         "provider_calls": 0,
     }
     if manifest_path is not None:
@@ -723,6 +833,10 @@ def _start_cera_service(
         seed_runtime_root=seed_runtime_root,
     )
     try:
+        provider_stage_retry = getattr(runtime, "provider_stage_retry", None)
+        retry_http_kwargs = (
+            {} if provider_stage_retry is None else provider_stage_retry.http_adapter_kwargs()
+        )
         adapter = PiSceneHttpAdapter(
             coordinator=runtime.coordinator,
             request_context_provider=build_session_context_provider(
@@ -740,7 +854,10 @@ def _start_cera_service(
                 runtime.transport_retry_fresh_thread_initializer
             ),
             transport_completed_planner_abandoner=(runtime.transport_completed_planner_abandoner),
+            **retry_http_kwargs,
         )
+        if provider_stage_retry is not None:
+            provider_stage_retry.bind_http_adapter(adapter)
         server = build_pi_scene_server(
             adapter,
             PiSceneServerConfigV1(
@@ -763,7 +880,9 @@ def _start_cera_service(
         raise
 
 
-class _FakeRelayUpstream:
+class _GenericFakeRelayUpstreamV1:
+    """Provider-free upstream for exact generic Retry relay qualification."""
+
     def __init__(
         self,
         *,
@@ -771,137 +890,111 @@ class _FakeRelayUpstream:
         decline_review_id: str,
         regenerate_review_id: str,
         authorization_token: str,
-        retry_id: str,
-        retry_request_id: str,
-        retry_effect_proof_sha256: str,
+        chain_id: str,
     ) -> None:
+        self.exhaustion_chain_id = chain_id
+        self.successor_source_chain_id = "stage-retry-" + "4" * 64
+        self.successor_later_chain_id = "stage-retry-" + "5" * 64
+        self.recovery_chain_id = "stage-retry-" + "6" * 64
+        self.blocked_chain_id = "stage-retry-" + "7" * 64
+        self.resume_prepared_chain_id = "stage-retry-" + "a" * 64
+        self.repair_source_chain_id = "stage-retry-" + "b" * 64
+        self.repair_successor_chain_id = "stage-retry-" + "c" * 64
+        self.repair_terminal_chain_id = "stage-retry-" + "d" * 64
+        self._request_sha256 = "8" * 64
+        self._private_sentinel = "RAW PRIVATE RELAY PROVIDER STORY SENTINEL"
+        self._state: dict[str, Any] = {
+            "authenticated_gets": 0,
+            "authenticated_posts": 0,
+            "exact_action_posts": 0,
+            "duplicate_posts": 0,
+            "provider_calls": 0,
+        }
+        self._latest = {
+            self.exhaustion_chain_id: self.exhaustion_chain_id,
+            self.successor_source_chain_id: self.successor_source_chain_id,
+            self.successor_later_chain_id: self.successor_later_chain_id,
+            self.recovery_chain_id: self.recovery_chain_id,
+            self.blocked_chain_id: self.blocked_chain_id,
+            self.resume_prepared_chain_id: self.resume_prepared_chain_id,
+            self.repair_source_chain_id: self.repair_source_chain_id,
+            self.repair_successor_chain_id: self.repair_successor_chain_id,
+            self.repair_terminal_chain_id: self.repair_terminal_chain_id,
+        }
+        self._envelopes: dict[str, dict[str, Any]] = {}
+        self._completed_chains: set[str] = set()
+        self._action_results: dict[str, tuple[int, dict[str, Any]]] = {}
+        self._completion = {
+            "schema_version": "cera.pi_scene.review_decision.v1",
+            "status": "story_committed",
+            "creator_action": "regenerate",
+            "story_state_committed": True,
+            "accepted_receipt_sha256": "9" * 64,
+        }
+        self._envelopes[self.exhaustion_chain_id] = self._envelope(
+            chain_id=self.exhaustion_chain_id,
+            stage="planner",
+            attempts=1,
+            retries=0,
+            state="eligible",
+        )
+        self._envelopes[self.successor_source_chain_id] = self._envelope(
+            chain_id=self.successor_source_chain_id,
+            stage="writer",
+            attempts=1,
+            retries=0,
+            state="eligible",
+        )
+        self._envelopes[self.recovery_chain_id] = self._envelope(
+            chain_id=self.recovery_chain_id,
+            stage="adult_filter",
+            attempts=1,
+            retries=0,
+            state="recovery_required",
+        )
+        self._envelopes[self.blocked_chain_id] = self._envelope(
+            chain_id=self.blocked_chain_id,
+            stage="recorder",
+            attempts=1,
+            retries=0,
+            state="blocked_ambiguous",
+        )
+        self._envelopes[self.resume_prepared_chain_id] = self._envelope(
+            chain_id=self.resume_prepared_chain_id,
+            stage="writer",
+            attempts=1,
+            retries=0,
+            state="in_progress",
+            control_action="resume_prepared",
+            operations_observed=0,
+        )
+        self._envelopes[self.repair_source_chain_id] = self._envelope(
+            chain_id=self.repair_source_chain_id,
+            stage="recorder",
+            attempts=3,
+            retries=2,
+            state="recording_repair_required",
+            control_action="repair_recording",
+        )
+        self._envelopes[self.repair_terminal_chain_id] = self._envelope(
+            chain_id=self.repair_terminal_chain_id,
+            stage="recorder",
+            attempts=3,
+            retries=2,
+            state="recording_repair_required",
+        )
         expected_reviews = {
             f"/v1/cera/reviews/{decline_review_id}": decline_review_id,
             f"/v1/cera/reviews/{regenerate_review_id}": regenerate_review_id,
         }
-        retry_ids = (retry_id, "retry-" + "4" * 64)
-        retry_effects = (retry_effect_proof_sha256, "5" * 64)
-        retry_paths = tuple(f"/v1/cera/transport-retries/{value}" for value in retry_ids)
-        critical = {
-            "schema_version": "cera.provider_stage_retry_exhausted.v1",
-            "severity": "critical",
-            "provider": "codex",
-            "model_family": "sol",
-            "stage": "planner",
-            "maximum_attempts": 3,
-            "attempts_total": 3,
-            "retries_consumed": 2,
-            "story_state_committed": False,
-            "failed_stage_effect_committed": False,
-            "provider_operations_observed_total": 3,
-            "provider_operations_conservative_total": 3,
-            "final_failure_class": "provider_unavailable",
-            "request_sha256": "6" * 64,
-            "stage_input_sha256": "7" * 64,
-            "attempt_chain_sha256": "8" * 64,
-            "terminal_evidence_sha256": "9" * 64,
-        }
-        retry_state: dict[str, Any] = {
-            "authenticated_gets": 0,
-            "authenticated_posts": 0,
-            "exact_empty_posts": 0,
-            "posted": [False, False],
-        }
-
-        def retry_action(index: int) -> dict[str, Any]:
-            return {
-                "schema_version": "cera.pi_scene.transport_retry.v1",
-                "retry_id": retry_ids[index],
-                "retry_url": retry_paths[index],
-                "method": "POST",
-                "eligible": True,
-                "automatic": False,
-                "effect_proof_sha256": retry_effects[index],
-            }
-
-        def retry_status(index: int) -> dict[str, Any]:
-            common = {
-                "schema_version": "cera.pi_scene.transport_retry_status.v1",
-                "retry_id": retry_ids[index],
-                "request_id": retry_request_id,
-                "effect_proof_sha256": retry_effects[index],
-            }
-            if not retry_state["posted"][index]:
-                return {
-                    **common,
-                    "state": "eligible",
-                    "retry_transport_enabled": True,
-                    "transport_retry": retry_action(index),
-                }
-            if index == 0:
-                return {
-                    **common,
-                    "state": "superseded",
-                    "retry_transport_enabled": True,
-                    "superseded_by_retry_id": retry_ids[1],
-                    "transport_retry": retry_action(1),
-                }
-            return {
-                **common,
-                "schema_version": "cera.pi_scene.transport_retry_status.v2",
-                "state": "attempts_exhausted",
-                "retry_transport_enabled": False,
-                "critical_provider_stage_failure": critical,
-            }
-
-        def successor_failure() -> dict[str, Any]:
-            return {
-                "status": "error",
-                "story_state_committed": False,
-                "error": {
-                    "schema_version": "cera.error.v1",
-                    "error_code": "CERA_PROVIDER_TRANSPORT_FAILED",
-                    "message": (
-                        "A provider transport failed with no candidate or story-state effect."
-                    ),
-                    "request_id": retry_request_id,
-                    "story_state_committed": False,
-                    "retry_mode": "manual_transport",
-                    "provider_operation_submitted": True,
-                    "accepted_state_changed": False,
-                    "fallback_used": False,
-                    "next_action": "use_transport_retry",
-                    "retry_transport_enabled": True,
-                    "transport_retry": retry_action(1),
-                },
-            }
-
-        def exhausted_failure() -> dict[str, Any]:
-            return {
-                "status": "error",
-                "story_state_committed": False,
-                "error": {
-                    "schema_version": "cera.error.v1",
-                    "error_code": "CERA_PROVIDER_STAGE_RETRY_EXHAUSTED",
-                    "message": "RAW PROVIDER FAILURE PROSE",
-                    "trace_id": "trace:" + "a" * 32,
-                    "request_id": retry_request_id,
-                    "branch_id": None,
-                    "generation_id": None,
-                    "stage": "pi_scene_http",
-                    "story_state_committed": False,
-                    "retry_mode": "exhausted",
-                    "details": ["PRIVATE PROVIDER OUTPUT"],
-                    "fallback_used": False,
-                    "provider_operation_submitted": True,
-                    "accepted_state_changed": False,
-                    "next_action": "report_critical_provider_failure",
-                    "debug_log_path": r"D:\private\provider-output.md",
-                    "retry_transport_enabled": False,
-                    "critical_provider_stage_failure": critical,
-                },
-            }
+        owner = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 if self.path in {"/v1/health", "/health"}:
                     self._json({"status": "ok", "provider_calls": 0})
-                elif self.path in expected_reviews:
+                    return
+                if self.path in expected_reviews:
                     review_id = expected_reviews[self.path]
                     self._json(
                         {
@@ -910,15 +1003,23 @@ class _FakeRelayUpstream:
                             "story_state_committed": False,
                         }
                     )
-                elif self.path in retry_paths:
-                    if self.headers.get("Authorization") != f"Bearer {authorization_token}":
-                        self.send_error(401)
-                        return
-                    retry_index = retry_paths.index(self.path)
-                    retry_state["authenticated_gets"] += 1
-                    self._json(retry_status(retry_index))
-                else:
+                    return
+                prefix = "/v1/cera/provider-stage-retries/"
+                if not self.path.startswith(prefix):
                     self.send_error(404)
+                    return
+                if not self._authorized():
+                    return
+                chain = self.path.removeprefix(prefix)
+                if "/" in chain or chain not in owner._latest:
+                    self.send_error(404)
+                    return
+                owner._state["authenticated_gets"] += 1
+                current = owner._resolve_latest(chain)
+                if current in owner._completed_chains:
+                    self._json(owner._completion)
+                    return
+                self._json(owner._envelopes[current])
 
             def do_POST(self) -> None:
                 decision_paths = {
@@ -931,42 +1032,65 @@ class _FakeRelayUpstream:
                         "regenerate",
                     ),
                 }
-                if self.path in retry_paths:
-                    if self.headers.get("Authorization") != f"Bearer {authorization_token}":
-                        self.send_error(401)
-                        return
-                    retry_index = retry_paths.index(self.path)
-                    length = int(self.headers.get("Content-Length", "0"))
-                    payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                    retry_state["authenticated_posts"] += 1
-                    if payload != {} or retry_state["posted"][retry_index]:
+                if self.path in decision_paths:
+                    review_id, action = decision_paths[self.path]
+                    payload = self._payload()
+                    if payload.get("action") != action:
                         self.send_error(422)
                         return
-                    retry_state["exact_empty_posts"] += 1
-                    retry_state["posted"][retry_index] = True
                     self._json(
-                        successor_failure() if retry_index == 0 else exhausted_failure(),
-                        status=500 if retry_index == 0 else 503,
+                        {
+                            "status": "review_transitioned",
+                            "review_id": review_id,
+                            "state": "declined" if action == "decline" else "review_ready",
+                            "story_state_committed": False,
+                            "provider_calls": 0,
+                        }
                     )
                     return
-                if self.path not in decision_paths:
+                prefix = "/v1/cera/provider-stage-retries/"
+                if not self.path.startswith(prefix) or "/actions/" not in self.path:
                     self.send_error(404)
                     return
-                review_id, action = decision_paths[self.path]
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                if payload.get("action") != action:
+                if not self._authorized():
+                    return
+                tail = self.path.removeprefix(prefix)
+                chain, action_id = tail.split("/actions/", 1)
+                if chain not in owner._envelopes:
+                    self.send_error(404)
+                    return
+                payload = self._payload()
+                expected = owner._envelopes[chain]["actions"]
+                if (
+                    len(expected) != 1
+                    or payload != expected[0]
+                    or payload.get("action_id") != action_id
+                ):
                     self.send_error(422)
                     return
-                self._json(
-                    {
-                        "status": "review_transitioned",
-                        "review_id": review_id,
-                        "state": "declined" if action == "decline" else "review_ready",
-                        "story_state_committed": False,
-                        "provider_calls": 0,
-                    }
-                )
+                owner._state["authenticated_posts"] += 1
+                prior = owner._action_results.get(action_id)
+                if prior is not None:
+                    owner._state["duplicate_posts"] += 1
+                    self._json(prior[1], status=prior[0])
+                    return
+                owner._state["exact_action_posts"] += 1
+                status_code, result = owner._execute_action(chain)
+                owner._action_results[action_id] = (status_code, result)
+                self._json(result, status=status_code)
+
+            def _authorized(self) -> bool:
+                if self.headers.get("Authorization") == f"Bearer {authorization_token}":
+                    return True
+                self.send_error(401)
+                return False
+
+            def _payload(self) -> dict[str, Any]:
+                length = int(self.headers.get("Content-Length", "0"))
+                value = json.loads(self.rfile.read(length).decode("utf-8"))
+                if not isinstance(value, dict):
+                    raise StateConflictError("fake relay body is not an object")
+                return value
 
             def _json(self, payload: dict[str, Any], *, status: int = 200) -> None:
                 data = canonical_bytes(payload)
@@ -982,11 +1106,199 @@ class _FakeRelayUpstream:
         self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         self.worker = Thread(target=self.server.serve_forever, daemon=True)
         self._started = False
-        self._retry_state = retry_state
-        self._retry_ids = retry_ids
-        self._retry_request_id = retry_request_id
-        self._retry_effect_proof_sha256s = retry_effects
-        self._critical = critical
+
+    def _execute_action(self, chain_id: str) -> tuple[int, dict[str, Any]]:
+        status = self._envelopes[chain_id]["status"]
+        if chain_id == self.exhaustion_chain_id:
+            retries = int(status["retry_actions_accepted"]) + 1
+            attempts = int(status["stage_attempts_total"]) + 1
+            state = "eligible" if retries == 1 else "attempts_exhausted"
+            self._envelopes[chain_id] = self._envelope(
+                chain_id=chain_id,
+                stage="planner",
+                attempts=attempts,
+                retries=retries,
+                state=state,
+            )
+            return (504 if retries == 1 else 200), self._envelopes[chain_id]
+        if chain_id == self.successor_source_chain_id:
+            self._envelopes[self.successor_later_chain_id] = self._envelope(
+                chain_id=self.successor_later_chain_id,
+                stage="semantic_validator",
+                attempts=1,
+                retries=0,
+                state="eligible",
+            )
+            self._latest[chain_id] = self.successor_later_chain_id
+            return 200, self._envelopes[self.successor_later_chain_id]
+        if chain_id == self.successor_later_chain_id:
+            del self._envelopes[chain_id]
+            self._completed_chains.add(chain_id)
+            return 200, dict(self._completion)
+        if chain_id == self.resume_prepared_chain_id:
+            del self._envelopes[chain_id]
+            self._completed_chains.add(chain_id)
+            return 200, dict(self._completion)
+        if chain_id == self.repair_source_chain_id:
+            self._envelopes[self.repair_successor_chain_id] = self._envelope(
+                chain_id=self.repair_successor_chain_id,
+                stage="recorder",
+                attempts=1,
+                retries=0,
+                state="eligible",
+            )
+            self._latest[chain_id] = self.repair_successor_chain_id
+            return 200, self._envelopes[self.repair_successor_chain_id]
+        if chain_id == self.repair_successor_chain_id:
+            del self._envelopes[chain_id]
+            self._completed_chains.add(chain_id)
+            return 200, dict(self._completion)
+        raise StateConflictError("fake relay accepted an action on a terminal chain")
+
+    def _resolve_latest(self, chain_id: str) -> str:
+        current = chain_id
+        seen: set[str] = set()
+        while self._latest[current] != current:
+            if current in seen:
+                raise StateConflictError("fake relay successor cycle")
+            seen.add(current)
+            current = self._latest[current]
+        return current
+
+    def _envelope(
+        self,
+        *,
+        chain_id: str,
+        stage: str,
+        attempts: int,
+        retries: int,
+        state: str,
+        control_action: str | None = None,
+        operations_observed: int | None = None,
+    ) -> dict[str, Any]:
+        provider = "codex" if stage in {"planner", "semantic_validator"} else "deepseek"
+        model_family = (
+            "sol"
+            if stage == "planner"
+            else "luna"
+            if stage == "semantic_validator"
+            else "deepseek_v4"
+        )
+        chain_sha256 = text_sha256(f"{chain_id}:{attempts}:{retries}:{state}")
+        failure_category: str | None = "provider_unavailable"
+        available_actions: list[str] = []
+        actions: list[dict[str, Any]] = []
+        if state == "eligible":
+            available_actions = ["provider_retry"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{chain_id}:{retries + 1}')}",
+                    "chain_id": chain_id,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "provider_retry",
+                    "automatic": False,
+                    "provider_dispatch_authorized": True,
+                    "consumes_retry_action": True,
+                    "retry_action_ordinal": retries + 1,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+        elif state == "in_progress" and control_action == "resume_prepared":
+            failure_category = None
+            available_actions = ["resume_prepared"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{chain_id}:resume')}",
+                    "chain_id": chain_id,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "resume_prepared",
+                    "automatic": False,
+                    "provider_dispatch_authorized": True,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+        elif state == "blocked_ambiguous":
+            failure_category = "dispatch_ambiguous"
+            available_actions = ["check_status"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{chain_id}:check')}",
+                    "chain_id": chain_id,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "check_status",
+                    "automatic": False,
+                    "provider_dispatch_authorized": False,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+        elif state == "recovery_required":
+            failure_category = "configuration_failed"
+        elif state == "recording_repair_required" and control_action == "repair_recording":
+            available_actions = ["repair_recording"]
+            actions = [
+                {
+                    "schema_version": "cera.provider_stage_retry_action.v1",
+                    "action_id": f"stage-action-{text_sha256(f'{chain_id}:repair')}",
+                    "chain_id": chain_id,
+                    "action_family": "provider_stage_control",
+                    "action_kind": "repair_recording",
+                    "automatic": False,
+                    "provider_dispatch_authorized": True,
+                    "consumes_retry_action": False,
+                    "retry_action_ordinal": None,
+                    "whole_request_replay_authorized": False,
+                    "provider_substitution_authorized": False,
+                    "expected_chain_sha256": chain_sha256,
+                }
+            ]
+        status = {
+            "schema_version": "cera.provider_stage_retry_status.v1",
+            "chain_id": chain_id,
+            "provider": provider,
+            "model_family": model_family,
+            "stage": stage,
+            "state": state,
+            "maximum_attempts": 3,
+            "stage_attempts_total": attempts,
+            "retry_actions_accepted": retries,
+            "provider_operations_observed_total": (
+                attempts if operations_observed is None else operations_observed
+            ),
+            "provider_operations_conservative_total": (
+                attempts if operations_observed is None else operations_observed
+            ),
+            "story_state_committed": stage == "recorder",
+            "branch_preserved_at_last_accepted_head": True,
+            "failure_category": failure_category,
+            "available_actions": available_actions,
+            "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "a" * 64,
+                "request_sha256": self._request_sha256,
+                "stage_input_sha256": text_sha256(f"relay:{stage}"),
+                "accepted_state_sha256": "b" * 64,
+                "chain_sha256": chain_sha256,
+            },
+        }
+        envelope = {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": status,
+            "actions": actions,
+        }
+        return dict(validate_provider_stage_retry_status_envelope_v1(envelope))
 
     def start(self) -> None:
         self.worker.start()
@@ -1002,22 +1314,31 @@ class _FakeRelayUpstream:
 
     def retry_proof(self) -> dict[str, Any]:
         body = {
-            "schema_version": "cera.pi_scene.qualification_fake_retry_relay.v2",
-            "retry_id_sha256s": [text_sha256(value) for value in self._retry_ids],
-            "request_id_sha256": text_sha256(self._retry_request_id),
-            "effect_proof_sha256s": list(self._retry_effect_proof_sha256s),
-            "critical_provider_stage_failure_sha256": canonical_sha256(self._critical),
-            "authenticated_gets": self._retry_state["authenticated_gets"],
-            "authenticated_posts": self._retry_state["authenticated_posts"],
-            "exact_empty_posts": self._retry_state["exact_empty_posts"],
-            "provider_calls": 0,
+            "schema_version": "cera.pi_scene.qualification_fake_provider_stage_relay.v1",
+            "chain_id_hashes": [
+                text_sha256(value)
+                for value in (
+                    self.exhaustion_chain_id,
+                    self.successor_source_chain_id,
+                    self.successor_later_chain_id,
+                    self.recovery_chain_id,
+                    self.blocked_chain_id,
+                    self.resume_prepared_chain_id,
+                    self.repair_source_chain_id,
+                    self.repair_successor_chain_id,
+                    self.repair_terminal_chain_id,
+                )
+            ],
+            **self._state,
+            "private_sentinel_absent": self._private_sentinel
+            not in json.dumps(self._envelopes, sort_keys=True),
         }
         if (
-            body["authenticated_gets"] != 4
-            or body["authenticated_posts"] != 2
-            or body["exact_empty_posts"] != 2
+            body["exact_action_posts"] != 7
+            or body["provider_calls"] != 0
+            or body["private_sentinel_absent"] is not True
         ):
-            raise StateConflictError("qualification fake Retry relay proof is incomplete")
+            raise StateConflictError("qualification generic fake relay proof is incomplete")
         return {**body, "proof_sha256": canonical_sha256(body)}
 
 
@@ -1207,19 +1528,15 @@ def live(
     cera_token = secrets.token_urlsafe(32)
     decline_probe_id = "review-0123456789abcdef0123456789ab"
     regenerate_probe_id = "review-fedcba9876543210fedcba987654"
-    retry_probe_id = "retry-" + "1" * 64
-    retry_request_id = "request-" + "2" * 64
-    retry_effect_proof_sha256 = "3" * 64
+    retry_probe_id = "stage-retry-" + "1" * 64
     relay_port = _available_port_excluding(5101)
     relay_st_port = _available_port_excluding(5101, relay_port)
-    fake_relay = _FakeRelayUpstream(
+    fake_relay = _GenericFakeRelayUpstreamV1(
         port=relay_port,
         decline_review_id=decline_probe_id,
         regenerate_review_id=regenerate_probe_id,
         authorization_token=cera_token,
-        retry_id=retry_probe_id,
-        retry_request_id=retry_request_id,
-        retry_effect_proof_sha256=retry_effect_proof_sha256,
+        chain_id=retry_probe_id,
     )
     relay_process: subprocess.Popen[str] | None = None
     try:
@@ -1234,12 +1551,18 @@ def live(
             cera_base_url=f"http://127.0.0.1:{relay_port}",
             cera_token=cera_token,
         )
-        relay_proof = relay_client.probe_relay(
+        relay_proof = relay_client.probe_provider_stage_relay(
             decline_review_id=decline_probe_id,
             regenerate_review_id=regenerate_probe_id,
-            retry_id=retry_probe_id,
-            retry_request_id=retry_request_id,
-            retry_effect_proof_sha256=retry_effect_proof_sha256,
+            exhaustion_chain_id=fake_relay.exhaustion_chain_id,
+            successor_source_chain_id=fake_relay.successor_source_chain_id,
+            successor_later_chain_id=fake_relay.successor_later_chain_id,
+            recovery_chain_id=fake_relay.recovery_chain_id,
+            blocked_chain_id=fake_relay.blocked_chain_id,
+            resume_prepared_chain_id=fake_relay.resume_prepared_chain_id,
+            repair_source_chain_id=fake_relay.repair_source_chain_id,
+            repair_successor_chain_id=fake_relay.repair_successor_chain_id,
+            repair_terminal_chain_id=fake_relay.repair_terminal_chain_id,
         )
         relay_proof = {
             **relay_proof,
@@ -1340,24 +1663,41 @@ def live(
         _atomic_write_json(root / "CHAT_ISOLATION_PROOF.json", isolation_proof)
         if st_process.poll() is not None:
             raise StateConflictError("isolated SillyTavern exited during qualification")
-        retry_actions = int(backend["transport_retry_actions"]) + int(
-            st_result["transport_retry_actions"]
+        retry_actions = int(backend["provider_stage_retry_actions"]) + int(
+            st_result["provider_stage_retry_actions"]
         )
-        retry_chains = int(backend["transport_retry_chains"]) + int(
-            st_result["transport_retry_chains"]
+        retry_chains = int(backend["provider_stage_retry_chains"]) + int(
+            st_result["provider_stage_retry_chains"]
         )
-        retry_chain_actions = int(backend["transport_retry_chain_actions"]) + int(
-            st_result["transport_retry_chain_actions"]
+        retry_chain_actions = int(backend["provider_stage_retry_chain_actions"]) + int(
+            st_result["provider_stage_retry_chain_actions"]
+        )
+        resume_prepared_actions = int(backend["provider_stage_resume_prepared_actions"]) + int(
+            st_result["provider_stage_resume_prepared_actions"]
+        )
+        repair_recording_actions = int(backend["provider_stage_repair_recording_actions"]) + int(
+            st_result["provider_stage_repair_recording_actions"]
+        )
+        control_actions = int(backend["provider_stage_control_actions"]) + int(
+            st_result["provider_stage_control_actions"]
+        )
+        control_chain_actions = int(backend["provider_stage_control_chain_actions"]) + int(
+            st_result["provider_stage_control_chain_actions"]
         )
         terminal_critical_failures = int(
-            backend["transport_retry_terminal_critical_failures"]
-        ) + int(st_result["transport_retry_terminal_critical_failures"])
-        if retry_actions != retry_chain_actions or terminal_critical_failures != 0:
-            raise StateConflictError(
-                "qualification manual transport Retry lacks one terminal evidence chain"
-            )
+            backend["provider_stage_retry_terminal_critical_failures"]
+        ) + int(st_result["provider_stage_retry_terminal_critical_failures"])
+        if (
+            retry_actions != retry_chain_actions
+            or control_actions != control_chain_actions
+            or control_actions != retry_actions + resume_prepared_actions + repair_recording_actions
+            or terminal_critical_failures != 0
+        ):
+            raise StateConflictError("qualification provider-stage Retry evidence is incomplete")
+        backend_timing = cast(dict[str, Any], backend["phase_timing_evidence"])
+        sillytavern_timing = cast(dict[str, Any], st_result["phase_timing_evidence"])
         result = {
-            "schema_version": "cera.pi_scene.full_model_complete_qualification.v3",
+            "schema_version": "cera.pi_scene.full_model_complete_qualification.v4",
             "qualification_id": manifest["qualification_id"],
             "manifest_sha256": manifest["manifest_sha256"],
             "status": "passed",
@@ -1380,12 +1720,33 @@ def live(
             "backend_sequential_turns": backend["passed_fixtures"],
             "sillytavern_sequential_turns": st_result["passed_fixtures"],
             "sillytavern_runtime_restarts": st_result["restart_count"],
-            "transport_retry_actions": retry_actions,
-            "transport_retry_chains": retry_chains,
-            "transport_retry_chain_actions": retry_chain_actions,
-            "transport_retry_terminal_critical_failures": terminal_critical_failures,
-            "automatic_transport_retry_actions": 0,
+            "provider_stage_retry_actions": retry_actions,
+            "provider_stage_retry_chains": retry_chains,
+            "provider_stage_retry_chain_actions": retry_chain_actions,
+            "provider_stage_resume_prepared_actions": resume_prepared_actions,
+            "provider_stage_repair_recording_actions": repair_recording_actions,
+            "provider_stage_control_actions": control_actions,
+            "provider_stage_control_chain_actions": control_chain_actions,
+            "provider_stage_retry_terminal_critical_failures": terminal_critical_failures,
+            "automatic_provider_stage_retry_actions": 0,
+            "automatic_provider_stage_control_actions": 0,
+            "recursive_recording_repair": False,
             "fallback_used": False,
+            "timing_evidence": {
+                "schema_version": "cera.pi_scene.complete_qualification_timing.v1",
+                "backend_total": dict(cast(dict[str, Any], backend_timing["http_total"])),
+                "sillytavern_total": dict(cast(dict[str, Any], sillytavern_timing["http_total"])),
+                "sillytavern_overhead": dict(
+                    cast(dict[str, Any], sillytavern_timing["sillytavern_overhead"])
+                ),
+                "backend_provider_transport_latency_sha256": canonical_sha256(
+                    backend["provider_transport_latency_evidence"]
+                ),
+                "sillytavern_provider_transport_latency_sha256": canonical_sha256(
+                    st_result["provider_transport_latency_evidence"]
+                ),
+                "overhead_estimated": False,
+            },
             "review_relay_preflight_sha256": canonical_sha256(relay_proof),
             "chat_isolation_proof_sha256": canonical_sha256(isolation_proof),
             "isolated_sillytavern_manifest_sha256": isolated_manifest["manifest_sha256"],
