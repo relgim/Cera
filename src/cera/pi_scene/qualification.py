@@ -26,6 +26,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
+from statistics import median
 from typing import Any, Protocol, cast
 
 from cera.errors import ContractValidationError, StateConflictError
@@ -420,6 +421,7 @@ class QualificationCampaignRun:
         self.deepseek_input_tokens = 0
         self.planner_operation_count = 0
         self.planner_thread_operation_counts: dict[str, int] = {}
+        self.provider_operation_records: list[dict[str, Any]] = []
         self.transport_retry_actions = 0
         self.transport_retry_chains = 0
         self.transport_retry_terminal_critical_failures = 0
@@ -558,6 +560,7 @@ class QualificationCampaignRun:
                 after = ProviderLedgerSnapshotV1.load(segment_root)
                 delta = after.delta_from(before)
                 operation_records = _provider_operation_records(delta)
+                self.provider_operation_records.extend(operation_records)
                 retry_chains: list[dict[str, Any]] = []
                 if retry_resolution is not None:
                     retry_chain = _finalize_transport_retry_chain(
@@ -644,10 +647,10 @@ class QualificationCampaignRun:
                 self.failure = exc
                 after = ProviderLedgerSnapshotV1.load(segment_root)
                 delta = after.delta_from(before)
+                failed_operation_records = _provider_operation_records(delta)
+                self.provider_operation_records.extend(failed_operation_records)
                 if planner_latency is None:
-                    planner_latency = self._planner_latency_observations(
-                        _provider_operation_records(delta)
-                    )
+                    planner_latency = self._planner_latency_observations(failed_operation_records)
                 failed = {
                     "fixture_id": fixture.fixture_id,
                     "phase": self.phase.value,
@@ -1130,6 +1133,7 @@ class QualificationCampaignRun:
                 {
                     "planner_call_index": self.planner_operation_count,
                     "planner_thread_call_index": planner_thread_call_index,
+                    "operation_id": operation["operation_id"],
                     "session_identity_sha256": session_identity_sha256,
                     "duration_ms": duration_ms,
                     "latency_class": (
@@ -1247,6 +1251,18 @@ class QualificationCampaignRun:
                     else None
                 ),
             },
+            "provider_stage_latency_summary": _provider_stage_latency_summary(
+                self.provider_operation_records,
+                planner_latency,
+            ),
+            "http_latency_summary": _latency_summary(
+                [
+                    cast(int, value["latency_ms"])
+                    for value in self.results
+                    if type(value.get("latency_ms")) is int
+                ],
+                failures=sum(value["status"] == "failed" for value in self.results),
+            ),
             "results": self.results,
         }
         result_payload["result_sha256"] = canonical_sha256(result_payload)
@@ -2832,6 +2848,111 @@ def _validate_exhausted_transport_retry_delta(
     }
 
 
+def _provider_stage_latency_summary(
+    records: Sequence[Mapping[str, Any]],
+    planner_observations: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize measured provider transport time without inventing percentiles."""
+
+    planner_classes: dict[str, str] = {}
+    for value in planner_observations:
+        operation_id = value.get("operation_id")
+        latency_class = value.get("latency_class")
+        if isinstance(operation_id, str) and isinstance(latency_class, str):
+            planner_classes[operation_id] = latency_class
+    stage_names = (
+        "planner",
+        "semantic_validator",
+        "writer",
+        "recorder",
+        "adult_scene",
+        "adult_filter",
+    )
+    result: dict[str, Any] = {}
+    for stage in stage_names:
+        selected = [value for value in records if value.get("stage") == stage]
+        durations = [
+            cast(int, value["duration_ms"])
+            for value in selected
+            if type(value.get("duration_ms")) is int
+        ]
+        failures = sum(_provider_operation_failed(value) for value in selected)
+        classes: dict[str, list[int]] = {}
+        for value in selected:
+            duration_ms = value.get("duration_ms")
+            if type(duration_ms) is not int:
+                continue
+            if stage == "planner":
+                operation_id = value.get("operation_id")
+                session_class = (
+                    planner_classes.get(operation_id, "unclassified")
+                    if isinstance(operation_id, str)
+                    else "unclassified"
+                )
+            elif stage == "writer":
+                session_class = "fresh_rehydration"
+            else:
+                session_class = "fresh_single_use"
+            classes.setdefault(session_class, []).append(duration_ms)
+        retained_violations: list[dict[str, Any]] = []
+        if stage == "planner":
+            for value in selected:
+                operation_id = value.get("operation_id")
+                duration_ms = value.get("duration_ms")
+                if (
+                    isinstance(operation_id, str)
+                    and type(duration_ms) is int
+                    and planner_classes.get(operation_id) == "retained_latency_concern"
+                ):
+                    retained_violations.append(
+                        {
+                            "operation_id_sha256": text_sha256(operation_id),
+                            "duration_ms": duration_ms,
+                        }
+                    )
+        result[stage] = {
+            "operations_total": len(selected),
+            **_latency_summary(durations, failures=failures),
+            "session_classes": {
+                name: _latency_summary(values, failures=0)
+                for name, values in sorted(classes.items())
+            },
+            "retained_latency_violations": retained_violations,
+        }
+    return result
+
+
+def _latency_summary(values: Sequence[int], *, failures: int) -> dict[str, int | None]:
+    if any(type(value) is not int or value < 0 for value in values):
+        raise StateConflictError("qualification latency sample is invalid")
+    if type(failures) is not int or failures < 0:
+        raise StateConflictError("qualification latency failure count is invalid")
+    if not values:
+        return {
+            "measured_samples": 0,
+            "average_duration_ms": None,
+            "median_duration_ms": None,
+            "minimum_duration_ms": None,
+            "maximum_duration_ms": None,
+            "failures": failures,
+        }
+    return {
+        "measured_samples": len(values),
+        "average_duration_ms": round(sum(values) / len(values)),
+        "median_duration_ms": round(median(values)),
+        "minimum_duration_ms": min(values),
+        "maximum_duration_ms": max(values),
+        "failures": failures,
+    }
+
+
+def _provider_operation_failed(value: Mapping[str, Any]) -> bool:
+    terminal = value.get("terminal_state")
+    return isinstance(terminal, str) and (
+        terminal.endswith("failed") or terminal in {"provider_failed", "pretransport_failed"}
+    )
+
+
 def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     sol_by_call: dict[str, list[Mapping[str, Any]]] = {}
@@ -2841,6 +2962,14 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
             sol_by_call.setdefault(call_id, []).append(event)
     for call_id, events in sol_by_call.items():
         identity = events[0]
+        owner = identity.get("owner")
+        model = identity.get("model")
+        stage = "semantic_validator" if owner == "validator" else "planner"
+        provider_family = (
+            "luna"
+            if stage == "semantic_validator" or (isinstance(model, str) and "luna" in model.lower())
+            else "sol"
+        )
         invoked = next(
             (value for value in events if value.get("state") == "transport_invoked"),
             None,
@@ -2855,11 +2984,12 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
         timing_start = identity if invoked is None else invoked
         records.append(
             {
-                "provider_family": "sol",
+                "provider_family": provider_family,
                 "operation_id": call_id,
-                "owner": identity.get("owner"),
+                "owner": owner,
+                "stage": stage,
                 "route": identity.get("route"),
-                "model": identity.get("model"),
+                "model": model,
                 "session_identity_sha256": identity.get("stored_thread_sha256"),
                 "submitted": invoked is not None,
                 "charged": charged,
@@ -2873,12 +3003,21 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
             }
         )
 
+    deepseek_prepared: dict[str, Mapping[str, Any]] = {}
     deepseek_started: dict[tuple[str, int], Mapping[str, Any]] = {}
     deepseek_completed: dict[tuple[str, int], Mapping[str, Any]] = {}
+    deepseek_terminal: dict[str, Mapping[str, Any]] = {}
     for event in delta.deepseek_events:
         invocation_id = event.get("invocation_id")
+        if not isinstance(invocation_id, str):
+            continue
+        if event.get("event") == "invocation_prepared":
+            deepseek_prepared[invocation_id] = event
+            continue
+        if event.get("event") in {"invocation_completed", "invocation_failed"}:
+            deepseek_terminal[invocation_id] = event
         operation_index = event.get("operation_index")
-        if not isinstance(invocation_id, str) or type(operation_index) is not int:
+        if type(operation_index) is not int:
             continue
         key = (invocation_id, operation_index)
         if event.get("event") == "provider_operation_started":
@@ -2887,19 +3026,26 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
             deepseek_completed[key] = event
     for key, started in deepseek_started.items():
         completed = deepseek_completed.get(key)
+        invocation_id = key[0]
+        prepared = deepseek_prepared.get(invocation_id, {})
+        invocation_terminal = deepseek_terminal.get(invocation_id)
+        purpose = prepared.get("purpose")
+        stage = _deepseek_stage(purpose)
+        timing_terminal = completed if completed is not None else invocation_terminal
         records.append(
             {
                 "provider_family": "deepseek",
                 "operation_id": f"{key[0]}:{key[1]}",
-                "owner": None,
-                "route": None,
+                "owner": purpose,
+                "stage": stage,
+                "route": prepared.get("route"),
                 "model": "deepseek-via-confined-pi",
                 "session_identity_sha256": text_sha256(key[0]),
                 "started_at_utc": started.get("recorded_at_utc"),
                 "completed_at_utc": (
-                    None if completed is None else completed.get("recorded_at_utc")
+                    None if timing_terminal is None else timing_terminal.get("recorded_at_utc")
                 ),
-                "duration_ms": _duration_ms(started, completed),
+                "duration_ms": _duration_ms(started, timing_terminal),
                 "input_tokens": None if completed is None else completed.get("input_tokens"),
                 "cached_input_tokens": (
                     None if completed is None else completed.get("cached_input_tokens")
@@ -2909,9 +3055,26 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
                     None if completed is None else completed.get("reasoning_tokens")
                 ),
                 "finish_status": None if completed is None else completed.get("finish_status"),
+                "terminal_state": (
+                    None if invocation_terminal is None else invocation_terminal.get("event")
+                ),
             }
         )
     return records
+
+
+def _deepseek_stage(purpose: object) -> str:
+    mapping = {
+        "writer": "writer",
+        "recorder": "recorder",
+        "adult_scene": "adult_scene",
+        "adult-scene": "adult_scene",
+        "adult_filter": "adult_filter",
+        "adult-filter": "adult_filter",
+    }
+    if not isinstance(purpose, str) or purpose not in mapping:
+        raise StateConflictError("qualification DeepSeek operation purpose is unbound")
+    return mapping[purpose]
 
 
 def _load_sol_events(path: Path) -> tuple[Mapping[str, Any], ...]:

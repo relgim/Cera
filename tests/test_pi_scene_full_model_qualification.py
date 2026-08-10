@@ -236,6 +236,20 @@ class _FakeQualificationClient:
         _append_jsonl(
             path,
             {
+                "schema_version": "cera.pi_scene.provider_operation_ledger.v1",
+                "event": "invocation_prepared",
+                "invocation_id": invocation_id,
+                "candidate_id_sha256": "a" * 64,
+                "purpose": purpose,
+                "route": "adult" if purpose.startswith("adult-") else "ordinary",
+                "request_sha256": "b" * 64,
+                "reserved_operations": DEEPSEEK_PER_INVOCATION_CEILING,
+                "recorded_at_utc": timestamp,
+            },
+        )
+        _append_jsonl(
+            path,
+            {
                 "event": "provider_operation_started",
                 "invocation_id": invocation_id,
                 "operation_index": 1,
@@ -1040,6 +1054,18 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(backend["first_pass_accepted"], 20)
             self.assertEqual(backend["retained_conversation_messages"], 40)
             self.assertEqual(client.calls, 20)
+            stage_latency = backend["provider_stage_latency_summary"]
+            self.assertEqual(stage_latency["writer"]["operations_total"], 10)
+            self.assertEqual(stage_latency["semantic_validator"]["operations_total"], 10)
+            self.assertEqual(stage_latency["recorder"]["operations_total"], 10)
+            self.assertEqual(stage_latency["adult_scene"]["operations_total"], 10)
+            self.assertEqual(stage_latency["adult_filter"]["operations_total"], 10)
+            self.assertEqual(stage_latency["writer"]["average_duration_ms"], 0)
+            self.assertEqual(
+                stage_latency["writer"]["session_classes"]["fresh_rehydration"]["measured_samples"],
+                10,
+            )
+            self.assertEqual(backend["http_latency_summary"]["measured_samples"], 20)
             routes = [value["expected_route"] for value in backend["results"]]
             self.assertEqual(
                 routes, ["ordinary"] * 5 + ["adult"] * 5 + ["ordinary"] * 5 + ["adult"] * 5
