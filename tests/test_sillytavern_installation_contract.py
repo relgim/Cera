@@ -300,6 +300,9 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("authorization: request.get('X-Cera-Authorization')", proxy)
         self.assertIn("'accept_provisional'", proxy)
         self.assertIn("/v1/cera/transport-retries/:retryId", proxy)
+        self.assertIn("FULL_PIPELINE_TIMEOUT_MS = 4_200_000", proxy)
+        self.assertIn("const DECISION_TIMEOUT_MS = FULL_PIPELINE_TIMEOUT_MS", proxy)
+        self.assertIn("const TRANSPORT_RETRY_TIMEOUT_MS = FULL_PIPELINE_TIMEOUT_MS", proxy)
         self.assertIn("normalizeTransportRetryBody", proxy)
 
     def test_transport_retry_lifecycle_is_persisted_reconciled_and_deduplicated(self) -> None:

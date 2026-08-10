@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+    FULL_PIPELINE_TIMEOUT_MS,
     info,
     init,
     normalizeAuthorization,
@@ -15,6 +16,10 @@ import {
     reviewUpstreamUrl,
     transportRetryUpstreamUrl,
 } from './index.js';
+
+test('full-pipeline review decisions and transport retries share the outer safety ceiling', () => {
+    assert.equal(FULL_PIPELINE_TIMEOUT_MS, 4_200_000);
+});
 
 test('plugin registers only the narrow CERA relay routes', async () => {
     const routes = [];
