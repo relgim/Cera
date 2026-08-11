@@ -26,7 +26,7 @@ from cera.providers import (
 )
 from cera.providers.codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
     SUPPORTED_SDK_VERSION,
 )
 from cera.realization import (
@@ -67,6 +67,20 @@ PROBE_SENTENCES = (
     "Guide aligned the white card with the mat.",
     "Guide returned the glass weight to its stand.",
 )
+
+
+def _sdk_compatibility_metadata() -> dict[str, str]:
+    return {
+        "compatibility_id": CODEX_SDK_COMPATIBILITY_ID,
+        "sdk_version": SUPPORTED_SDK_VERSION,
+        "route_notification_source_sha256": (
+            CODEX_SDK_COMPATIBILITY_SOURCE_SHA256
+        ),
+        "activation_contract": (
+            "each successful transport result requires matching worker "
+            "activation evidence and a pre-registered returned-turn queue"
+        ),
+    }
 
 
 def build_probe_request(
@@ -346,17 +360,7 @@ def main() -> int:
         "route_sha256": route.route_sha256,
         "model": route.model_name,
         "reasoning_effort": route.reasoning_effort,
-        "sdk_compatibility": {
-            "compatibility_id": CODEX_SDK_COMPATIBILITY_ID,
-            "sdk_version": SUPPORTED_SDK_VERSION,
-            "route_notification_source_sha256": (
-                EXPECTED_ROUTE_NOTIFICATION_SHA256
-            ),
-            "activation_contract": (
-                "each successful transport result requires matching worker "
-                "activation evidence and a pre-registered returned-turn queue"
-            ),
-        },
+        "sdk_compatibility": _sdk_compatibility_metadata(),
         "budget_before": budget_before,
         "calls": [],
     }

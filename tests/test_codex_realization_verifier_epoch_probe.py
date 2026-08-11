@@ -8,6 +8,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from cera.providers.codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+)
 from cera.realization import RealizationBoundaryCheck
 
 
@@ -90,6 +95,10 @@ class CodexRealizationVerifierEpochProbeTests(unittest.TestCase):
             sys.path.remove(scripts)
         cls.run_calls = staticmethod(cls.namespace["_run_calls"])
         cls.build_request = staticmethod(cls.namespace["build_probe_request"])
+        cls.sdk_compatibility_metadata = staticmethod(
+            cls.namespace["_sdk_compatibility_metadata"]
+        )
+        cls.main = staticmethod(cls.namespace["main"])
 
     def setUp(self) -> None:
         _FakeRunner.instances.clear()
@@ -115,6 +124,27 @@ class CodexRealizationVerifierEpochProbeTests(unittest.TestCase):
                     .PROTECTED_USER_NO_UNSUPPLIED_REALIZATION,
                 ),
             )
+
+    def test_summary_metadata_binds_current_composite_compatibility_source(
+        self,
+    ) -> None:
+        metadata = self.sdk_compatibility_metadata()
+        self.assertIn(
+            "_sdk_compatibility_metadata",
+            self.main.__code__.co_names,
+        )
+        self.assertEqual(
+            metadata["compatibility_id"],
+            CODEX_SDK_COMPATIBILITY_ID,
+        )
+        self.assertEqual(
+            metadata["route_notification_source_sha256"],
+            CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+        )
+        self.assertNotEqual(
+            metadata["route_notification_source_sha256"],
+            EXPECTED_ROUTE_NOTIFICATION_SHA256,
+        )
 
     def test_ten_calls_use_five_bounded_process_epochs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

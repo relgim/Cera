@@ -15,6 +15,11 @@ from cera.evidence import (
     EvidenceRecordType,
 )
 from cera.genesis.hanezawa_builder import CHARACTER_IDS
+from cera.providers.codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+)
 from cera.serialization import text_sha256
 
 
@@ -60,6 +65,9 @@ class ContinuousTenTurnRunnerTests(unittest.TestCase):
         cls.build_application = staticmethod(cls.namespace["build_application"])
         cls.persistent_session_state = staticmethod(
             cls.namespace["persistent_session_state"]
+        )
+        cls.sdk_compatibility_metadata = staticmethod(
+            cls.namespace["_sdk_compatibility_metadata"]
         )
         cls.main = staticmethod(cls.namespace["main"])
 
@@ -163,6 +171,27 @@ class ContinuousTenTurnRunnerTests(unittest.TestCase):
                 transport.route.model_name == "deepseek-v4-flash"
                 for transport in _CapturedDeepSeekTransport.instances
             )
+        )
+
+    def test_summary_metadata_binds_current_composite_compatibility_source(
+        self,
+    ) -> None:
+        metadata = self.sdk_compatibility_metadata()
+        self.assertIn(
+            "_sdk_compatibility_metadata",
+            self.main.__code__.co_names,
+        )
+        self.assertEqual(
+            metadata["compatibility_id"],
+            CODEX_SDK_COMPATIBILITY_ID,
+        )
+        self.assertEqual(
+            metadata["route_notification_source_sha256"],
+            CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+        )
+        self.assertNotEqual(
+            metadata["route_notification_source_sha256"],
+            EXPECTED_ROUTE_NOTIFICATION_SHA256,
         )
 
     def test_v20_paraphrase_terms_resolve_tomi_running_memory(self) -> None:

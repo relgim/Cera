@@ -76,7 +76,7 @@ from cera.serialization import canonical_json, text_sha256, to_primitive
 from cera.storage import SQLiteAuthorityStore
 from cera.providers.codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
     SUPPORTED_SDK_VERSION,
 )
 
@@ -141,6 +141,19 @@ RELATIONAL_BOUNDARY_PROBE_SUMMARY = (
 RELATIONAL_BOUNDARY_PROBE_SUMMARY_SHA256 = (
     "d18e1397eafe1e845e2722100268a7fa0cc7b514be30d710a02d76637981940c"
 )
+
+
+def _sdk_compatibility_metadata() -> dict[str, str]:
+    return {
+        "compatibility_id": CODEX_SDK_COMPATIBILITY_ID,
+        "sdk_version": SUPPORTED_SDK_VERSION,
+        "route_notification_source_sha256": (
+            CODEX_SDK_COMPATIBILITY_SOURCE_SHA256
+        ),
+        "activation_contract": (
+            "provider_receipt_requires_successful_worker_installation"
+        ),
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -713,16 +726,7 @@ def main() -> int:
         "relational_protected_user_boundary": to_primitive(
             relational_boundary_qualification
         ),
-        "codex_sdk_compatibility": {
-            "compatibility_id": CODEX_SDK_COMPATIBILITY_ID,
-            "sdk_version": SUPPORTED_SDK_VERSION,
-            "route_notification_source_sha256": (
-                EXPECTED_ROUTE_NOTIFICATION_SHA256
-            ),
-            "activation_contract": (
-                "provider_receipt_requires_successful_worker_installation"
-            ),
-        },
+        "codex_sdk_compatibility": _sdk_compatibility_metadata(),
         "reasoner_transport_policy": (
             "persistent_no_mcp_except_request_bound_mcp_one_shot"
         ),
