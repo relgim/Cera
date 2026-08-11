@@ -63,7 +63,8 @@ QUALIFICATION_FIXTURE_SCHEMA_V4 = "cera.pi_scene.full_model_qualification_fixtur
 QUALIFICATION_FIXTURE_SCHEMA_V5 = "cera.pi_scene.full_model_qualification_fixtures.v5"
 QUALIFICATION_FIXTURE_SCHEMA_V6 = "cera.pi_scene.full_model_qualification_fixtures.v6"
 QUALIFICATION_FIXTURE_SCHEMA_V7 = "cera.pi_scene.full_model_qualification_fixtures.v7"
-QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v8"
+QUALIFICATION_FIXTURE_SCHEMA_V8 = "cera.pi_scene.full_model_qualification_fixtures.v8"
+QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v9"
 QUALIFICATION_FIXTURE_PATH_V1 = "pi_scene_full_model_qualification_v1.json"
 QUALIFICATION_FIXTURE_SHA256_V1 = "0df9fc6ca8f621ab6ea44ed2ed5c7751138f9442ea3a16af9c97a57679163f35"
 QUALIFICATION_FIXTURE_PATH_V2 = "pi_scene_full_model_qualification_v2.json"
@@ -78,15 +79,18 @@ QUALIFICATION_FIXTURE_PATH_V6 = "pi_scene_full_model_qualification_v6.json"
 QUALIFICATION_FIXTURE_SHA256_V6 = "772a98366e669d18c395407ea2e6f90b1aa990f99fb23aec2f1f788797facfbc"
 QUALIFICATION_FIXTURE_PATH_V7 = "pi_scene_full_model_qualification_v7.json"
 QUALIFICATION_FIXTURE_SHA256_V7 = "2fa469ecf457e07eb1c55ae00d2a6b9258ed9cc3ef22dfd85044a638684caf28"
-QUALIFICATION_BASELINE_FIXTURE_PATH = QUALIFICATION_FIXTURE_PATH_V7
-QUALIFICATION_BASELINE_FIXTURE_SHA256 = QUALIFICATION_FIXTURE_SHA256_V7
+QUALIFICATION_FIXTURE_PATH_V8 = "pi_scene_full_model_qualification_v8.json"
+QUALIFICATION_FIXTURE_SHA256_V8 = "48bc606cd46be333a7227e2352b2a3083f248983da50fdb9cfb382abd713dae0"
+QUALIFICATION_BASELINE_FIXTURE_PATH = QUALIFICATION_FIXTURE_PATH_V8
+QUALIFICATION_BASELINE_FIXTURE_SHA256 = QUALIFICATION_FIXTURE_SHA256_V8
 QUALIFICATION_MANIFEST_SCHEMA_V5 = "cera.pi_scene.full_model_qualification_manifest.v5"
 QUALIFICATION_MANIFEST_SCHEMA_V6 = "cera.pi_scene.full_model_qualification_manifest.v6"
 QUALIFICATION_MANIFEST_SCHEMA_V7 = "cera.pi_scene.full_model_qualification_manifest.v7"
 QUALIFICATION_MANIFEST_SCHEMA_V8 = "cera.pi_scene.full_model_qualification_manifest.v8"
 QUALIFICATION_MANIFEST_SCHEMA_V9 = "cera.pi_scene.full_model_qualification_manifest.v9"
 QUALIFICATION_MANIFEST_SCHEMA_V10 = "cera.pi_scene.full_model_qualification_manifest.v10"
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v11"
+QUALIFICATION_MANIFEST_SCHEMA_V11 = "cera.pi_scene.full_model_qualification_manifest.v11"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v12"
 QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v5"
 
 _QUALIFICATION_ADVERSARIAL_STRESS_TAGS = frozenset(
@@ -401,6 +405,11 @@ class QualificationFixtureV7(QualificationFixtureV6):
 @dataclass(frozen=True, slots=True)
 class QualificationFixtureV8(QualificationFixtureV7):
     """One novel stress case bound to cumulative V1-V7 spent ancestry."""
+
+
+@dataclass(frozen=True, slots=True)
+class QualificationFixtureV9(QualificationFixtureV8):
+    """One novel stress case bound to cumulative V1-V8 spent ancestry."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -2677,6 +2686,7 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
         QUALIFICATION_FIXTURE_SCHEMA_V5,
         QUALIFICATION_FIXTURE_SCHEMA_V6,
         QUALIFICATION_FIXTURE_SCHEMA_V7,
+        QUALIFICATION_FIXTURE_SCHEMA_V8,
         QUALIFICATION_FIXTURE_SCHEMA,
     }:
         if set(raw) != {
@@ -2697,7 +2707,8 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
             QUALIFICATION_FIXTURE_SCHEMA_V5: _validate_v5_qualification_novelty_ancestry,
             QUALIFICATION_FIXTURE_SCHEMA_V6: _validate_v6_qualification_novelty_ancestry,
             QUALIFICATION_FIXTURE_SCHEMA_V7: _validate_v7_qualification_novelty_ancestry,
-            QUALIFICATION_FIXTURE_SCHEMA: _validate_v8_qualification_novelty_ancestry,
+            QUALIFICATION_FIXTURE_SCHEMA_V8: _validate_v8_qualification_novelty_ancestry,
+            QUALIFICATION_FIXTURE_SCHEMA: _validate_v9_qualification_novelty_ancestry,
         }[str(schema_version)]
         validator(
             fixture_path=path,
@@ -2725,6 +2736,7 @@ def _decode_qualification_fixture_rows(
         QUALIFICATION_FIXTURE_SCHEMA_V5,
         QUALIFICATION_FIXTURE_SCHEMA_V6,
         QUALIFICATION_FIXTURE_SCHEMA_V7,
+        QUALIFICATION_FIXTURE_SCHEMA_V8,
         QUALIFICATION_FIXTURE_SCHEMA,
     }:
         raise ContractValidationError("qualification fixture schema changed")
@@ -2767,7 +2779,8 @@ def _decode_qualification_fixture_rows(
                     QUALIFICATION_FIXTURE_SCHEMA_V5: QualificationFixtureV5,
                     QUALIFICATION_FIXTURE_SCHEMA_V6: QualificationFixtureV6,
                     QUALIFICATION_FIXTURE_SCHEMA_V7: QualificationFixtureV7,
-                    QUALIFICATION_FIXTURE_SCHEMA: QualificationFixtureV8,
+                    QUALIFICATION_FIXTURE_SCHEMA_V8: QualificationFixtureV8,
+                    QUALIFICATION_FIXTURE_SCHEMA: QualificationFixtureV9,
                 }[schema_version]
                 fixture = fixture_type(
                     **common, novelty_id=str(value["novelty_id"]), stress_tags=tuple(tags)
@@ -2866,6 +2879,11 @@ def _qualification_fixture_ancestry() -> list[dict[str, str]]:
             "schema_version": QUALIFICATION_FIXTURE_SCHEMA_V7,
             "path": QUALIFICATION_FIXTURE_PATH_V7,
             "sha256": QUALIFICATION_FIXTURE_SHA256_V7,
+        },
+        {
+            "schema_version": QUALIFICATION_FIXTURE_SCHEMA_V8,
+            "path": QUALIFICATION_FIXTURE_PATH_V8,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V8,
         },
     ]
 
@@ -3009,6 +3027,26 @@ def _validate_v8_qualification_novelty_ancestry(
         baseline_fixture_path=baseline_fixture_path,
         baseline_fixture_sha256=baseline_fixture_sha256,
         baseline_ancestry=baseline_ancestry,
+        expected_baseline_path=QUALIFICATION_FIXTURE_PATH_V7,
+        expected_baseline_sha256=QUALIFICATION_FIXTURE_SHA256_V7,
+        expected_ancestry=_qualification_fixture_ancestry()[:7],
+    )
+
+
+def _validate_v9_qualification_novelty_ancestry(
+    *,
+    fixture_path: Path,
+    fixtures: tuple[QualificationFixtureV1, ...],
+    baseline_fixture_path: object,
+    baseline_fixture_sha256: object,
+    baseline_ancestry: object,
+) -> None:
+    _validate_qualification_novelty_ancestry(
+        fixture_path=fixture_path,
+        fixtures=fixtures,
+        baseline_fixture_path=baseline_fixture_path,
+        baseline_fixture_sha256=baseline_fixture_sha256,
+        baseline_ancestry=baseline_ancestry,
         expected_baseline_path=QUALIFICATION_BASELINE_FIXTURE_PATH,
         expected_baseline_sha256=QUALIFICATION_BASELINE_FIXTURE_SHA256,
         expected_ancestry=_qualification_fixture_ancestry(),
@@ -3067,9 +3105,15 @@ def _validate_qualification_novelty_ancestry(
 def _fixture_novelty_evidence(
     fixture: QualificationFixtureV1,
 ) -> dict[str, Any]:
-    if isinstance(fixture, QualificationFixtureV8):
+    if isinstance(fixture, QualificationFixtureV9):
         return {
             "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA,
+            "novelty_id": fixture.novelty_id,
+            "stress_tags": list(fixture.stress_tags),
+        }
+    if isinstance(fixture, QualificationFixtureV8):
+        return {
+            "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA_V8,
             "novelty_id": fixture.novelty_id,
             "stress_tags": list(fixture.stress_tags),
         }
@@ -3203,6 +3247,13 @@ def qualification_fixture_manifest_metadata(
         }
         fixture_ancestry = _qualification_fixture_ancestry()[:6]
     elif fixture_types == {QualificationFixtureV8}:
+        fixture_schema_version = QUALIFICATION_FIXTURE_SCHEMA_V8
+        fixture_baseline = {
+            "path": QUALIFICATION_FIXTURE_PATH_V7,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V7,
+        }
+        fixture_ancestry = _qualification_fixture_ancestry()[:7]
+    elif fixture_types == {QualificationFixtureV9}:
         fixture_schema_version = QUALIFICATION_FIXTURE_SCHEMA
         fixture_baseline = {
             "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
@@ -3383,6 +3434,7 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         QUALIFICATION_MANIFEST_SCHEMA_V8,
         QUALIFICATION_MANIFEST_SCHEMA_V9,
         QUALIFICATION_MANIFEST_SCHEMA_V10,
+        QUALIFICATION_MANIFEST_SCHEMA_V11,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         required.add("fixture_ancestry")
@@ -3434,6 +3486,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V8,
         QUALIFICATION_MANIFEST_SCHEMA_V9,
         QUALIFICATION_MANIFEST_SCHEMA_V10,
+        QUALIFICATION_MANIFEST_SCHEMA_V11,
         QUALIFICATION_MANIFEST_SCHEMA,
     }
     if (
@@ -3486,6 +3539,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V8,
         QUALIFICATION_MANIFEST_SCHEMA_V9,
         QUALIFICATION_MANIFEST_SCHEMA_V10,
+        QUALIFICATION_MANIFEST_SCHEMA_V11,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -3498,6 +3552,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V8,
         QUALIFICATION_MANIFEST_SCHEMA_V9,
         QUALIFICATION_MANIFEST_SCHEMA_V10,
+        QUALIFICATION_MANIFEST_SCHEMA_V11,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -3509,6 +3564,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V8,
         QUALIFICATION_MANIFEST_SCHEMA_V9,
         QUALIFICATION_MANIFEST_SCHEMA_V10,
+        QUALIFICATION_MANIFEST_SCHEMA_V11,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -3519,6 +3575,7 @@ def _validate_manifest_fixture_metadata(
     elif schema_version == QUALIFICATION_FIXTURE_SCHEMA_V6 and manifest_schema in {
         QUALIFICATION_MANIFEST_SCHEMA_V9,
         QUALIFICATION_MANIFEST_SCHEMA_V10,
+        QUALIFICATION_MANIFEST_SCHEMA_V11,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -3534,6 +3591,14 @@ def _validate_manifest_fixture_metadata(
             "sha256": QUALIFICATION_FIXTURE_SHA256_V6,
         }
         expected_ancestry = _qualification_fixture_ancestry()[:6]
+    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA_V8 and manifest_schema == (
+        QUALIFICATION_MANIFEST_SCHEMA_V11
+    ):
+        expected_baseline = {
+            "path": QUALIFICATION_FIXTURE_PATH_V7,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V7,
+        }
+        expected_ancestry = _qualification_fixture_ancestry()[:7]
     elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema == (
         QUALIFICATION_MANIFEST_SCHEMA
     ):
@@ -5866,6 +5931,7 @@ __all__ = [
     "QualificationFixtureV6",
     "QualificationFixtureV7",
     "QualificationFixtureV8",
+    "QualificationFixtureV9",
     "QualificationManualActionAuthorizationV1",
     "QualificationManualActionAuthorizer",
     "QualificationManualActionRequestV1",
