@@ -93,6 +93,12 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
+from cera.providers.codex_runtime_policy import (
+    codex_app_server_config_overrides,
+    codex_app_server_environment,
+    validate_codex_app_server_configuration,
+    validate_codex_mcp_server_status,
+)
 from cera.reader_validation import (
     SOL_READER_BASE_INSTRUCTIONS,
     CodexSolReaderBackend,
@@ -399,18 +405,30 @@ def build_live_runtime(
         if provider_components is None:
             from openai_codex import Codex, CodexConfig
 
-            codex = stack.enter_context(
-                Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
-            )
-            account = codex.account()
-            if account.account is None:
-                raise StateConflictError("ChatGPT Codex account is unavailable")
             planner_lifecycle_root = lifecycle_root / "planner"
             luna_lifecycle_root = lifecycle_root / "luna"
             reader_lifecycle_root = lifecycle_root / "reader"
             planner_lifecycle_root.mkdir()
             luna_lifecycle_root.mkdir()
             reader_lifecycle_root.mkdir()
+            app_server_overrides = codex_app_server_config_overrides(lifecycle_root)
+            codex = stack.enter_context(
+                Codex(
+                    CodexConfig(
+                        config_overrides=app_server_overrides,
+                        cwd=str(lifecycle_root),
+                        env=codex_app_server_environment(),
+                    )
+                )
+            )
+            validate_codex_app_server_configuration(
+                codex,
+                cwd=lifecycle_root,
+            )
+            validate_codex_mcp_server_status(codex)
+            account = codex.account()
+            if account.account is None:
+                raise StateConflictError("ChatGPT Codex account is unavailable")
             planner_lifecycle = OpenAICodexStoredThreadBackend(
                 codex=codex,
                 model="gpt-5.6-sol",

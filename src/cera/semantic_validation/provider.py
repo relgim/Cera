@@ -36,7 +36,7 @@ from .prompting import (
 )
 from .schema import semantic_verdict_json_schema
 
-LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v1"
+LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v2"
 LUNA_VALIDATOR_PROMPT = "cera.semantic_validation.luna_prompt.v1"
 # A fresh xhigh validation may legitimately outlive the UI's progress target.
 # Keep one bounded call alive; never turn the extra headroom into a retry.
@@ -49,7 +49,7 @@ def luna_validator_route() -> LiveProviderRoute:
             model="gpt-5.6-luna",
             effort="xhigh",
         ),
-        route_id="cera_semantic_validator_luna_xhigh_v1",
+        route_id="cera_semantic_validator_luna_xhigh_v2",
         adapter_id=LUNA_VALIDATOR_ADAPTER,
         prompt_version=LUNA_VALIDATOR_PROMPT,
         timeout_seconds=LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS,
@@ -116,7 +116,10 @@ class CodexLunaSemanticValidatorBackend:
         transport = CodexSDKTransport(
             self.route,
             workspace=operation_workspace,
-            runner=StoredCodexThreadRunner(thread_id),
+            runner=StoredCodexThreadRunner(
+                thread_id,
+                base_instructions=LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+            ),
         )
         prompt = build_luna_validation_prompt(request)
         output_schema = semantic_verdict_json_schema(

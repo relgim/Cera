@@ -3,19 +3,31 @@
 from __future__ import annotations
 
 import json
-from importlib.metadata import version
-from pathlib import Path
 import sys
 import time
+from importlib.metadata import version
+from pathlib import Path
 
 from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.serialization import text_sha256, to_primitive
 
-from .codex_worker import _runtime_config_and_environment, _safe_error_text
 from .codex_observability import (
     CodexOperationTelemetryV1,
     CodexToolTimingV1,
     CodexUsageAccumulator,
+)
+from .codex_runtime_policy import (
+    codex_app_server_config_overrides,
+    codex_app_server_environment,
+    require_qualified_codex_model,
+    runtime_config_and_environment,
+    unsupported_completed_result_item_types,
+    validate_codex_app_server_configuration,
+    validate_codex_mcp_server_status,
+    validate_codex_prompt_markers,
+)
+from .codex_worker import (
+    _safe_error_text,
 )
 
 
@@ -32,17 +44,26 @@ def _validate_request(request: dict) -> None:
         "transport_version",
         "mcp_binding",
         "provider_thread_id",
+        "base_instructions",
     }
     if set(request) != required:
         raise ValueError("stored Codex request has an invalid field set")
     if request["role"] not in {"scene_reasoner", "scene_realization_verifier"}:
         raise ValueError("stored Codex worker role is unsupported")
+    require_qualified_codex_model(request.get("model"))
+    validate_codex_prompt_markers(request.get("prompt"))
     if request["service_tier"] not in {None, "priority"}:
         raise ValueError("stored Codex service tier is unsupported")
-    if not isinstance(request["provider_thread_id"], str) or not request[
-        "provider_thread_id"
-    ].strip():
+    if (
+        not isinstance(request["provider_thread_id"], str)
+        or not request["provider_thread_id"].strip()
+    ):
         raise ValueError("stored Codex request omitted its thread ID")
+    if (
+        not isinstance(request["base_instructions"], str)
+        or not request["base_instructions"].strip()
+    ):
+        raise ValueError("stored Codex request omitted its base instructions")
     workspace = Path(request["workspace"])
     progress_path = Path(request["progress_path"])
     if (
@@ -87,14 +108,14 @@ def main() -> int:
         record_stage("transport_version_check")
         if version("openai-codex") != request["transport_version"]:
             raise RuntimeError("Codex SDK version does not match the stored route")
-        config, codex_environment = _runtime_config_and_environment(
-            request["mcp_binding"]
-        )
+        config, codex_environment = runtime_config_and_environment(request["mcp_binding"])
+        app_server_overrides = codex_app_server_config_overrides(workspace)
         record_stage("sdk_start")
         with Codex(
             CodexConfig(
-                config_overrides=("mcp_servers={}",),
-                env=codex_environment,
+                config_overrides=app_server_overrides,
+                cwd=str(workspace),
+                env=codex_app_server_environment(codex_environment),
             )
         ) as codex:
             record_stage("sdk_compatibility_install")
@@ -103,6 +124,11 @@ def main() -> int:
             )
 
             compatibility_state = install_early_turn_completion_buffer(codex)
+            validate_codex_app_server_configuration(
+                codex,
+                cwd=workspace,
+            )
+            validate_codex_mcp_server_status(codex)
             record_stage("account_check")
             if codex.account().account is None:
                 raise RuntimeError("ChatGPT Codex session is unavailable")
@@ -111,12 +137,20 @@ def main() -> int:
                 request["provider_thread_id"],
                 model=request["model"],
                 cwd=str(workspace),
+                base_instructions=request["base_instructions"],
                 config=config,
                 service_tier=request["service_tier"],
                 approval_mode=ApprovalMode.deny_all,
             )
             if thread.id != request["provider_thread_id"]:
                 raise RuntimeError("Codex resumed a different stored thread")
+            binding = request["mcp_binding"]
+            validate_codex_mcp_server_status(
+                codex,
+                thread_id=thread.id,
+                request_server_name=(None if binding is None else binding["server_name"]),
+                request_tool_names=(() if binding is None else binding["enabled_tools"]),
+            )
             record_stage("thread_run")
             request_start_us = time.time_ns() // 1_000
             turn = thread.turn(
@@ -147,11 +181,7 @@ def main() -> int:
                     payload = event.payload
                     observed_us = time.time_ns() // 1_000
                     if isinstance(payload, ItemStartedNotification):
-                        item = (
-                            payload.item.root
-                            if hasattr(payload.item, "root")
-                            else payload.item
-                        )
+                        item = payload.item.root if hasattr(payload.item, "root") else payload.item
                         item_type = getattr(item, "type", None)
                         item_id = getattr(item, "id", None)
                         started_us = payload.started_at_ms * 1_000
@@ -159,25 +189,15 @@ def main() -> int:
                             item_start_times[item_id] = started_us
                         if item_type == "reasoning" and first_reasoning_us is None:
                             first_reasoning_us = started_us
-                        if (
-                            item_type == "agentMessage"
-                            and first_structured_output_us is None
-                        ):
+                        if item_type == "agentMessage" and first_structured_output_us is None:
                             first_structured_output_us = started_us
                     elif isinstance(payload, ItemCompletedNotification):
-                        item = (
-                            payload.item.root
-                            if hasattr(payload.item, "root")
-                            else payload.item
-                        )
+                        item = payload.item.root if hasattr(payload.item, "root") else payload.item
                         item_type = getattr(item, "type", None)
                         completed_us = payload.completed_at_ms * 1_000
                         if item_type == "reasoning" and first_reasoning_us is None:
                             first_reasoning_us = completed_us
-                        if (
-                            item_type == "agentMessage"
-                            and first_structured_output_us is None
-                        ):
+                        if item_type == "agentMessage" and first_structured_output_us is None:
                             first_structured_output_us = completed_us
                         if item_type == "mcpToolCall":
                             final_evidence_result_us = completed_us
@@ -189,17 +209,13 @@ def main() -> int:
                                 "input_tokens": usage.last.input_tokens,
                                 "cached_input_tokens": usage.last.cached_input_tokens,
                                 "output_tokens": usage.last.output_tokens,
-                                "reasoning_output_tokens": (
-                                    usage.last.reasoning_output_tokens
-                                ),
+                                "reasoning_output_tokens": (usage.last.reasoning_output_tokens),
                             },
                             total={
                                 "input_tokens": usage.total.input_tokens,
                                 "cached_input_tokens": usage.total.cached_input_tokens,
                                 "output_tokens": usage.total.output_tokens,
-                                "reasoning_output_tokens": (
-                                    usage.total.reasoning_output_tokens
-                                ),
+                                "reasoning_output_tokens": (usage.total.reasoning_output_tokens),
                             },
                         )
                     elif isinstance(payload, TurnCompletedNotification):
@@ -233,6 +249,7 @@ def main() -> int:
         mcp_tool_names: list[str] = []
         mcp_tool_timings: list[CodexToolTimingV1] = []
         failed_mcp_calls = 0
+        unsupported_item_types = unsupported_completed_result_item_types(result.items)
         for wrapped in result.items:
             item = wrapped.root if hasattr(wrapped, "root") else wrapped
             if getattr(item, "type", None) != "mcpToolCall":
@@ -249,9 +266,7 @@ def main() -> int:
                 if not isinstance(payload, ItemCompletedNotification):
                     continue
                 completed_item = (
-                    payload.item.root
-                    if hasattr(payload.item, "root")
-                    else payload.item
+                    payload.item.root if hasattr(payload.item, "root") else payload.item
                 )
                 if getattr(completed_item, "id", None) == item_id:
                     completed_at_us = payload.completed_at_ms * 1_000
@@ -262,9 +277,7 @@ def main() -> int:
                     server_name=item.server,
                     tool_name=item.tool,
                     started_at_unix_us=(
-                        item_start_times.get(item_id)
-                        if isinstance(item_id, str)
-                        else None
+                        item_start_times.get(item_id) if isinstance(item_id, str) else None
                     ),
                     completed_at_unix_us=completed_at_us,
                     status=str(status),
@@ -286,9 +299,7 @@ def main() -> int:
             first_reasoning_item_unix_us=first_reasoning_us,
             first_structured_output_item_unix_us=first_structured_output_us,
             final_evidence_result_unix_us=final_evidence_result_us,
-            provider_completion_unix_us=(
-                provider_completion_us or time.time_ns() // 1_000
-            ),
+            provider_completion_unix_us=(provider_completion_us or time.time_ns() // 1_000),
             python_parse_start_unix_us=None,
             python_parse_completion_unix_us=None,
             python_validation_start_unix_us=None,
@@ -335,6 +346,7 @@ def main() -> int:
             "mcp_tool_names": mcp_tool_names,
             "mcp_tool_call_count": len(mcp_tool_names),
             "mcp_failed_tool_call_count": failed_mcp_calls,
+            "unsupported_item_types": unsupported_item_types,
             "transport_compatibility_id": compatibility_state.compatibility_id,
             "transport_compatibility_source_sha256": compatibility_state.source_sha256,
             "transport_compatibility_activated": True,
@@ -356,8 +368,7 @@ def main() -> int:
         return 0
     except Exception as exc:
         sys.stderr.write(
-            "codex qualification worker failed: "
-            f"stage={stage}; {_safe_error_text(exc, request)}"
+            f"codex qualification worker failed: stage={stage}; {_safe_error_text(exc, request)}"
         )
         return 1
 

@@ -31,9 +31,13 @@ from .codex_exec_contract import (
     CODEX_CLI_EXEC_CONTRACT_SHA256,
 )
 from .codex_observability import CodexOperationTelemetryV1
+from .codex_runtime_policy import (
+    COMPLETED_RESULT_ITEM_TYPE_EVIDENCE,
+    validate_codex_prompt_markers,
+)
 from .codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
 )
 from .models import (
     LiveProviderCallReceipt,
@@ -56,17 +60,6 @@ def _runner_external_provider_boundary(runner: object) -> bool:
 
 
 CODEX_MCP_OBSERVATION_POLICY_STRICT_V1 = "cera.codex_mcp_observation.strict.v1"
-CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1 = (
-    "cera.codex_mcp_observation.code_mode_projection.v1"
-)
-_CODEX_MCP_OBSERVATION_POLICIES = frozenset(
-    {
-        CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
-        CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
-    }
-)
-_CODEX_MCP_AUXILIARY_TOOL = ("node_repl", "js")
-_CODEX_MCP_TERMINAL_STATUSES = frozenset({"completed", "failed"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,10 +196,9 @@ class CodexWorkerResult:
     mcp_tool_names: tuple[str, ...] = ()
     mcp_tool_call_count: int = 0
     mcp_failed_tool_call_count: int = 0
+    unsupported_item_types: tuple[str, ...] = ()
     transport_compatibility_id: str = CODEX_SDK_COMPATIBILITY_ID
-    transport_compatibility_source_sha256: str = (
-        EXPECTED_ROUTE_NOTIFICATION_SHA256
-    )
+    transport_compatibility_source_sha256: str = CODEX_SDK_COMPATIBILITY_SOURCE_SHA256
     transport_compatibility_activated: bool = True
     buffered_early_completion_count: int = 0
     pre_registered_turn_count: int = 0
@@ -239,6 +231,16 @@ class CodexWorkerResult:
             raise ContractValidationError("Codex MCP tool observations do not match call count")
         if self.mcp_failed_tool_call_count > self.mcp_tool_call_count:
             raise ContractValidationError("Codex failed MCP calls exceed total calls")
+        if (
+            type(self.unsupported_item_types) is not tuple
+            or len(self.unsupported_item_types) > len(COMPLETED_RESULT_ITEM_TYPE_EVIDENCE)
+            or self.unsupported_item_types != tuple(sorted(set(self.unsupported_item_types)))
+            or any(
+                value not in COMPLETED_RESULT_ITEM_TYPE_EVIDENCE
+                for value in self.unsupported_item_types
+            )
+        ):
+            raise ContractValidationError("Codex unsupported item-type evidence is invalid")
         if self.operation_telemetry is not None:
             telemetry = self.operation_telemetry
             if telemetry.tool_call_count != self.mcp_tool_call_count:
@@ -247,18 +249,14 @@ class CodexWorkerResult:
                 )
             if (
                 telemetry.cumulative_input_tokens != self.input_tokens
-                or telemetry.cumulative_cached_input_tokens
-                != self.cached_input_tokens
+                or telemetry.cumulative_cached_input_tokens != self.cached_input_tokens
                 or telemetry.cumulative_output_tokens != self.output_tokens
-                or telemetry.cumulative_reasoning_tokens
-                != self.reasoning_output_tokens
+                or telemetry.cumulative_reasoning_tokens != self.reasoning_output_tokens
             ):
-                raise ContractValidationError(
-                    "Codex worker telemetry totals do not match result"
-                )
+                raise ContractValidationError("Codex worker telemetry totals do not match result")
         compatibility = {
             CODEX_SDK_COMPATIBILITY_ID: (
-                EXPECTED_ROUTE_NOTIFICATION_SHA256,
+                CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
                 True,
             ),
             CODEX_CLI_EXEC_COMPATIBILITY_ID: (
@@ -268,18 +266,13 @@ class CodexWorkerResult:
         }.get(self.transport_compatibility_id)
         if (
             compatibility is None
-            or self.transport_compatibility_source_sha256
-            != compatibility[0]
+            or self.transport_compatibility_source_sha256 != compatibility[0]
             or self.transport_compatibility_activated is not True
-            or (
-                compatibility[1]
-                and self.pre_registered_turn_count < 1
-            )
+            or (compatibility[1] and self.pre_registered_turn_count < 1)
             or (
                 not compatibility[1]
                 and (
-                    self.pre_registered_turn_count != 0
-                    or self.buffered_early_completion_count != 0
+                    self.pre_registered_turn_count != 0 or self.buffered_early_completion_count != 0
                 )
             )
         ):
@@ -304,7 +297,7 @@ class CodexTransportRunner(Protocol):
 
 
 class CodexSDKTransport:
-    __slots__ = ("route", "workspace", "runner", "_mcp_observation_policy")
+    __slots__ = ("route", "workspace", "runner")
 
     def __init__(
         self,
@@ -312,7 +305,6 @@ class CodexSDKTransport:
         *,
         workspace: Path,
         runner: CodexTransportRunner | None = None,
-        mcp_observation_policy: str = CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
     ) -> None:
         if route.provider is not ProviderName.OPENAI_CODEX:
             raise ContractValidationError("Codex transport requires an OpenAI Codex route")
@@ -320,16 +312,9 @@ class CodexSDKTransport:
             raise ContractValidationError("Codex qualification workspace must already exist")
         if any(workspace.iterdir()):
             raise ContractValidationError("Codex qualification workspace must be empty")
-        if mcp_observation_policy not in _CODEX_MCP_OBSERVATION_POLICIES:
-            raise ContractValidationError("Codex MCP observation policy is unqualified")
         self.route = route
         self.workspace = workspace
         self.runner = runner or _SubprocessCodexRunner()
-        self._mcp_observation_policy = mcp_observation_policy
-
-    @property
-    def mcp_observation_policy(self) -> str:
-        return self._mcp_observation_policy
 
     def external_provider_boundary_active(self) -> bool:
         """Return whether the bound runner owns a concrete provider process."""
@@ -353,8 +338,7 @@ class CodexSDKTransport:
     ) -> ProviderCallResult:
         if output_mode is not ProviderOutputMode.JSON_SCHEMA:
             raise ContractValidationError("Codex reasoner transport requires JSON Schema output")
-        if not isinstance(prompt, str) or not prompt.strip():
-            raise ContractValidationError("Codex invocation requires a prompt")
+        validate_codex_prompt_markers(prompt)
         if not isinstance(output_schema, dict) or not output_schema:
             raise ContractValidationError("Codex invocation requires an output schema")
         assert_provider_dispatch_allowed(
@@ -369,9 +353,7 @@ class CodexSDKTransport:
         request_payload = {
             "prompt": prompt,
             "output_schema": provider_schema,
-            "mcp_binding": (
-                mcp_binding.public_descriptor if mcp_binding is not None else None
-            ),
+            "mcp_binding": (mcp_binding.public_descriptor if mcp_binding is not None else None),
         }
         request_text = canonical_json(request_payload)
         if len(request_text.encode("utf-8")) > self.route.maximum_request_bytes:
@@ -417,6 +399,7 @@ class CodexSDKTransport:
                 ErrorCode.REASONER_UNAVAILABLE,
                 f"Codex transport failed ({type(exc).__name__})",
             ) from None
+
         def completed_failure(
             code: ErrorCode,
             message: str,
@@ -431,11 +414,12 @@ class CodexSDKTransport:
             )
             if result.operation_telemetry is not None:
                 completed_transport_failure.operation_telemetry = (
-                    result.operation_telemetry.bind_request(
-                        request_sha256
-                    ).with_transport_error(code.value)
+                    result.operation_telemetry.bind_request(request_sha256).with_transport_error(
+                        code.value
+                    )
                 )
             return completed_transport_failure
+
         if result.returned_model != self.route.model_name:
             raise completed_failure(
                 ErrorCode.REASONER_CONTRACT_INVALID,
@@ -449,8 +433,7 @@ class CodexSDKTransport:
                 safe_diagnostics=("transport:runtime_version_mismatch",),
             )
         if (
-            self.route.transport_compatibility_id
-            != result.transport_compatibility_id
+            self.route.transport_compatibility_id != result.transport_compatibility_id
             or self.route.transport_compatibility_source_sha256
             != result.transport_compatibility_source_sha256
             or result.transport_compatibility_activated is not True
@@ -458,9 +441,7 @@ class CodexSDKTransport:
             raise completed_failure(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex worker compatibility activation did not match the route",
-                safe_diagnostics=(
-                    "transport:compatibility_activation_mismatch",
-                ),
+                safe_diagnostics=("transport:compatibility_activation_mismatch",),
             )
         budget_output_tokens = (
             result.last_step_output_tokens
@@ -515,6 +496,7 @@ class CodexSDKTransport:
             retains_secret=False,
         )
         try:
+            self._validate_completed_item_types(result)
             mcp_observations = self._validate_mcp_observations(result, mcp_binding)
         except ProviderTransportError as failure:
             failure.external_provider_calls_observed = 1
@@ -524,11 +506,9 @@ class CodexSDKTransport:
             failure.mcp_tool_call_count = result.mcp_tool_call_count
             failure.mcp_failed_tool_call_count = result.mcp_failed_tool_call_count
             if result.operation_telemetry is not None:
-                failure.operation_telemetry = (
-                    result.operation_telemetry.bind_request(
-                        request_sha256
-                    ).with_transport_error(failure.code.value)
-                )
+                failure.operation_telemetry = result.operation_telemetry.bind_request(
+                    request_sha256
+                ).with_transport_error(failure.code.value)
             raise
         parse_started_us = time.time_ns() // 1_000
         try:
@@ -600,24 +580,20 @@ class CodexSDKTransport:
             operation_telemetry=operation_telemetry,
         )
 
+    @staticmethod
+    def _validate_completed_item_types(result: CodexWorkerResult) -> None:
+        if result.unsupported_item_types:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "Codex used a completed item outside the bounded CERA transport",
+                safe_diagnostics=("transport:unsupported_completed_item_type",),
+            )
+
     def _validate_mcp_observations(
         self,
         result: CodexWorkerResult,
         binding: CodexMcpRuntimeBinding | None,
     ) -> _CodexMcpObservationProjection:
-        if self._mcp_observation_policy == CODEX_MCP_OBSERVATION_POLICY_STRICT_V1:
-            validation_policy = self._validate_strict_mcp_observations
-        elif (
-            self._mcp_observation_policy
-            == CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
-        ):
-            validation_policy = self._validate_code_mode_mcp_observations
-        else:
-            raise ProviderTransportError(
-                ErrorCode.REASONER_CONTRACT_INVALID,
-                "Codex MCP observation policy changed after construction",
-                safe_diagnostics=("mcp:observation_policy_invalid",),
-            )
         if binding is None:
             if result.mcp_tool_call_count:
                 raise ProviderTransportError(
@@ -625,7 +601,7 @@ class CodexSDKTransport:
                     "Codex used an MCP tool without a request-bound bridge",
                 )
             return _CodexMcpObservationProjection((), (), 0, 0)
-        return validation_policy(result, binding)
+        return self._validate_strict_mcp_observations(result, binding)
 
     @staticmethod
     def _validate_strict_mcp_observations(
@@ -636,6 +612,10 @@ class CodexSDKTransport:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex omitted a required MCP evidence lookup",
+                safe_diagnostics=("mcp:required_evidence_lookup_omitted",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             )
         if result.mcp_tool_call_count > binding.maximum_tool_calls:
             raise ProviderTransportError(
@@ -646,133 +626,26 @@ class CodexSDKTransport:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex used an MCP server outside the request-bound bridge",
+                safe_diagnostics=("mcp:outside_request_binding",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             )
         allowed = set(binding.enabled_tools)
         if any(value not in allowed for value in result.mcp_tool_names):
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex used an MCP tool outside the request allow-list",
+                safe_diagnostics=("mcp:outside_request_binding",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             )
         projection = _CodexMcpObservationProjection(
             result.mcp_server_names,
             result.mcp_tool_names,
             result.mcp_tool_call_count,
             result.mcp_failed_tool_call_count,
-        )
-        CodexSDKTransport._raise_for_failed_mcp_observations(projection, binding)
-        return projection
-
-    @staticmethod
-    def _validate_code_mode_mcp_observations(
-        result: CodexWorkerResult,
-        binding: CodexMcpRuntimeBinding,
-    ) -> _CodexMcpObservationProjection:
-        if result.mcp_tool_call_count > binding.maximum_tool_calls:
-            raise ProviderTransportError(
-                ErrorCode.EVIDENCE_LIMIT_EXCEEDED,
-                "Codex exceeded the request-bound MCP tool-call budget",
-            )
-
-        raw_observations = tuple(
-            zip(result.mcp_server_names, result.mcp_tool_names, strict=True)
-        )
-        has_auxiliary = _CODEX_MCP_AUXILIARY_TOOL in raw_observations
-        statuses: tuple[str, ...] | None = None
-        if has_auxiliary:
-            telemetry = result.operation_telemetry
-            if telemetry is not None:
-                timings = telemetry.tool_timings
-                identities_align = all(
-                    timing.sequence == sequence
-                    and (timing.server_name, timing.tool_name) == observation
-                    for sequence, (timing, observation) in enumerate(
-                        zip(timings, raw_observations, strict=True),
-                        start=1,
-                    )
-                )
-                candidate_statuses = tuple(timing.status for timing in timings)
-                failed_count = sum(
-                    status == "failed" for status in candidate_statuses
-                )
-                if (
-                    identities_align
-                    and all(
-                        status in _CODEX_MCP_TERMINAL_STATUSES
-                        for status in candidate_statuses
-                    )
-                    and failed_count == result.mcp_failed_tool_call_count
-                ):
-                    statuses = candidate_statuses
-            if statuses is None:
-                raise ProviderTransportError(
-                    ErrorCode.REASONER_CONTRACT_INVALID,
-                    "Codex MCP wrapper observations did not align with telemetry",
-                    safe_diagnostics=("mcp:auxiliary_observation_invalid",),
-                    retryable_failure_category=(
-                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
-                    ),
-                )
-
-        allowed = set(binding.enabled_tools)
-        projected_servers: list[str] = []
-        projected_tools: list[str] = []
-        projected_failed_count = 0
-        auxiliary_failed = False
-        unknown_observation = False
-        for index, (server_name, tool_name) in enumerate(raw_observations):
-            if (server_name, tool_name) == _CODEX_MCP_AUXILIARY_TOOL:
-                auxiliary_failed = auxiliary_failed or (
-                    statuses is not None and statuses[index] == "failed"
-                )
-                continue
-            if server_name != binding.server_name or tool_name not in allowed:
-                unknown_observation = True
-                continue
-            projected_servers.append(server_name)
-            projected_tools.append(tool_name)
-            if statuses is not None and statuses[index] == "failed":
-                projected_failed_count += 1
-
-        if auxiliary_failed:
-            raise ProviderTransportError(
-                ErrorCode.REASONER_CONTRACT_INVALID,
-                "Codex MCP wrapper execution failed",
-                safe_diagnostics=("mcp:auxiliary_execution_failed",),
-                retryable_failure_category=(
-                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
-                ),
-            )
-        if unknown_observation:
-            raise ProviderTransportError(
-                ErrorCode.REASONER_CONTRACT_INVALID,
-                "Codex used an MCP capability outside the request-bound bridge",
-                safe_diagnostics=("mcp:outside_request_binding",),
-                retryable_failure_category=(
-                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
-                ),
-            )
-        projected_count = len(projected_tools)
-        if projected_count < binding.minimum_tool_calls:
-            raise ProviderTransportError(
-                ErrorCode.REASONER_CONTRACT_INVALID,
-                "Codex omitted a required MCP evidence lookup",
-                safe_diagnostics=("mcp:required_evidence_lookup_omitted",),
-                retryable_failure_category=(
-                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
-                ),
-            )
-        if projected_count > binding.maximum_tool_calls:
-            raise ProviderTransportError(
-                ErrorCode.EVIDENCE_LIMIT_EXCEEDED,
-                "Codex exceeded the request-bound MCP evidence-call budget",
-            )
-        if statuses is None:
-            projected_failed_count = result.mcp_failed_tool_call_count
-        projection = _CodexMcpObservationProjection(
-            tuple(projected_servers),
-            tuple(projected_tools),
-            projected_count,
-            projected_failed_count,
         )
         CodexSDKTransport._raise_for_failed_mcp_observations(projection, binding)
         return projection
@@ -841,6 +714,7 @@ class _SubprocessCodexRunner:
         service_tier: str | None = None,
         worker_module: str = "cera.providers.codex_worker",
         provider_thread_id: str | None = None,
+        base_instructions: str | None = None,
     ) -> None:
         if service_tier is not None and service_tier != "priority":
             raise ContractValidationError(
@@ -853,8 +727,17 @@ class _SubprocessCodexRunner:
             not isinstance(provider_thread_id, str) or not provider_thread_id.strip()
         ):
             raise ContractValidationError("stored Codex thread ID is invalid")
+        if provider_thread_id is not None and (
+            not isinstance(base_instructions, str) or not base_instructions.strip()
+        ):
+            raise ContractValidationError("stored Codex runner requires base instructions")
+        if provider_thread_id is None and base_instructions is not None:
+            raise ContractValidationError(
+                "one-shot Codex runner cannot retain stored base instructions"
+            )
         self.worker_module = worker_module
         self.provider_thread_id = provider_thread_id
+        self.base_instructions = base_instructions
 
     def run(
         self,
@@ -874,30 +757,31 @@ class _SubprocessCodexRunner:
         )
         progress_path = _initialize_codex_worker_progress(workspace)
         request_payload = {
-                "model": route.model_name,
-                "effort": route.reasoning_effort,
-                "service_tier": self.service_tier,
-                "role": route.role.value,
-                "prompt": prompt,
-                "output_schema": output_schema,
-                "workspace": str(workspace),
-                "progress_path": str(progress_path),
-                "transport_version": route.transport_version,
-                "mcp_binding": (
-                    {
-                        **mcp_binding.public_descriptor,
-                        "url": mcp_binding.url,
-                        "bearer_token_environment_variable": (
-                            mcp_binding.bearer_token_environment_variable
-                        ),
-                        "bearer_token": mcp_binding.bearer_token,
-                    }
-                    if mcp_binding is not None
-                    else None
-                ),
-            }
+            "model": route.model_name,
+            "effort": route.reasoning_effort,
+            "service_tier": self.service_tier,
+            "role": route.role.value,
+            "prompt": prompt,
+            "output_schema": output_schema,
+            "workspace": str(workspace),
+            "progress_path": str(progress_path),
+            "transport_version": route.transport_version,
+            "mcp_binding": (
+                {
+                    **mcp_binding.public_descriptor,
+                    "url": mcp_binding.url,
+                    "bearer_token_environment_variable": (
+                        mcp_binding.bearer_token_environment_variable
+                    ),
+                    "bearer_token": mcp_binding.bearer_token,
+                }
+                if mcp_binding is not None
+                else None
+            ),
+        }
         if self.provider_thread_id is not None:
             request_payload["provider_thread_id"] = self.provider_thread_id
+            request_payload["base_instructions"] = self.base_instructions
         payload = _codex_transport_json(request_payload)
         started = time.perf_counter()
         popen_kwargs: dict[str, Any] = {}
@@ -950,12 +834,8 @@ class _SubprocessCodexRunner:
                     "transport:timeout",
                     f"worker_stage:{stage}",
                 ),
-                external_provider_calls_observed=int(
-                    _codex_stage_observed_provider_call(stage)
-                ),
-                retryable_failure_category=(
-                    ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
-                ),
+                external_provider_calls_observed=int(_codex_stage_observed_provider_call(stage)),
+                retryable_failure_category=(ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT),
             ) from None
         finally:
             observer_stop.set()
@@ -970,9 +850,7 @@ class _SubprocessCodexRunner:
             diagnostic = stderr.strip()
             if not diagnostic.startswith("codex qualification worker failed:"):
                 diagnostic = "codex qualification worker failed: unknown"
-            diagnostic = diagnostic.removeprefix(
-                "codex qualification worker failed:"
-            ).strip()
+            diagnostic = diagnostic.removeprefix("codex qualification worker failed:").strip()
             raise ProviderTransportError(
                 ErrorCode.REASONER_UNAVAILABLE,
                 f"Codex qualification worker failed ({diagnostic})",
@@ -980,14 +858,13 @@ class _SubprocessCodexRunner:
                     "transport:worker_failure",
                     f"worker_stage:{stage}",
                 ),
-                external_provider_calls_observed=int(
-                    _codex_stage_observed_provider_call(stage)
-                ),
+                external_provider_calls_observed=int(_codex_stage_observed_provider_call(stage)),
             )
         try:
             output = json.loads(stdout)
             output["mcp_server_names"] = tuple(output.get("mcp_server_names", ()))
             output["mcp_tool_names"] = tuple(output.get("mcp_tool_names", ()))
+            output["unsupported_item_types"] = tuple(output.get("unsupported_item_types", ()))
             if output.get("operation_telemetry") is not None:
                 output["operation_telemetry"] = from_mapping(
                     CodexOperationTelemetryV1,
@@ -1003,9 +880,7 @@ class _SubprocessCodexRunner:
                     "transport:invalid_worker_envelope",
                     f"worker_stage:{stage}",
                 ),
-                external_provider_calls_observed=int(
-                    _codex_stage_observed_provider_call(stage)
-                ),
+                external_provider_calls_observed=int(_codex_stage_observed_provider_call(stage)),
                 retryable_failure_category=(
                     ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
                 ),
@@ -1020,9 +895,7 @@ class _SubprocessCodexRunner:
                     "transport:worker_duration_inconsistent",
                     f"worker_stage:{stage}",
                 ),
-                external_provider_calls_observed=int(
-                    _codex_stage_observed_provider_call(stage)
-                ),
+                external_provider_calls_observed=int(_codex_stage_observed_provider_call(stage)),
             )
         return worker
 
@@ -1034,12 +907,14 @@ class StoredCodexThreadRunner(_SubprocessCodexRunner):
         self,
         provider_thread_id: str,
         *,
+        base_instructions: str,
         service_tier: str | None = None,
     ) -> None:
         super().__init__(
             service_tier=service_tier,
             worker_module="cera.providers.codex_stored_turn_worker",
             provider_thread_id=provider_thread_id,
+            base_instructions=base_instructions,
         )
 
 
@@ -1214,9 +1089,7 @@ class PersistentNoMcpCodexRunner:
                     external_provider_calls_observed=int(
                         _codex_stage_observed_provider_call(stage)
                     ),
-                    retryable_failure_category=(
-                        ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
-                    ),
+                    retryable_failure_category=(ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT),
                 ) from None
             try:
                 envelope = json.loads(line)
@@ -1261,6 +1134,7 @@ class PersistentNoMcpCodexRunner:
                     raise TypeError
                 output["mcp_server_names"] = tuple(output.get("mcp_server_names", ()))
                 output["mcp_tool_names"] = tuple(output.get("mcp_tool_names", ()))
+                output["unsupported_item_types"] = tuple(output.get("unsupported_item_types", ()))
                 if output.get("operation_telemetry") is not None:
                     output["operation_telemetry"] = from_mapping(
                         CodexOperationTelemetryV1,
@@ -1323,10 +1197,7 @@ class PersistentNoMcpCodexRunner:
             external_provider_boundary=is_external_provider_boundary(self),
         )
         if self._process is not None and self._process.poll() is None:
-            if (
-                self._current_process_submission_count
-                < self.QUALIFIED_MAX_REQUESTS_PER_PROCESS
-            ):
+            if self._current_process_submission_count < self.QUALIFIED_MAX_REQUESTS_PER_PROCESS:
                 return self._process
             self._close_process_epoch(self._process)
         if self._process is not None:

@@ -9,9 +9,9 @@ envelope; the parent never resubmits that request.
 from __future__ import annotations
 
 import json
+import sys
 from importlib.metadata import version
 from pathlib import Path
-import sys
 from typing import Any
 
 from cera.provider_dispatch_guard import (
@@ -19,6 +19,16 @@ from cera.provider_dispatch_guard import (
     is_external_provider_boundary,
 )
 
+from .codex_runtime_policy import (
+    codex_app_server_config_overrides,
+    codex_app_server_environment,
+    runtime_config_and_environment,
+    start_codex_thread_without_environments,
+    unsupported_completed_result_item_types,
+    validate_codex_app_server_configuration,
+    validate_codex_mcp_server_status,
+    validate_codex_prompt_markers,
+)
 
 _PROTOCOL_VERSION = "cera.codex_persistent_no_mcp.v1"
 _BASE_INSTRUCTIONS_BY_ROLE = {
@@ -71,6 +81,7 @@ def _validate_request(request: dict[str, Any]) -> None:
         raise ValueError("persistent Codex protocol version is unsupported")
     if request["mcp_binding"] is not None:
         raise ValueError("persistent Codex worker cannot receive MCP authority")
+    validate_codex_prompt_markers(request.get("prompt"))
     role = request["role"]
     if role not in _BASE_INSTRUCTIONS_BY_ROLE:
         raise ValueError("persistent Codex role is unsupported")
@@ -86,38 +97,8 @@ def _validate_request(request: dict[str, Any]) -> None:
 
 
 def _config() -> dict[str, Any]:
-    return {
-        "web_search": "disabled",
-        "features": {
-            "apps": False,
-            "apply_patch_freeform": False,
-            "collab": False,
-            "connectors": False,
-            "multi_agent": False,
-            "multi_agent_v2": False,
-            "plugins": False,
-            "search_tool": False,
-            "shell_tool": False,
-            "skill_search": False,
-            "standalone_web_search": False,
-            "tool_search": False,
-            "unified_exec": False,
-            "web_search": False,
-        },
-        "default_permissions": "cera-no-files",
-        "permissions": {
-            "cera-no-files": {
-                "description": "CERA provider qualification without filesystem or network",
-                "filesystem": {
-                    ":root": "deny",
-                    ":minimal": "read",
-                    ":tmpdir": "deny",
-                    ":slash_tmp": "deny",
-                },
-                "network": {"enabled": False},
-            }
-        },
-    }
+    config, _environment = runtime_config_and_environment(None)
+    return config
 
 
 def _run_request(
@@ -131,20 +112,25 @@ def _run_request(
         "providers.codex.session_worker.request",
         external_provider_boundary=is_external_provider_boundary(codex),
     )
-    from openai_codex.api import ApprovalMode, ReasoningEffort
+    from openai_codex.api import ReasoningEffort
 
     _validate_request(request)
+    validate_codex_app_server_configuration(
+        codex,
+        cwd=request["workspace"],
+    )
     expected_version = request["transport_version"]
     _record_stage(request, "thread_start", sequence)
-    thread = codex.thread_start(
+    thread = start_codex_thread_without_environments(
+        codex,
         model=request["model"],
         cwd=request["workspace"],
         ephemeral=True,
         base_instructions=_BASE_INSTRUCTIONS_BY_ROLE[request["role"]],
         config=_config(),
         service_name=f"cera_{request['role']}_persistent_qualification",
-        approval_mode=ApprovalMode.deny_all,
     )
+    validate_codex_mcp_server_status(codex, thread_id=thread.id)
     _record_stage(request, "thread_run", sequence)
     result = thread.run(
         request["prompt"],
@@ -163,12 +149,19 @@ def _run_request(
     if result.final_response is None or result.usage is None:
         raise RuntimeError("Codex turn omitted response or usage")
     usage = result.usage.last
-    if any(
-        getattr((item.root if hasattr(item, "root") else item), "type", None)
-        == "mcpToolCall"
-        for item in result.items
-    ):
-        raise RuntimeError("persistent no-MCP Codex thread reported tool use")
+    mcp_server_names: list[str] = []
+    mcp_tool_names: list[str] = []
+    failed_mcp_calls = 0
+    unsupported_item_types = unsupported_completed_result_item_types(result.items)
+    for wrapped in result.items:
+        item = wrapped.root if hasattr(wrapped, "root") else wrapped
+        if getattr(item, "type", None) != "mcpToolCall":
+            continue
+        mcp_server_names.append(item.server)
+        mcp_tool_names.append(item.tool)
+        status = getattr(item.status, "value", item.status)
+        if status != "completed" or item.error is not None:
+            failed_mcp_calls += 1
     return {
         "output_text": result.final_response,
         "provider_request_id": result.id,
@@ -179,21 +172,16 @@ def _run_request(
         "output_tokens": usage.output_tokens,
         "reasoning_output_tokens": usage.reasoning_output_tokens,
         "transport_version": thread_state.thread.cli_version,
-        "mcp_server_names": [],
-        "mcp_tool_names": [],
-        "mcp_tool_call_count": 0,
-        "mcp_failed_tool_call_count": 0,
+        "mcp_server_names": mcp_server_names,
+        "mcp_tool_names": mcp_tool_names,
+        "mcp_tool_call_count": len(mcp_tool_names),
+        "mcp_failed_tool_call_count": failed_mcp_calls,
+        "unsupported_item_types": unsupported_item_types,
         "transport_compatibility_id": compatibility_state.compatibility_id,
-        "transport_compatibility_source_sha256": (
-            compatibility_state.source_sha256
-        ),
+        "transport_compatibility_source_sha256": (compatibility_state.source_sha256),
         "transport_compatibility_activated": True,
-        "buffered_early_completion_count": (
-            compatibility_state.buffered_early_completion_count
-        ),
-        "pre_registered_turn_count": (
-            compatibility_state.pre_registered_turn_count
-        ),
+        "buffered_early_completion_count": (compatibility_state.buffered_early_completion_count),
+        "pre_registered_turn_count": (compatibility_state.pre_registered_turn_count),
     }
 
 
@@ -217,14 +205,27 @@ def main() -> int:
         )
         if version("openai-codex") != expected_version:
             raise RuntimeError("Codex SDK version does not match the qualified route")
+        app_server_cwd = Path(request["workspace"]).resolve()
+        app_server_overrides = codex_app_server_config_overrides(app_server_cwd)
         stage = "sdk_start"
-        with Codex(CodexConfig(config_overrides=("mcp_servers={}",))) as codex:
+        with Codex(
+            CodexConfig(
+                config_overrides=app_server_overrides,
+                cwd=str(app_server_cwd),
+                env=codex_app_server_environment(),
+            )
+        ) as codex:
             stage = "sdk_compatibility_install"
             from cera.providers.codex_sdk_compat import (
                 install_early_turn_completion_buffer,
             )
 
             compatibility_state = install_early_turn_completion_buffer(codex)
+            validate_codex_app_server_configuration(
+                codex,
+                cwd=app_server_cwd,
+            )
+            validate_codex_mcp_server_status(codex)
             stage = "account_check"
             account = codex.account()
             if account.account is None:
@@ -276,8 +277,7 @@ def main() -> int:
             "message": _safe_error_text(exc, request),
         }
         sys.stdout.write(
-            json.dumps(envelope, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
-            + "\n"
+            json.dumps(envelope, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n"
         )
         sys.stdout.flush()
         return 1

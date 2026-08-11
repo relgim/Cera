@@ -5,13 +5,19 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import call, patch
 
+from cera.providers.codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+)
 from cera.providers.codex_session_worker import _run_request, _validate_request
 
 
 class FakeThread:
-    def __init__(self, transport_version: str) -> None:
+    def __init__(self, transport_version: str, thread_id: str) -> None:
         self.transport_version = transport_version
+        self.id = thread_id
         self.run_calls = 0
 
     def run(self, prompt, *, effort, output_schema):
@@ -48,7 +54,7 @@ class FakeCodex:
 
     def thread_start(self, **kwargs):
         self.start_calls.append(kwargs)
-        return FakeThread("0.144.4")
+        return FakeThread("0.144.4", f"thread-{len(self.start_calls)}")
 
 
 def request_for(workspace: Path, prompt: str) -> dict:
@@ -83,22 +89,56 @@ class CodexPersistentSessionWorkerTests(unittest.TestCase):
             first_request = request_for(Path(first), "first")
             second_request = request_for(Path(second), "second")
             compatibility = SimpleNamespace(
-                compatibility_id="cera.codex_sdk_completion_registration.v2",
-                source_sha256=("8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1"),
+                compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
+                source_sha256=CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
                 buffered_early_completion_count=0,
                 pre_registered_turn_count=2,
             )
-            first_result = _run_request(
-                codex,
-                first_request,
-                sequence=1,
-                compatibility_state=compatibility,
+
+            def start_without_environments(actual_codex, **kwargs):
+                self.assertIs(actual_codex, codex)
+                self.assertEqual(kwargs["model"], "gpt-5.6-sol")
+                self.assertIs(kwargs["ephemeral"], True)
+                self.assertTrue(kwargs["base_instructions"].strip())
+                self.assertFalse(any(key.startswith("mcp_servers") for key in kwargs["config"]))
+                codex.start_calls.append(kwargs)
+                return FakeThread("0.144.4", f"thread-{len(codex.start_calls)}")
+
+            with (
+                patch(
+                    "cera.providers.codex_session_worker.validate_codex_app_server_configuration"
+                ) as validate_config,
+                patch(
+                    "cera.providers.codex_session_worker.validate_codex_mcp_server_status"
+                ) as validate_status,
+                patch(
+                    "cera.providers.codex_session_worker.start_codex_thread_without_environments",
+                    side_effect=start_without_environments,
+                ),
+            ):
+                first_result = _run_request(
+                    codex,
+                    first_request,
+                    sequence=1,
+                    compatibility_state=compatibility,
+                )
+                second_result = _run_request(
+                    codex,
+                    second_request,
+                    sequence=2,
+                    compatibility_state=compatibility,
+                )
+            validate_config.assert_has_calls(
+                [
+                    call(codex, cwd=str(Path(first))),
+                    call(codex, cwd=str(Path(second))),
+                ]
             )
-            second_result = _run_request(
-                codex,
-                second_request,
-                sequence=2,
-                compatibility_state=compatibility,
+            validate_status.assert_has_calls(
+                [
+                    call(codex, thread_id="thread-1"),
+                    call(codex, thread_id="thread-2"),
+                ]
             )
         self.assertEqual(len(codex.start_calls), 2)
         self.assertTrue(all(value["ephemeral"] for value in codex.start_calls))

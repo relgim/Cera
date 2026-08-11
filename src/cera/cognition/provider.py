@@ -18,7 +18,6 @@ from cera.provider_dispatch_guard import (
     is_external_provider_boundary,
 )
 from cera.providers.codex import (
-    CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
     CodexSDKTransport,
     StoredCodexThreadRunner,
     decode_completed_codex_output,
@@ -35,7 +34,7 @@ from .prompting import COGNITION_PLANNER_BASE_INSTRUCTIONS, COGNITION_PLANNER_PR
 from .provider_schema import cognition_plan_json_schema
 from .validation import CognitionValidationContextV1, validate_cognition_plan
 
-COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v3"
+COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v4"
 COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v4"
 # This is a transport-loss boundary, not the three-minute interaction target.
 # Retained-turn latency remains observable in provider telemetry.
@@ -45,7 +44,7 @@ COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
 def cognition_planner_route() -> LiveProviderRoute:
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_cognition_planner_sol_medium_v3",
+        route_id="cera_cognition_planner_sol_medium_v4",
         adapter_id=COGNITION_PLANNER_ADAPTER,
         prompt_version=COGNITION_PLANNER_PROMPT,
         timeout_seconds=COGNITION_PLANNER_HARD_TIMEOUT_SECONDS,
@@ -121,8 +120,10 @@ class CodexCognitionPlannerBackend:
         transport = CodexSDKTransport(
             self.route,
             workspace=operation_workspace,
-            runner=StoredCodexThreadRunner(thread_id),
-            mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+            runner=StoredCodexThreadRunner(
+                thread_id,
+                base_instructions=COGNITION_PLANNER_BASE_INSTRUCTIONS,
+            ),
         )
         stored_thread_sha256 = text_sha256(thread_id)
         mcp_binding = self.world_bridge.runtime_binding if self.world_bridge is not None else None

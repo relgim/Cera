@@ -18,7 +18,13 @@ from cera.semantic_validation import (
     SemanticValidationVerdictV1,
     SemanticVerdict,
 )
-from cera.semantic_validation.provider import CodexLunaSemanticValidatorBackend
+from cera.semantic_validation.prompting import LUNA_VALIDATOR_PROFILE
+from cera.semantic_validation.provider import (
+    LUNA_VALIDATOR_ADAPTER,
+    LUNA_VALIDATOR_PROMPT,
+    CodexLunaSemanticValidatorBackend,
+    luna_validator_route,
+)
 from cera.serialization import canonical_sha256, to_primitive
 
 from .test_semantic_validation_contracts import _request
@@ -77,6 +83,18 @@ class _InvalidCompletedLunaTransport(_OfflineLunaTransport):
 
 
 class SemanticValidationProviderTests(unittest.TestCase):
+    def test_luna_route_binds_the_hardened_runtime_identity(self) -> None:
+        route = luna_validator_route()
+        self.assertEqual(
+            LUNA_VALIDATOR_ADAPTER,
+            "cera.semantic_validation.luna_adapter.v2",
+        )
+        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v1")
+        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v1")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v2")
+        self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
+        self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
+
     def test_completed_invalid_verdict_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

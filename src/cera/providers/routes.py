@@ -5,23 +5,22 @@ from __future__ import annotations
 from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.evaluation import EvaluationRole
 
-from .models import (
-    LiveProviderRoute,
-    ProviderAuthMode,
-    ProviderName,
-    ProviderPricing,
-)
-from .codex_sdk_compat import (
-    CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
-)
 from .codex_exec_contract import (
     CODEX_CLI_EXEC_COMPATIBILITY_ID,
     CODEX_CLI_EXEC_CONTRACT_SHA256,
     CODEX_CLI_EXEC_TRANSPORT_NAME,
     CODEX_CLI_EXEC_VERSION,
 )
-
+from .codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+)
+from .models import (
+    LiveProviderRoute,
+    ProviderAuthMode,
+    ProviderName,
+    ProviderPricing,
+)
 
 DEEPSEEK_PRICING_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
 DEFAULT_DEEPSEEK_COMPOSER_MODEL = ACTIVE_RUNTIME_PROFILE.composer.model
@@ -30,9 +29,7 @@ DEFAULT_DEEPSEEK_COMPOSER_MODEL = ACTIVE_RUNTIME_PROFILE.composer.model
 def codex_reasoner_candidate(
     *,
     model: str = ACTIVE_RUNTIME_PROFILE.reasoner.model,
-    effort: str = (
-        ACTIVE_RUNTIME_PROFILE.reasoner.default_reasoning_effort or "medium"
-    ),
+    effort: str = (ACTIVE_RUNTIME_PROFILE.reasoner.default_reasoning_effort or "medium"),
 ) -> LiveProviderRoute:
     return LiveProviderRoute(
         schema_version=LiveProviderRoute.SCHEMA_VERSION,
@@ -58,18 +55,14 @@ def codex_reasoner_candidate(
         production_enabled=False,
         pricing=None,
         transport_compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
-        transport_compatibility_source_sha256=(
-            EXPECTED_ROUTE_NOTIFICATION_SHA256
-        ),
+        transport_compatibility_source_sha256=(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256),
     )
 
 
 def codex_realization_verifier_candidate(
     *,
     model: str = ACTIVE_RUNTIME_PROFILE.verifier.model,
-    effort: str = (
-        ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"
-    ),
+    effort: str = (ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"),
 ) -> LiveProviderRoute:
     """Return the unpromoted one-shot semantic-verifier route."""
 
@@ -97,18 +90,14 @@ def codex_realization_verifier_candidate(
         production_enabled=False,
         pricing=None,
         transport_compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
-        transport_compatibility_source_sha256=(
-            EXPECTED_ROUTE_NOTIFICATION_SHA256
-        ),
+        transport_compatibility_source_sha256=(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256),
     )
 
 
 def codex_cli_realization_verifier_candidate(
     *,
     model: str = ACTIVE_RUNTIME_PROFILE.verifier.model,
-    effort: str = (
-        ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"
-    ),
+    effort: str = (ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"),
 ) -> LiveProviderRoute:
     """Return the unpromoted one-shot CLI semantic-verifier route."""
 
@@ -136,9 +125,7 @@ def codex_cli_realization_verifier_candidate(
         production_enabled=False,
         pricing=None,
         transport_compatibility_id=CODEX_CLI_EXEC_COMPATIBILITY_ID,
-        transport_compatibility_source_sha256=(
-            CODEX_CLI_EXEC_CONTRACT_SHA256
-        ),
+        transport_compatibility_source_sha256=(CODEX_CLI_EXEC_CONTRACT_SHA256),
     )
 
 

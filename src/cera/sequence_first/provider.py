@@ -10,19 +10,6 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from cera.errors import ContractValidationError
-from cera.provider_dispatch_guard import (
-    assert_provider_dispatch_allowed,
-    is_external_provider_boundary,
-)
-from cera.schema import from_mapping
-from cera.serialization import text_sha256
-from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
-from cera.providers.routes import (
-    codex_reasoner_candidate,
-    codex_realization_verifier_candidate,
-)
-from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.provider import (
@@ -30,16 +17,28 @@ from cera.continuous.provider import (
     DeepSeekContinuousComposerPort,
     continuous_deepseek_route,
 )
+from cera.errors import ContractValidationError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
+from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
+from cera.providers.routes import (
+    codex_realization_verifier_candidate,
+    codex_reasoner_candidate,
+)
+from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
+from cera.schema import from_mapping
+from cera.serialization import text_sha256
 
 from .contracts import (
     CHARACTER_ID_JSON_PATTERN,
     LOCAL_KEY_JSON_PATTERN,
-    ProviderReferenceScopeV1,
     STABLE_IDENTITY_JSON_PATTERN,
-    SequenceDraftV1,
+    ProviderReferenceScopeV1,
     ReaderVerdictV1,
+    SequenceDraftV1,
     SequenceFirstReaderInputV1,
-    SequenceFirstValidatorInputV1,
     SequenceFirstWriterBriefV1,
     ValidatorDecisionV1,
     ValidatorProviderDecisionV1,
@@ -49,13 +48,12 @@ from .prompting import (
     PLANNER_BASE_INSTRUCTIONS,
     PLANNER_PROFILE,
     READER_BASE_INSTRUCTIONS,
+    SEQUENCE_FIRST_WRITER_SYSTEM_INSTRUCTIONS,
     VALIDATOR_BASE_INSTRUCTIONS,
     VALIDATOR_PROFILE,
     reader_prompt,
-    SEQUENCE_FIRST_WRITER_SYSTEM_INSTRUCTIONS,
     writer_prompt,
 )
-
 
 SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v13"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v12"
@@ -64,9 +62,7 @@ SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v12"
 SEQUENCE_FIRST_VALIDATOR_PROVIDER_SCHEMA = ValidatorProviderDecisionV1.SCHEMA_VERSION
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v5"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v3"
-SEQUENCE_FIRST_READER_PROVIDER_SCHEMA = (
-    "cera.sequence_first.reader_provider_schema.v1"
-)
+SEQUENCE_FIRST_READER_PROVIDER_SCHEMA = "cera.sequence_first.reader_provider_schema.v1"
 SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
 SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v2"
 
@@ -178,9 +174,7 @@ def _operation_workspace(root: Path, *, role: str, index: int) -> Path:
     """Create one immutable empty worker directory for one provider operation."""
 
     if not root.is_absolute() or not root.is_dir():
-        raise ContractValidationError(
-            "sequence-first provider workspace root must already exist"
-        )
+        raise ContractValidationError("sequence-first provider workspace root must already exist")
     workspace = root / f"{role}_operation_{index:04d}"
     try:
         workspace.mkdir()
@@ -552,17 +546,14 @@ class SequenceFirstPlannerCodexBackend:
         transport = CodexSDKTransport(
             self.route,
             workspace=operation_workspace,
-            runner=StoredCodexThreadRunner(thread_id),
+            runner=StoredCodexThreadRunner(
+                thread_id,
+                base_instructions=PLANNER_BASE_INSTRUCTIONS,
+            ),
         )
         stored_thread_sha256 = text_sha256(thread_id)
-        mcp_binding = (
-            self.world_bridge.runtime_binding
-            if self.world_bridge is not None
-            else None
-        )
-        output_schema = sequence_draft_json_schema(
-            reference_scope=reference_scope
-        )
+        mcp_binding = self.world_bridge.runtime_binding if self.world_bridge is not None else None
+        output_schema = sequence_draft_json_schema(reference_scope=reference_scope)
 
         def dispatch(markers):
             return transport.invoke(
@@ -576,9 +567,7 @@ class SequenceFirstPlannerCodexBackend:
 
         def finalize(result):
             world_tool_debug = (
-                self.world_bridge.finalize(result)
-                if self.world_bridge is not None
-                else None
+                self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             return ContinuousProviderResultV1(
                 value=from_mapping(SequenceDraftV1, result.parsed_json or {}),
@@ -660,9 +649,7 @@ class SequenceFirstValidatorCodexBackend:
         if profile != VALIDATOR_PROFILE or base_instructions != VALIDATOR_BASE_INSTRUCTIONS:
             raise ContractValidationError("sequence-first Validator profile changed")
         if base_instructions not in self.lifecycle.base_instructions:
-            raise ContractValidationError(
-                "fresh Validator backend lacks compact base instructions"
-            )
+            raise ContractValidationError("fresh Validator backend lacks compact base instructions")
         return self.lifecycle.start_stored_thread()
 
     def run_validator_once(
@@ -686,12 +673,13 @@ class SequenceFirstValidatorCodexBackend:
         transport = CodexSDKTransport(
             self.route,
             workspace=operation_workspace,
-            runner=StoredCodexThreadRunner(thread_id),
+            runner=StoredCodexThreadRunner(
+                thread_id,
+                base_instructions=VALIDATOR_BASE_INSTRUCTIONS,
+            ),
         )
         stored_thread_sha256 = text_sha256(thread_id)
-        output_schema = validator_decision_json_schema(
-            reference_scope=reference_scope
-        )
+        output_schema = validator_decision_json_schema(reference_scope=reference_scope)
 
         def dispatch(markers):
             return transport.invoke(
@@ -802,12 +790,8 @@ class SequenceFirstReaderCodexPort:
             "sequence_first.reader.turn",
             external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
-        planner_item_keys = tuple(
-            item.item_key for item in request.intended_sequence.items
-        )
-        output_schema = reader_verdict_json_schema(
-            planner_item_keys=planner_item_keys
-        )
+        planner_item_keys = tuple(item.item_key for item in request.intended_sequence.items)
+        output_schema = reader_verdict_json_schema(planner_item_keys=planner_item_keys)
         thread_id = self.lifecycle.start_stored_thread()
         stored_thread_sha256 = text_sha256(thread_id)
         self._operation_index += 1
@@ -819,7 +803,10 @@ class SequenceFirstReaderCodexPort:
         transport = CodexSDKTransport(
             self.route,
             workspace=operation_workspace,
-            runner=StoredCodexThreadRunner(thread_id),
+            runner=StoredCodexThreadRunner(
+                thread_id,
+                base_instructions=READER_BASE_INSTRUCTIONS,
+            ),
         )
 
         def dispatch(markers):
@@ -895,9 +882,7 @@ class SequenceFirstReaderCodexPort:
     ) -> None:
         self.lifecycle.archive_stored_thread(thread_id)
         if self.lifecycle.stored_thread_is_selectable(thread_id):
-            raise ContractValidationError(
-                "archived sequence-first Reader remains resumable"
-            )
+            raise ContractValidationError("archived sequence-first Reader remains resumable")
         if self.operation_evidence is not None:
             provider_dispatched = self.operation_evidence.has_provider_call_for_thread(
                 role="reader",

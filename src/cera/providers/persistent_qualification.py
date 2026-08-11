@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +13,11 @@ from cera.serialization import bytes_sha256
 
 from .codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
     EXPECTED_ROUTE_NOTIFICATION_SHA256,
     LEGACY_CODEX_SDK_COMPATIBILITY_ID,
     SUPPORTED_SDK_VERSION,
 )
-
 
 _ROLE_SEQUENCE = (
     ("scene_reasoner", 1),
@@ -106,9 +106,7 @@ def load_persistent_codex_qualification(
     raw = path.read_bytes()
     actual_sha256 = bytes_sha256(raw)
     if actual_sha256 != expected_summary_sha256:
-        raise ContractValidationError(
-            "persistent Codex qualification evidence hash does not match"
-        )
+        raise ContractValidationError("persistent Codex qualification evidence hash does not match")
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -116,9 +114,7 @@ def load_persistent_codex_qualification(
             "persistent Codex qualification evidence is not valid JSON"
         ) from None
     if not isinstance(payload, dict):
-        raise ContractValidationError(
-            "persistent Codex qualification evidence must be an object"
-        )
+        raise ContractValidationError("persistent Codex qualification evidence must be an object")
     if (
         payload.get("schema_version") != "cera.persistent_codex_transport_probe.v1"
         or payload.get("status") != "passed"
@@ -138,28 +134,20 @@ def load_persistent_codex_qualification(
         )
     qualification_id = payload.get("qualification_id")
     if not isinstance(qualification_id, str) or not qualification_id.strip():
-        raise ContractValidationError(
-            "persistent Codex qualification identity is missing"
-        )
+        raise ContractValidationError("persistent Codex qualification identity is missing")
     role_sessions = payload.get("role_sessions")
     if not isinstance(role_sessions, dict) or set(role_sessions) != {
         "scene_reasoner",
         "scene_realization_verifier",
     }:
-        raise ContractValidationError(
-            "persistent Codex qualification role sessions are incomplete"
-        )
+        raise ContractValidationError("persistent Codex qualification role sessions are incomplete")
     expected_session = {"process_launch_count": 1, "request_submission_count": 2}
     if any(value != expected_session for value in role_sessions.values()):
-        raise ContractValidationError(
-            "persistent Codex qualification did not prove process reuse"
-        )
+        raise ContractValidationError("persistent Codex qualification did not prove process reuse")
 
     calls = payload.get("calls")
     if not isinstance(calls, list) or len(calls) != len(_ROLE_SEQUENCE):
-        raise ContractValidationError(
-            "persistent Codex qualification requires exactly four calls"
-        )
+        raise ContractValidationError("persistent Codex qualification requires exactly four calls")
     evidence_identities: set[str] = set()
     receipt_ids: set[str] = set()
     request_ids: set[str] = set()
@@ -243,9 +231,7 @@ def load_persistent_codex_rotation_qualification(
     raw = path.read_bytes()
     actual_sha256 = bytes_sha256(raw)
     if actual_sha256 != expected_summary_sha256:
-        raise ContractValidationError(
-            "persistent Codex rotation evidence hash does not match"
-        )
+        raise ContractValidationError("persistent Codex rotation evidence hash does not match")
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -253,9 +239,7 @@ def load_persistent_codex_rotation_qualification(
             "persistent Codex rotation evidence is not valid JSON"
         ) from None
     if not isinstance(payload, dict):
-        raise ContractValidationError(
-            "persistent Codex rotation evidence must be an object"
-        )
+        raise ContractValidationError("persistent Codex rotation evidence must be an object")
     qualification_id = _validate_rotation_payload(
         payload,
         expected_model=expected_model,
@@ -288,9 +272,7 @@ def load_persistent_codex_tree_cleanup_qualification(
     raw = path.read_bytes()
     actual_sha256 = bytes_sha256(raw)
     if actual_sha256 != expected_summary_sha256:
-        raise ContractValidationError(
-            "persistent Codex tree-cleanup evidence hash does not match"
-        )
+        raise ContractValidationError("persistent Codex tree-cleanup evidence hash does not match")
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -298,9 +280,7 @@ def load_persistent_codex_tree_cleanup_qualification(
             "persistent Codex tree-cleanup evidence is not valid JSON"
         ) from None
     if not isinstance(payload, dict):
-        raise ContractValidationError(
-            "persistent Codex tree-cleanup evidence must be an object"
-        )
+        raise ContractValidationError("persistent Codex tree-cleanup evidence must be an object")
     qualification_id = _validate_rotation_payload(
         payload,
         expected_model=expected_model,
@@ -308,9 +288,7 @@ def load_persistent_codex_tree_cleanup_qualification(
         require_cleanup_policy=True,
     )
     return PersistentCodexTreeCleanupQualificationEvidence(
-        schema_version=(
-            "cera.persistent_codex_tree_cleanup_qualification_evidence.v1"
-        ),
+        schema_version=("cera.persistent_codex_tree_cleanup_qualification_evidence.v1"),
         qualification_id=qualification_id,
         summary_sha256=actual_sha256,
         requested_model=expected_model,
@@ -346,13 +324,10 @@ def load_persistent_codex_verifier_epoch_qualification(
             "persistent Codex verifier-epoch evidence is not valid JSON"
         ) from None
     if not isinstance(payload, dict):
-        raise ContractValidationError(
-            "persistent Codex verifier-epoch evidence must be an object"
-        )
+        raise ContractValidationError("persistent Codex verifier-epoch evidence must be an object")
     compatibility = payload.get("sdk_compatibility")
     if (
-        payload.get("schema_version")
-        != "cera.persistent_codex_verifier_epoch_probe.v1"
+        payload.get("schema_version") != "cera.persistent_codex_verifier_epoch_probe.v1"
         or payload.get("status") != "passed"
         or payload.get("calls_required") != 6
         or payload.get("successful_calls") != 6
@@ -369,23 +344,17 @@ def load_persistent_codex_verifier_epoch_qualification(
         or payload.get("expected_process_launches") != 3
         or payload.get("process_launch_count") != 3
         or payload.get("request_submission_count") != 6
-        or payload.get("process_tree_cleanup_policy")
-        != "force_full_tree_before_replacement"
-        or payload.get("replacement_dispatch_requires_cleanup_confirmation")
-        is not True
+        or payload.get("process_tree_cleanup_policy") != "force_full_tree_before_replacement"
+        or payload.get("replacement_dispatch_requires_cleanup_confirmation") is not True
         or payload.get("model") != expected_model
         or payload.get("reasoning_effort") != "medium"
         or not isinstance(compatibility, dict)
-        or compatibility.get("compatibility_id")
-        != LEGACY_CODEX_SDK_COMPATIBILITY_ID
+        or compatibility.get("compatibility_id") != LEGACY_CODEX_SDK_COMPATIBILITY_ID
         or compatibility.get("sdk_version") != SUPPORTED_SDK_VERSION
         or compatibility.get("route_notification_source_sha256")
         != EXPECTED_ROUTE_NOTIFICATION_SHA256
         or compatibility.get("activation_contract")
-        != (
-            "each successful transport result requires matching worker "
-            "activation evidence"
-        )
+        != ("each successful transport result requires matching worker activation evidence")
     ):
         raise ContractValidationError(
             "persistent Codex verifier-epoch qualification did not pass its safe route"
@@ -413,9 +382,7 @@ def load_persistent_codex_verifier_epoch_qualification(
     expected_launches = (1, 1, 2, 2, 3, 3)
     for index, call in enumerate(calls, start=1):
         if not isinstance(call, dict):
-            raise ContractValidationError(
-                "persistent Codex verifier-epoch call is malformed"
-            )
+            raise ContractValidationError("persistent Codex verifier-epoch call is malformed")
         if (
             call.get("index") != index
             or call.get("role") != "scene_realization_verifier"
@@ -426,10 +393,8 @@ def load_persistent_codex_verifier_epoch_qualification(
             or call.get("fallback_enabled") is not False
             or call.get("story_authority_writes") != 0
             or call.get("workspace_retained") is not False
-            or call.get("transport_compatibility_activation_validated")
-            is not True
-            or call.get("process_launch_count_after_call")
-            != expected_launches[index - 1]
+            or call.get("transport_compatibility_activation_validated") is not True
+            or call.get("process_launch_count_after_call") != expected_launches[index - 1]
             or call.get("request_submission_count_after_call") != index
         ):
             raise ContractValidationError(
@@ -444,10 +409,7 @@ def load_persistent_codex_verifier_epoch_qualification(
             raise ContractValidationError(
                 "persistent Codex verifier-epoch typed identity is invalid"
             ) from None
-        if (
-            evidence_identity in evidence_identities
-            or request_id in request_ids
-        ):
+        if evidence_identity in evidence_identities or request_id in request_ids:
             raise ContractValidationError(
                 "persistent Codex verifier-epoch identities are not unique"
             )
@@ -465,9 +427,7 @@ def load_persistent_codex_verifier_epoch_qualification(
             verification_receipt,
             dict,
         ):
-            raise ContractValidationError(
-                "persistent Codex verifier-epoch receipts are incomplete"
-            )
+            raise ContractValidationError("persistent Codex verifier-epoch receipts are incomplete")
         _validate_provider_receipt(
             provider_receipt,
             expected_role="scene_realization_verifier",
@@ -483,14 +443,10 @@ def load_persistent_codex_verifier_epoch_qualification(
             or verification_receipt.get("retains_story_prose") is not False
             or verification_receipt.get("provider_receipt_id")
             != provider_receipt.get("provider_receipt_id")
-            or verification_receipt.get("candidate_sha256")
-            != call.get("candidate_sha256")
-            or verification_receipt.get("story_text_sha256")
-            != call.get("candidate_sha256")
-            or verification_receipt.get("verification_request_sha256")
-            != call.get("request_sha256")
-            or verification_receipt.get("verifier_adapter_evidence_sha256")
-            != route_sha256
+            or verification_receipt.get("candidate_sha256") != call.get("candidate_sha256")
+            or verification_receipt.get("story_text_sha256") != call.get("candidate_sha256")
+            or verification_receipt.get("verification_request_sha256") != call.get("request_sha256")
+            or verification_receipt.get("verifier_adapter_evidence_sha256") != route_sha256
             or verification_receipt.get("violation_codes") != []
             or verification_receipt.get("violation_finding_sha256s") != []
         ):
@@ -498,13 +454,8 @@ def load_persistent_codex_verifier_epoch_qualification(
                 "persistent Codex verifier-epoch semantic receipt is incompatible"
             )
         provider_receipt_id = provider_receipt.get("provider_receipt_id")
-        provider_request_id = provider_receipt.get(
-            "provider_request_id_sha256"
-        )
-        if (
-            provider_receipt_id in receipt_ids
-            or provider_request_id in provider_request_ids
-        ):
+        provider_request_id = provider_receipt.get("provider_request_id_sha256")
+        if provider_receipt_id in receipt_ids or provider_request_id in provider_request_ids:
             raise ContractValidationError(
                 "persistent Codex verifier-epoch provider calls are not unique"
             )
@@ -512,9 +463,7 @@ def load_persistent_codex_verifier_epoch_qualification(
         provider_request_ids.add(provider_request_id)
 
     return PersistentCodexVerifierEpochQualificationEvidence(
-        schema_version=(
-            "cera.persistent_codex_verifier_epoch_qualification_evidence.v1"
-        ),
+        schema_version=("cera.persistent_codex_verifier_epoch_qualification_evidence.v1"),
         qualification_id=qualification_id,
         summary_sha256=actual_sha256,
         requested_model=expected_model,
@@ -524,9 +473,7 @@ def load_persistent_codex_verifier_epoch_qualification(
         cleanup_policy="force_full_tree_before_replacement",
         sdk_compatibility_id=LEGACY_CODEX_SDK_COMPATIBILITY_ID,
         sdk_version=SUPPORTED_SDK_VERSION,
-        route_notification_source_sha256=(
-            EXPECTED_ROUTE_NOTIFICATION_SHA256
-        ),
+        route_notification_source_sha256=(EXPECTED_ROUTE_NOTIFICATION_SHA256),
     )
 
 
@@ -550,9 +497,7 @@ def load_persistent_codex_completion_registration_qualification(
     raw = path.read_bytes()
     actual_sha256 = bytes_sha256(raw)
     if actual_sha256 != expected_summary_sha256:
-        raise ContractValidationError(
-            "Codex completion-registration evidence hash does not match"
-        )
+        raise ContractValidationError("Codex completion-registration evidence hash does not match")
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -560,15 +505,11 @@ def load_persistent_codex_completion_registration_qualification(
             "Codex completion-registration evidence is not valid JSON"
         ) from None
     if not isinstance(payload, dict):
-        raise ContractValidationError(
-            "Codex completion-registration evidence must be an object"
-        )
+        raise ContractValidationError("Codex completion-registration evidence must be an object")
     compatibility = payload.get("sdk_compatibility")
     if (
-        payload.get("schema_version")
-        != "cera.persistent_codex_verifier_epoch_probe.v2"
-        or payload.get("qualification_id")
-        != "persistent-codex-verifier-epoch-probe-v5"
+        payload.get("schema_version") != "cera.persistent_codex_verifier_epoch_probe.v2"
+        or payload.get("qualification_id") != "persistent-codex-verifier-epoch-probe-v5"
         or payload.get("status") != "passed"
         or payload.get("calls_required") != 10
         or payload.get("successful_calls") != 10
@@ -585,20 +526,17 @@ def load_persistent_codex_completion_registration_qualification(
         or payload.get("expected_process_launches") != 5
         or payload.get("process_launch_count") != 5
         or payload.get("request_submission_count") != 10
-        or payload.get("process_tree_cleanup_policy")
-        != "force_full_tree_before_replacement"
-        or payload.get("replacement_dispatch_requires_cleanup_confirmation")
-        is not True
+        or payload.get("process_tree_cleanup_policy") != "force_full_tree_before_replacement"
+        or payload.get("replacement_dispatch_requires_cleanup_confirmation") is not True
         or payload.get("returned_turn_pre_registration_required") is not True
         or payload.get("model") != expected_model
         or payload.get("reasoning_effort") != "medium"
         or payload.get("route_sha256") != expected_route_sha256
         or not isinstance(compatibility, dict)
-        or compatibility.get("compatibility_id")
-        != CODEX_SDK_COMPATIBILITY_ID
+        or compatibility.get("compatibility_id") != CODEX_SDK_COMPATIBILITY_ID
         or compatibility.get("sdk_version") != SUPPORTED_SDK_VERSION
         or compatibility.get("route_notification_source_sha256")
-        != EXPECTED_ROUTE_NOTIFICATION_SHA256
+        != CODEX_SDK_COMPATIBILITY_SOURCE_SHA256
         or compatibility.get("activation_contract")
         != (
             "each successful transport result requires matching worker "
@@ -625,9 +563,7 @@ def load_persistent_codex_completion_registration_qualification(
     expected_launches = (1, 1, 2, 2, 3, 3, 4, 4, 5, 5)
     for index, call in enumerate(calls, start=1):
         if not isinstance(call, dict):
-            raise ContractValidationError(
-                "Codex completion-registration call is malformed"
-            )
+            raise ContractValidationError("Codex completion-registration call is malformed")
         if (
             call.get("index") != index
             or call.get("role") != "scene_realization_verifier"
@@ -638,10 +574,8 @@ def load_persistent_codex_completion_registration_qualification(
             or call.get("fallback_enabled") is not False
             or call.get("story_authority_writes") != 0
             or call.get("workspace_retained") is not False
-            or call.get("transport_compatibility_activation_validated")
-            is not True
-            or call.get("process_launch_count_after_call")
-            != expected_launches[index - 1]
+            or call.get("transport_compatibility_activation_validated") is not True
+            or call.get("process_launch_count_after_call") != expected_launches[index - 1]
             or call.get("request_submission_count_after_call") != index
         ):
             raise ContractValidationError(
@@ -657,9 +591,7 @@ def load_persistent_codex_completion_registration_qualification(
                 "Codex completion-registration typed identity is invalid"
             ) from None
         if evidence_identity in evidence_identities or request_id in request_ids:
-            raise ContractValidationError(
-                "Codex completion-registration identities are not unique"
-            )
+            raise ContractValidationError("Codex completion-registration identities are not unique")
         evidence_identities.add(evidence_identity)
         request_ids.add(request_id)
         for field in ("request_sha256", "candidate_sha256"):
@@ -674,9 +606,7 @@ def load_persistent_codex_completion_registration_qualification(
             verification_receipt,
             dict,
         ):
-            raise ContractValidationError(
-                "Codex completion-registration receipts are incomplete"
-            )
+            raise ContractValidationError("Codex completion-registration receipts are incomplete")
         _validate_provider_receipt(
             provider_receipt,
             expected_role="scene_realization_verifier",
@@ -693,14 +623,10 @@ def load_persistent_codex_completion_registration_qualification(
             or verification_receipt.get("retains_story_prose") is not False
             or verification_receipt.get("provider_receipt_id")
             != provider_receipt.get("provider_receipt_id")
-            or verification_receipt.get("candidate_sha256")
-            != call.get("candidate_sha256")
-            or verification_receipt.get("story_text_sha256")
-            != call.get("candidate_sha256")
-            or verification_receipt.get("verification_request_sha256")
-            != call.get("request_sha256")
-            or verification_receipt.get("verifier_adapter_evidence_sha256")
-            != expected_route_sha256
+            or verification_receipt.get("candidate_sha256") != call.get("candidate_sha256")
+            or verification_receipt.get("story_text_sha256") != call.get("candidate_sha256")
+            or verification_receipt.get("verification_request_sha256") != call.get("request_sha256")
+            or verification_receipt.get("verifier_adapter_evidence_sha256") != expected_route_sha256
             or verification_receipt.get("violation_codes") != []
             or verification_receipt.get("violation_finding_sha256s") != []
         ):
@@ -708,13 +634,8 @@ def load_persistent_codex_completion_registration_qualification(
                 "Codex completion-registration semantic receipt is incompatible"
             )
         provider_receipt_id = provider_receipt.get("provider_receipt_id")
-        provider_request_id = provider_receipt.get(
-            "provider_request_id_sha256"
-        )
-        if (
-            provider_receipt_id in receipt_ids
-            or provider_request_id in provider_request_ids
-        ):
+        provider_request_id = provider_receipt.get("provider_request_id_sha256")
+        if provider_receipt_id in receipt_ids or provider_request_id in provider_request_ids:
             raise ContractValidationError(
                 "Codex completion-registration provider calls are not unique"
             )
@@ -722,9 +643,7 @@ def load_persistent_codex_completion_registration_qualification(
         provider_request_ids.add(provider_request_id)
 
     return PersistentCodexCompletionRegistrationQualificationEvidence(
-        schema_version=(
-            "cera.persistent_codex_completion_registration_qualification_evidence.v1"
-        ),
+        schema_version=("cera.persistent_codex_completion_registration_qualification_evidence.v1"),
         qualification_id=payload["qualification_id"],
         summary_sha256=actual_sha256,
         route_sha256=expected_route_sha256,
@@ -735,9 +654,7 @@ def load_persistent_codex_completion_registration_qualification(
         cleanup_policy="force_full_tree_before_replacement",
         sdk_compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
         sdk_version=SUPPORTED_SDK_VERSION,
-        route_notification_source_sha256=(
-            EXPECTED_ROUTE_NOTIFICATION_SHA256
-        ),
+        route_notification_source_sha256=(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256),
     )
 
 
@@ -768,12 +685,8 @@ def _validate_rotation_payload(
         or (
             require_cleanup_policy
             and (
-                payload.get("process_tree_cleanup_policy")
-                != "force_full_tree_before_replacement"
-                or payload.get(
-                    "replacement_dispatch_requires_cleanup_confirmation"
-                )
-                is not True
+                payload.get("process_tree_cleanup_policy") != "force_full_tree_before_replacement"
+                or payload.get("replacement_dispatch_requires_cleanup_confirmation") is not True
             )
         )
     ):
@@ -810,8 +723,7 @@ def _validate_rotation_payload(
             or call.get("fallback_enabled") is not False
             or call.get("story_authority_writes") != 0
             or call.get("workspace_retained") is not False
-            or call.get("process_launch_count_after_call")
-            != expected_launches[index - 1]
+            or call.get("process_launch_count_after_call") != expected_launches[index - 1]
             or call.get("request_submission_count_after_call") != index
         ):
             raise ContractValidationError(

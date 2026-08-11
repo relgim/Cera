@@ -8,9 +8,9 @@ transaction boundary.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import json
 from pathlib import Path
 from threading import RLock
 
@@ -22,11 +22,18 @@ from cera.ids import IdKind, TypedId, deterministic_id
 from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.providers import (
     CodexSDKTransport,
-    ProviderTransportError,
     ProviderSchemaDialect,
+    ProviderTransportError,
     StoredCodexThreadRunner,
     codex_reasoner_candidate,
     project_provider_output_schema,
+)
+from cera.providers.codex_runtime_policy import (
+    CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID,
+    codex_app_server_config_overrides,
+    codex_app_server_environment,
+    validate_codex_app_server_configuration,
+    validate_codex_mcp_server_status,
 )
 from cera.providers.codex_worker import CODEX_REASONER_BASE_INSTRUCTIONS
 from cera.reasoner import CodexSceneReasonerPort
@@ -37,7 +44,6 @@ from cera.reasoner.codex import (
 )
 from cera.reasoner.drafts import codex_reasoner_draft_v6_json_schema
 from cera.reasoner.mcp_bridge import MCP_TOOL_CONTRACT_VERSION
-from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .codex_stored import (
@@ -56,7 +62,6 @@ from .models import (
     SessionTurnMode,
 )
 
-
 _PACKET_MARKER = "The complete authoritative packet follows as canonical JSON:"
 _PROVIDER_CONTEXT_POLICY = (
     "STORED-THREAD AUTHORITY POLICY: Earlier CERA packets and Reasoner drafts "
@@ -66,6 +71,9 @@ _PROVIDER_CONTEXT_POLICY = (
     "knowledge, canon, or durable memory. Python remains final authority."
 )
 _SUPPORTED_EFFORTS = frozenset(ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts)
+_STORED_TOOL_CONTRACT_VERSION = (
+    f"{MCP_TOOL_CONTRACT_VERSION}+{CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID}"
+)
 
 
 def _utc_now() -> str:
@@ -73,9 +81,7 @@ def _utc_now() -> str:
 
 
 def _stable_reasoner_instructions() -> str:
-    prompt = build_codex_reasoner_prompt(
-        {"tool_policy": {"evidence_tools_available": True}}
-    )
+    prompt = build_codex_reasoner_prompt({"tool_policy": {"evidence_tools_available": True}})
     delimiter = "\n" + _PACKET_MARKER + "\n"
     if prompt.count(delimiter) != 1:
         raise RuntimeError("CERA Reasoner prompt has no stable split boundary")
@@ -112,9 +118,7 @@ class _StablePrefixStoredTransport:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "active Reasoner stable instructions changed",
-                safe_diagnostics=(
-                    "stored_transport:stable_instruction_mismatch",
-                ),
+                safe_diagnostics=("stored_transport:stable_instruction_mismatch",),
             )
         return self.transport.invoke(
             _PACKET_MARKER + "\n" + packet,
@@ -155,16 +159,24 @@ class NativeStoredReasonerSessionRuntime:
             self._port = session_port
             return
 
-        assert_provider_dispatch_allowed(
-            "reasoner_session.native_runtime.sdk_start"
-        )
+        assert_provider_dispatch_allowed("reasoner_session.native_runtime.sdk_start")
         from openai_codex import Codex, CodexConfig
 
+        app_server_overrides = codex_app_server_config_overrides(repository_root)
         self._codex_context = Codex(
-            CodexConfig(config_overrides=("mcp_servers={}",), env={})
+            CodexConfig(
+                config_overrides=app_server_overrides,
+                cwd=str(repository_root),
+                env=codex_app_server_environment(),
+            )
         )
         self._codex = self._codex_context.__enter__()
         try:
+            validate_codex_app_server_configuration(
+                self._codex,
+                cwd=repository_root,
+            )
+            validate_codex_mcp_server_status(self._codex)
             if self._codex.account().account is None:
                 raise RuntimeError("ChatGPT Codex session is unavailable")
             self._backend = OpenAICodexStoredThreadBackend(
@@ -188,14 +200,10 @@ class NativeStoredReasonerSessionRuntime:
             "mode": self.MODE,
             "active": not self._closed,
             "model": ACTIVE_RUNTIME_PROFILE.reasoner.model,
-            "reasoning_efforts": (
-                ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts
-            ),
+            "reasoning_efforts": (ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts),
             "verifier_effort": ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort,
             "active_runtime_profile_id": ACTIVE_RUNTIME_PROFILE.profile_id,
-            "active_runtime_profile_sha256": (
-                ACTIVE_RUNTIME_PROFILE.profile_sha256
-            ),
+            "active_runtime_profile_sha256": (ACTIVE_RUNTIME_PROFILE.profile_sha256),
         }
 
     def close(self) -> None:
@@ -235,7 +243,8 @@ class NativeStoredReasonerSessionRuntime:
                 route,
                 workspace=workspace,
                 runner=StoredCodexThreadRunner(
-                    checkpoint.provider_handle.provider_thread_id
+                    checkpoint.provider_handle.provider_thread_id,
+                    base_instructions=_STORED_BASE_INSTRUCTIONS,
                 ),
             )
         )
@@ -252,22 +261,18 @@ class NativeStoredReasonerSessionRuntime:
                     if checkpoint.parent_checkpoint_id is not None
                     else None
                 ),
-                candidate_checkpoint_id_sha256=text_sha256(
-                    str(checkpoint.checkpoint_id)
-                ),
+                candidate_checkpoint_id_sha256=text_sha256(str(checkpoint.checkpoint_id)),
             ),
             effort=normalized_effort,
-            provider_thread_id_sha256=text_sha256(
-                checkpoint.provider_handle.provider_thread_id
-            ),
+            provider_thread_id_sha256=text_sha256(checkpoint.provider_handle.provider_thread_id),
         )
 
     def bind_review(self, checkpoint_id: TypedId, review_id: TypedId) -> None:
         with self._lock:
             self._assert_open()
-            BranchBoundReasonerSessionCoordinator(
-                self.store, self._port
-            ).bind_creator_review(checkpoint_id, review_id)
+            BranchBoundReasonerSessionCoordinator(self.store, self._port).bind_creator_review(
+                checkpoint_id, review_id
+            )
 
     def rebind_review(
         self,
@@ -280,9 +285,7 @@ class NativeStoredReasonerSessionRuntime:
             checkpoint = self.store.reasoner_checkpoint_for_review(prior_review_id)
             if checkpoint is None:
                 raise RuntimeError("Reasoner candidate review binding is missing")
-            BranchBoundReasonerSessionCoordinator(
-                self.store, self._port
-            ).rebind_creator_review(
+            BranchBoundReasonerSessionCoordinator(self.store, self._port).rebind_creator_review(
                 checkpoint.checkpoint_id,
                 prior_review_id=prior_review_id,
                 replacement_review_id=replacement_review_id,
@@ -293,18 +296,18 @@ class NativeStoredReasonerSessionRuntime:
             self._assert_open()
             checkpoint = self._checkpoint_for_review(review_id)
             self._restore_descriptor(checkpoint)
-            BranchBoundReasonerSessionCoordinator(
-                self.store, self._port
-            ).reject_candidate(checkpoint.checkpoint_id)
+            BranchBoundReasonerSessionCoordinator(self.store, self._port).reject_candidate(
+                checkpoint.checkpoint_id
+            )
 
     def invalidate_checkpoint(self, checkpoint_id: TypedId, *, reason: str) -> None:
         with self._lock:
             self._assert_open()
             checkpoint = self.store.get_reasoner_checkpoint(checkpoint_id)
             self._restore_descriptor(checkpoint)
-            BranchBoundReasonerSessionCoordinator(
-                self.store, self._port
-            ).invalidate_candidate(checkpoint_id, reason)
+            BranchBoundReasonerSessionCoordinator(self.store, self._port).invalidate_candidate(
+                checkpoint_id, reason
+            )
 
     def accept_review(self, review_id: TypedId, published) -> None:
         with self._lock:
@@ -316,17 +319,13 @@ class NativeStoredReasonerSessionRuntime:
             event_state_sha256 = canonical_sha256(
                 {
                     "artifact_id": str(artifact.artifact_id),
-                    "realized_beat_ids": tuple(
-                        str(value) for value in artifact.realized_beat_ids
-                    ),
+                    "realized_beat_ids": tuple(str(value) for value in artifact.realized_beat_ids),
                     "inserted_record_ids": tuple(
                         str(value) for value in receipt.inserted_record_ids
                     ),
                 }
             )
-            BranchBoundReasonerSessionCoordinator(
-                self.store, self._port
-            ).accept_candidate(
+            BranchBoundReasonerSessionCoordinator(self.store, self._port).accept_candidate(
                 checkpoint.checkpoint_id,
                 artifact_id=artifact.artifact_id,
                 accepted_prose_sha256=artifact.prose_sha256,
@@ -342,9 +341,7 @@ class NativeStoredReasonerSessionRuntime:
         )
         provider_schema = project_provider_output_schema(
             codex_reasoner_draft_v6_json_schema(),
-            ProviderSchemaDialect(
-                ACTIVE_RUNTIME_PROFILE.reasoner.provider_schema_dialect
-            ),
+            ProviderSchemaDialect(ACTIVE_RUNTIME_PROFILE.reasoner.provider_schema_dialect),
         ).provider_schema
         return ReasonerSessionCompatibility(
             schema_version=ReasonerSessionCompatibility.SCHEMA_VERSION,
@@ -360,11 +357,9 @@ class NativeStoredReasonerSessionRuntime:
             prompt_version=CODEX_REASONER_PROMPT_VERSION,
             provider_schema_sha256=canonical_sha256(provider_schema),
             base_instruction_sha256=text_sha256(_STORED_BASE_INSTRUCTIONS),
-            tool_contract_version=MCP_TOOL_CONTRACT_VERSION,
+            tool_contract_version=_STORED_TOOL_CONTRACT_VERSION,
             genesis_revision_id=snapshot.genesis_revision_id,
-            authority_policy_version=(
-                ACTIVE_RUNTIME_PROFILE.owner_architecture_version
-            ),
+            authority_policy_version=(ACTIVE_RUNTIME_PROFILE.owner_architecture_version),
             privacy_projection_version=snapshot.visibility_policy_version,
             protected_user_id=request.prepared_turn.request.protected_user_id,
             autonomy_profile_version=BehavioralTurnControls.SCHEMA_VERSION,
@@ -386,9 +381,7 @@ class NativeStoredReasonerSessionRuntime:
             {
                 "branch_id": str(branch.branch_id),
                 "head_artifact_id": (
-                    str(branch.head_artifact_id)
-                    if branch.head_artifact_id is not None
-                    else None
+                    str(branch.head_artifact_id) if branch.head_artifact_id is not None else None
                 ),
                 "generation": branch.generation,
                 "authority_revision": branch.authority_revision,
@@ -433,9 +426,7 @@ class NativeStoredReasonerSessionRuntime:
         )
         parent_checkpoint_id = accepted.checkpoint_id
         if mode is SessionTurnMode.REGENERATE:
-            parent_checkpoint_id = (
-                accepted.parent_checkpoint_id or accepted.checkpoint_id
-            )
+            parent_checkpoint_id = accepted.parent_checkpoint_id or accepted.checkpoint_id
         return ContextAuthorityDelta(
             schema_version=ContextAuthorityDelta.SCHEMA_VERSION,
             delta_id=deterministic_id(
@@ -450,9 +441,7 @@ class NativeStoredReasonerSessionRuntime:
             request_id=request.prepared_turn.request.request_id,
             turn_mode=mode,
             replaces_artifact_id=(
-                accepted.accepted_head_artifact_id
-                if mode is SessionTurnMode.REGENERATE
-                else None
+                accepted.accepted_head_artifact_id if mode is SessionTurnMode.REGENERATE else None
             ),
             generation=accepted.generation,
             accepted_head_artifact_id=accepted.accepted_head_artifact_id,
@@ -507,18 +496,14 @@ class NativeStoredReasonerSessionRuntime:
             raise RuntimeError("Reasoner candidate review binding is missing")
         return checkpoint
 
-    def _restore_active_descriptor(
-        self, compatibility: ReasonerSessionCompatibility
-    ) -> None:
+    def _restore_active_descriptor(self, compatibility: ReasonerSessionCompatibility) -> None:
         active = self.store.active_reasoner_session_for_branch_role(
             compatibility.branch_id,
             role=compatibility.role.value,
         )
         if active is None:
             return
-        self._restore_descriptor(
-            self.store.get_reasoner_checkpoint(active.accepted_checkpoint_id)
-        )
+        self._restore_descriptor(self.store.get_reasoner_checkpoint(active.accepted_checkpoint_id))
 
     def _restore_descriptor(self, checkpoint) -> None:
         events = self.store.provider_thread_custody_events(checkpoint.checkpoint_id)

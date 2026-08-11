@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from types import SimpleNamespace
 import unittest
+from dataclasses import dataclass
+from pathlib import Path
+from types import SimpleNamespace
 
 from cera.errors import StateConflictError
 from cera.ids import IdKind, TypedId
+from cera.providers.codex_runtime_policy import (
+    CODEX_AUTO_COMPACT_TOKEN_LIMIT,
+    CODEX_CHATGPT_BASE_URL,
+    codex_model_catalog_path,
+    codex_model_instructions_path,
+)
 from cera.reasoner_session import (
     CodexStoredThreadSessionPort,
     ContextAuthorityDelta,
@@ -17,10 +24,9 @@ from cera.reasoner_session import (
     SessionRole,
     SessionTurnMode,
 )
+from cera.reasoner_session.codex_stored import _stored_runtime_config
 from cera.serialization import text_sha256
 from tests.provider_fakes import OfflineOpenAICodexStoredThreadBackend
-from cera.providers.codex_worker import _runtime_config_and_environment
-
 
 HASH_A = "a" * 64
 HASH_B = "b" * 64
@@ -74,11 +80,63 @@ class FakeStoredBackend:
 
 
 class _FakeRpcClient:
-    def __init__(self) -> None:
+    def __init__(self, start_calls: list[dict[str, object]]) -> None:
         self.calls: list[tuple[str, dict[str, str], object]] = []
+        self.start_calls = start_calls
+
+    def thread_start(self, params):
+        self.start_calls.append(params)
+        return SimpleNamespace(thread=SimpleNamespace(id="native-root"))
 
     def request(self, method, params, *, response_model):
         self.calls.append((method, params, response_model))
+        if method == "config/read":
+            return SimpleNamespace(
+                config=SimpleNamespace(
+                    model_extra={
+                        "chatgpt_base_url": CODEX_CHATGPT_BASE_URL,
+                        "experimental_compact_prompt_file": None,
+                        "experimental_thread_config_endpoint": None,
+                        "features": {
+                            "network_proxy": False,
+                            "remote_compaction_v2": False,
+                            "respect_system_proxy": False,
+                        },
+                        "model_catalog_json": str(codex_model_catalog_path()),
+                        "model_instructions_file": str(codex_model_instructions_path()),
+                        "model_providers": {},
+                        "mcp_servers": {
+                            "node_repl": {"enabled": False},
+                            "openaiDeveloperDocs": {"enabled": False},
+                        },
+                        "openai_base_url": "",
+                    },
+                    model_auto_compact_token_limit=(CODEX_AUTO_COMPACT_TOKEN_LIMIT),
+                    model_auto_compact_token_limit_scope=SimpleNamespace(value="total"),
+                    model_provider="openai",
+                ),
+                layers=[],
+            )
+        if method == "mcpServerStatus/list":
+            return SimpleNamespace(
+                data=[
+                    SimpleNamespace(
+                        name="node_repl",
+                        tools={},
+                        resources=[],
+                        resource_templates=[],
+                        server_info=None,
+                    ),
+                    SimpleNamespace(
+                        name="openaiDeveloperDocs",
+                        tools={},
+                        resources=[],
+                        resource_templates=[],
+                        server_info=None,
+                    ),
+                ],
+                next_cursor=None,
+            )
         return SimpleNamespace()
 
     def thread_set_name(self, thread_id, name):
@@ -91,11 +149,7 @@ class _FakeCodex:
         self.fork_calls: list[tuple[str, dict[str, object]]] = []
         self.resume_calls: list[tuple[str, dict[str, object]]] = []
         self.archive_calls: list[str] = []
-        self._client = _FakeRpcClient()
-
-    def thread_start(self, **kwargs):
-        self.start_calls.append(kwargs)
-        return SimpleNamespace(id="native-root")
+        self._client = _FakeRpcClient(self.start_calls)
 
     def thread_fork(self, thread_id, **kwargs):
         self.fork_calls.append((thread_id, kwargs))
@@ -194,9 +248,7 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
 
     def test_candidate_is_a_stored_leaf_and_rejection_archives_only_that_leaf(self) -> None:
         backend = FakeStoredBackend()
-        port = CodexStoredThreadSessionPort(
-            backend, base_instruction_sha256=HASH_B
-        )
+        port = CodexStoredThreadSessionPort(backend, base_instruction_sha256=HASH_B)
         compatibility = self.compatibility()
         root = port.create_session(compatibility, self.reconstruction(compatibility))
         candidate = port.fork_candidate(
@@ -224,23 +276,17 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
     def test_restart_resumes_the_same_stored_thread_and_missing_is_explicit(self) -> None:
         backend = FakeStoredBackend()
         compatibility = self.compatibility()
-        first = CodexStoredThreadSessionPort(
-            backend, base_instruction_sha256=HASH_B
-        )
+        first = CodexStoredThreadSessionPort(backend, base_instruction_sha256=HASH_B)
         root = first.create_session(compatibility, self.reconstruction(compatibility))
 
-        restarted = CodexStoredThreadSessionPort(
-            backend, base_instruction_sha256=HASH_B
-        )
+        restarted = CodexStoredThreadSessionPort(backend, base_instruction_sha256=HASH_B)
         self.assertEqual(restarted.try_resume(root), root)
         backend.archived.add(root.provider_thread_id)
         self.assertIsNone(restarted.try_resume(root))
 
     def test_archiving_candidate_does_not_archive_parent(self) -> None:
         backend = FakeStoredBackend()
-        port = CodexStoredThreadSessionPort(
-            backend, base_instruction_sha256=HASH_B
-        )
+        port = CodexStoredThreadSessionPort(backend, base_instruction_sha256=HASH_B)
         compatibility = self.compatibility()
         root = port.create_session(compatibility, self.reconstruction(compatibility))
         candidate = port.fork_candidate(
@@ -259,26 +305,40 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
         backend = OfflineOpenAICodexStoredThreadBackend(
             codex=codex,
             model="gpt-5.6-sol",
-            cwd=r"D:\AIChatBot\Cera\.tmp\stored-test",
+            cwd=str(Path(__file__).resolve().parents[1]),
             base_instructions="stable CERA instructions",
         )
         self.assertEqual(backend.start_stored_thread(), "native-root")
         self.assertFalse(codex.start_calls[0]["ephemeral"])
-        self.assertEqual(
-            backend.fork_stored_thread("native-root"), "native-child"
-        )
+        self.assertEqual(codex.start_calls[0]["environments"], [])
+        self.assertEqual(backend.fork_stored_thread("native-root"), "native-child")
         self.assertFalse(codex.fork_calls[0][1]["ephemeral"])
         self.assertTrue(backend.resume_stored_thread("native-child"))
         self.assertTrue(backend.stored_thread_is_selectable("native-child"))
+        expected_config = _stored_runtime_config()
+        self.assertEqual(codex.start_calls[0]["config"], expected_config)
+        self.assertEqual(codex.fork_calls[0][1]["config"], expected_config)
+        self.assertTrue(all(value[1]["config"] == expected_config for value in codex.resume_calls))
         backend.append_model_visible_context("native-child", "[TURN ACCEPTED]\nturn:001")
         backend.archive_stored_leaf("native-child")
         self.assertFalse(backend.stored_thread_is_selectable("native-child"))
         self.assertEqual(codex.archive_calls, ["native-child"])
+        rpc_methods = [value[0] for value in codex._client.calls]
+        self.assertGreaterEqual(rpc_methods.count("config/read"), 3)
+        self.assertGreaterEqual(rpc_methods.count("mcpServerStatus/list"), 3)
         self.assertEqual(
-            [value[0] for value in codex._client.calls],
+            [
+                value
+                for value in rpc_methods
+                if value not in {"config/read", "mcpServerStatus/list"}
+            ],
             ["thread/name/set", "thread/name/set", "thread/inject_items"],
         )
-        injected = codex._client.calls[-1][1]
+        injected = next(
+            params
+            for method, params, _response_model in codex._client.calls
+            if method == "thread/inject_items"
+        )
         self.assertEqual(injected["threadId"], "native-child")
         self.assertEqual(
             injected["items"][0]["content"][0]["text"],
@@ -295,7 +355,7 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
         backend = OfflineOpenAICodexStoredThreadBackend(
             codex=codex,
             model="gpt-5.6-sol",
-            cwd=r"D:\AIChatBot\Cera\.tmp\stored-test",
+            cwd=str(Path(__file__).resolve().parents[1]),
             base_instructions="stable CERA instructions",
         )
         self.assertFalse(backend.resume_stored_thread("native-child"))
@@ -305,48 +365,18 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
             OpenAICodexStoredThreadBackend(
                 codex=_FakeCodex(),
                 model="gpt-5.6-sol",
-                cwd=r"D:\AIChatBot\Cera\.tmp\stored-test",
+                cwd=str(Path(__file__).resolve().parents[1]),
                 base_instructions="stable CERA instructions",
                 transport_version="0.0.0-unqualified",
             )
 
     def test_base_instruction_hash_mismatch_fails_before_thread_creation(self) -> None:
         backend = FakeStoredBackend()
-        port = CodexStoredThreadSessionPort(
-            backend, base_instruction_sha256=HASH_A
-        )
+        port = CodexStoredThreadSessionPort(backend, base_instruction_sha256=HASH_A)
         compatibility = self.compatibility()
         with self.assertRaisesRegex(StateConflictError, "base instructions"):
             port.create_session(compatibility, self.reconstruction(compatibility))
         self.assertEqual(backend.parents, {})
-
-    def test_request_bound_mcp_environment_is_rebuilt_per_stored_turn(self) -> None:
-        def binding(token: str, port: int) -> dict[str, object]:
-            return {
-                "server_name": "cera_request_evidence",
-                "url": f"http://127.0.0.1:{port}/mcp",
-                "bearer_token_environment_variable": "CERA_REQUEST_EVIDENCE_TOKEN",
-                "bearer_token": token,
-                "enabled_tools": ["cera_get_turn_snapshot"],
-                "binding_sha256": HASH_A,
-                "required": True,
-                "startup_timeout_seconds": 10,
-                "tool_timeout_seconds": 10,
-                "minimum_tool_calls": 0,
-                "maximum_tool_calls": 12,
-            }
-
-        first_config, first_env = _runtime_config_and_environment(
-            binding("first-secret", 41001)
-        )
-        second_config, second_env = _runtime_config_and_environment(
-            binding("second-secret", 41002)
-        )
-        self.assertEqual(first_env, {"CERA_REQUEST_EVIDENCE_TOKEN": "first-secret"})
-        self.assertEqual(second_env, {"CERA_REQUEST_EVIDENCE_TOKEN": "second-secret"})
-        self.assertNotIn("first-secret", repr(second_config))
-        self.assertNotIn("second-secret", repr(second_config))
-        self.assertNotEqual(first_config["mcp_servers"], second_config["mcp_servers"])
 
 
 if __name__ == "__main__":

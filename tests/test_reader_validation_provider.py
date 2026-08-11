@@ -17,7 +17,13 @@ from cera.providers.models import (
     ProviderTransportError,
 )
 from cera.reader_validation import build_reader_validation_input
-from cera.reader_validation.provider import CodexSolReaderBackend
+from cera.reader_validation.prompting import SOL_READER_PROFILE
+from cera.reader_validation.provider import (
+    SOL_READER_ADAPTER,
+    SOL_READER_PROMPT,
+    CodexSolReaderBackend,
+    sol_reader_route,
+)
 
 from .test_pi_scene_reader_validation import _qualified_candidate, _turn_input
 
@@ -60,6 +66,18 @@ class _InvalidCompletedReaderTransport:
 
 
 class ReaderValidationProviderTests(unittest.TestCase):
+    def test_reader_route_binds_the_hardened_runtime_identity(self) -> None:
+        route = sol_reader_route()
+        self.assertEqual(
+            SOL_READER_ADAPTER,
+            "cera.reader_validation.sol_adapter.v2",
+        )
+        self.assertEqual(SOL_READER_PROMPT, "cera.reader_validation.sol_prompt.v1")
+        self.assertEqual(SOL_READER_PROFILE, "cera.reader_validation.sol_medium.v1")
+        self.assertEqual(route.route_id, "cera_reader_validation_sol_medium_v2")
+        self.assertEqual(route.adapter_id, SOL_READER_ADAPTER)
+        self.assertEqual(route.prompt_version, SOL_READER_PROMPT)
+
     def test_completed_invalid_verdict_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

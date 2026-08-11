@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 import urllib.error
-from dataclasses import fields
+from dataclasses import fields, replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -37,14 +37,12 @@ from cera.providers import (
     deepseek_composer_candidate,
 )
 from cera.providers.codex import (
-    CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
-    CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
     _codex_transport_json,
     _SubprocessCodexRunner,
 )
 from cera.providers.codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
 )
 from cera.registry import build_schema_registry
 from cera.runtime.failure import PrivacySafeReceiptPayload
@@ -58,9 +56,7 @@ from tests.provider_fakes import (
 
 ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
 ACTIVE_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
-ACTIVE_VERIFIER_PROMPT_VERSION = (
-    "cera.codex_scene_realization_verifier_prompt.v8"
-)
+ACTIVE_VERIFIER_PROMPT_VERSION = "cera.codex_scene_realization_verifier_prompt.v8"
 
 
 PRICING_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
@@ -132,9 +128,7 @@ def codex_route() -> LiveProviderRoute:
         production_enabled=False,
         pricing=None,
         transport_compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
-        transport_compatibility_source_sha256=(
-            EXPECTED_ROUTE_NOTIFICATION_SHA256
-        ),
+        transport_compatibility_source_sha256=(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256),
     )
 
 
@@ -173,6 +167,7 @@ class StaticCodexRunner:
         mcp_server_names: tuple[str, ...] = (),
         mcp_tool_names: tuple[str, ...] = (),
         mcp_failed_tool_call_count: int = 0,
+        unsupported_item_types: tuple[str, ...] = (),
         operation_telemetry: CodexOperationTelemetryV1 | None = None,
     ) -> None:
         self.returned_model = returned_model
@@ -180,6 +175,7 @@ class StaticCodexRunner:
         self.mcp_server_names = mcp_server_names
         self.mcp_tool_names = mcp_tool_names
         self.mcp_failed_tool_call_count = mcp_failed_tool_call_count
+        self.unsupported_item_types = unsupported_item_types
         self.operation_telemetry = operation_telemetry
         self.calls = 0
         self.last_schema: dict | None = None
@@ -201,6 +197,7 @@ class StaticCodexRunner:
             mcp_tool_names=self.mcp_tool_names,
             mcp_tool_call_count=len(self.mcp_tool_names),
             mcp_failed_tool_call_count=self.mcp_failed_tool_call_count,
+            unsupported_item_types=self.unsupported_item_types,
             operation_telemetry=self.operation_telemetry,
             pre_registered_turn_count=1,
         )
@@ -337,6 +334,24 @@ class ProviderQualificationTests(unittest.TestCase):
                 transport_version="0.144.4",
             )
 
+    def test_codex_worker_rejects_duplicate_or_unbounded_item_type_evidence(
+        self,
+    ) -> None:
+        worker = StaticCodexRunner().run(
+            route=codex_reasoner_candidate(),
+            prompt="Probe.",
+            output_schema=codex_transport_probe_output_schema(),
+            workspace=Path.cwd(),
+            mcp_binding=None,
+        )
+        for evidence in (
+            ("plan", "plan"),
+            ("futureTool",),
+            tuple("plan" for _ in range(10)),
+        ):
+            with self.subTest(evidence=evidence), self.assertRaises(ContractValidationError):
+                replace(worker, unsupported_item_types=evidence)
+
     def test_codex_worker_failure_after_dispatch_counts_the_unreceipted_call(self) -> None:
         class FailedProcess:
             pid = 43211
@@ -355,9 +370,12 @@ class ProviderQualificationTests(unittest.TestCase):
                 )
                 return "", "codex qualification worker failed: test"
 
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "cera.providers.codex.subprocess.Popen",
-            return_value=FailedProcess(),
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                return_value=FailedProcess(),
+            ),
         ):
             with self.assertRaises(ProviderTransportError) as caught:
                 OfflineSubprocessCodexRunner().run(
@@ -373,6 +391,61 @@ class ProviderQualificationTests(unittest.TestCase):
             ("transport:worker_failure", "worker_stage:thread_read"),
         )
 
+    def test_codex_subprocess_decodes_unsupported_item_type_evidence(self) -> None:
+        class SucceededProcess:
+            pid = 43214
+            returncode = 0
+
+            def communicate(self, payload, *, timeout):
+                request = json.loads(payload)
+                Path(request["progress_path"]).write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "cera.codex_worker_progress.v1",
+                            "stage": "thread_read",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return (
+                    json.dumps(
+                        {
+                            "output_text": '{"probe":"ok"}',
+                            "provider_request_id": "private-turn",
+                            "returned_model": "gpt-5.6-sol",
+                            "duration_ms": 0,
+                            "input_tokens": 10,
+                            "cached_input_tokens": 0,
+                            "output_tokens": 3,
+                            "reasoning_output_tokens": 1,
+                            "transport_version": "0.144.4",
+                            "mcp_server_names": [],
+                            "mcp_tool_names": [],
+                            "mcp_tool_call_count": 0,
+                            "mcp_failed_tool_call_count": 0,
+                            "unsupported_item_types": ["plan"],
+                            "pre_registered_turn_count": 1,
+                        }
+                    ),
+                    "",
+                )
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                return_value=SucceededProcess(),
+            ),
+        ):
+            result = OfflineSubprocessCodexRunner().run(
+                route=codex_reasoner_candidate(),
+                prompt="Return a bounded test object.",
+                output_schema=codex_transport_probe_output_schema(),
+                workspace=Path(directory),
+                mcp_binding=None,
+            )
+        self.assertEqual(result.unsupported_item_types, ("plan",))
+
     def test_codex_subprocess_forwards_only_the_supported_fast_tier(self) -> None:
         captured = {}
 
@@ -385,9 +458,12 @@ class ProviderQualificationTests(unittest.TestCase):
                 captured.update(request)
                 return "", "codex qualification worker failed: test"
 
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "cera.providers.codex.subprocess.Popen",
-            return_value=FailedBeforeDispatchProcess(),
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                return_value=FailedBeforeDispatchProcess(),
+            ),
         ):
             with self.assertRaises(ProviderTransportError):
                 OfflineSubprocessCodexRunner(service_tier="priority").run(
@@ -421,12 +497,18 @@ class ProviderQualificationTests(unittest.TestCase):
         def create_process(command, **kwargs):
             return FailedBeforeDispatchProcess(command)
 
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "cera.providers.codex.subprocess.Popen",
-            side_effect=create_process,
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                side_effect=create_process,
+            ),
         ):
             with self.assertRaises(ProviderTransportError) as caught:
-                OfflineStoredCodexThreadRunner("stored-thread-51").run(
+                OfflineStoredCodexThreadRunner(
+                    "stored-thread-51",
+                    base_instructions="bounded provider qualification",
+                ).run(
                     route=codex_reasoner_candidate(),
                     prompt="Return a bounded test object.",
                     output_schema=codex_transport_probe_output_schema(),
@@ -434,11 +516,11 @@ class ProviderQualificationTests(unittest.TestCase):
                     mcp_binding=None,
                 )
         self.assertEqual(caught.exception.external_provider_calls_observed, 0)
+        self.assertEqual(captured["command"][-1], "cera.providers.codex_stored_turn_worker")
+        self.assertEqual(captured["payload"]["provider_thread_id"], "stored-thread-51")
         self.assertEqual(
-            captured["command"][-1], "cera.providers.codex_stored_turn_worker"
-        )
-        self.assertEqual(
-            captured["payload"]["provider_thread_id"], "stored-thread-51"
+            captured["payload"]["base_instructions"],
+            "bounded provider qualification",
         )
 
     def test_persistent_codex_runner_reuses_process_but_not_request_workspace(self) -> None:
@@ -456,6 +538,7 @@ class ProviderQualificationTests(unittest.TestCase):
             "mcp_tool_names": [],
             "mcp_tool_call_count": 0,
             "mcp_failed_tool_call_count": 0,
+            "unsupported_item_types": ["plan"],
             "pre_registered_turn_count": 1,
         }
         lines = [
@@ -498,11 +581,15 @@ class ProviderQualificationTests(unittest.TestCase):
         process = Process()
         runner = OfflinePersistentNoMcpCodexRunner()
         schema = codex_transport_probe_output_schema()
-        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, tempfile.TemporaryDirectory() as third, patch(
-            "cera.providers.codex.subprocess.Popen", return_value=process
-        ) as popen, patch(
-            "cera.providers.codex._terminate_codex_worker_tree",
-            return_value=True,
+        with (
+            tempfile.TemporaryDirectory() as first,
+            tempfile.TemporaryDirectory() as second,
+            tempfile.TemporaryDirectory() as third,
+            patch("cera.providers.codex.subprocess.Popen", return_value=process) as popen,
+            patch(
+                "cera.providers.codex._terminate_codex_worker_tree",
+                return_value=True,
+            ),
         ):
             first_result = runner.run(
                 route=codex_reasoner_candidate(),
@@ -526,9 +613,7 @@ class ProviderQualificationTests(unittest.TestCase):
                     workspace=Path(third),
                     mcp_binding=None,
                 )
-            self.assertFalse(
-                (Path(third) / ".cera_codex_worker_progress.json").exists()
-            )
+            self.assertFalse((Path(third) / ".cera_codex_worker_progress.json").exists())
             runner.close()
         self.assertEqual(popen.call_count, 1)
         self.assertEqual(runner.process_launch_count, 1)
@@ -539,6 +624,8 @@ class ProviderQualificationTests(unittest.TestCase):
         )
         self.assertEqual(first_result.output_text, '{"probe":"ok"}')
         self.assertEqual(second_result.output_text, '{"probe":"ok"}')
+        self.assertEqual(first_result.unsupported_item_types, ("plan",))
+        self.assertEqual(second_result.unsupported_item_types, ("plan",))
         requests = [json.loads(value) for value in process.stdin.values]
         self.assertEqual(len(requests), 2)
         self.assertNotEqual(requests[0]["workspace"], requests[1]["workspace"])
@@ -583,8 +670,7 @@ class ProviderQualificationTests(unittest.TestCase):
         class OutputPipe:
             def __init__(self, count: int) -> None:
                 self.lines = [
-                    json.dumps({"ok": True, "result": worker_result}) + "\n"
-                    for _ in range(count)
+                    json.dumps({"ok": True, "result": worker_result}) + "\n" for _ in range(count)
                 ]
 
             def readline(self) -> str:
@@ -607,13 +693,19 @@ class ProviderQualificationTests(unittest.TestCase):
         processes = (Process(12345, 2), Process(12346, 1))
         runner = OfflinePersistentNoMcpCodexRunner()
         schema = codex_transport_probe_output_schema()
-        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, tempfile.TemporaryDirectory() as third, patch(
-            "cera.providers.codex.subprocess.Popen",
-            side_effect=processes,
-        ) as popen, patch(
-            "cera.providers.codex._terminate_codex_worker_tree",
-            return_value=True,
-        ) as terminate:
+        with (
+            tempfile.TemporaryDirectory() as first,
+            tempfile.TemporaryDirectory() as second,
+            tempfile.TemporaryDirectory() as third,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                side_effect=processes,
+            ) as popen,
+            patch(
+                "cera.providers.codex._terminate_codex_worker_tree",
+                return_value=True,
+            ) as terminate,
+        ):
             for prompt, directory in (
                 ("first", first),
                 ("second", second),
@@ -662,10 +754,10 @@ class ProviderQualificationTests(unittest.TestCase):
                 return None
 
         runner = OfflinePersistentNoMcpCodexRunner()
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "cera.providers.codex.subprocess.Popen", return_value=Process()
-        ), patch(
-            "cera.providers.codex._terminate_codex_worker_tree", return_value=True
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("cera.providers.codex.subprocess.Popen", return_value=Process()),
+            patch("cera.providers.codex._terminate_codex_worker_tree", return_value=True),
         ):
             with self.assertRaises(ProviderTransportError) as caught:
                 runner.run(
@@ -684,6 +776,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 "transport_mode:persistent_no_mcp",
             ),
         )
+
     def test_persistent_codex_runner_fails_before_third_dispatch_if_tree_cleanup_fails(
         self,
     ) -> None:
@@ -730,12 +823,18 @@ class ProviderQualificationTests(unittest.TestCase):
         process = Process()
         runner = OfflinePersistentNoMcpCodexRunner()
         schema = codex_transport_probe_output_schema()
-        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, tempfile.TemporaryDirectory() as third, patch(
-            "cera.providers.codex.subprocess.Popen",
-            return_value=process,
-        ) as popen, patch(
-            "cera.providers.codex._terminate_codex_worker_tree",
-            return_value=False,
+        with (
+            tempfile.TemporaryDirectory() as first,
+            tempfile.TemporaryDirectory() as second,
+            tempfile.TemporaryDirectory() as third,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                return_value=process,
+            ) as popen,
+            patch(
+                "cera.providers.codex._terminate_codex_worker_tree",
+                return_value=False,
+            ),
         ):
             for prompt, directory in (("first", first), ("second", second)):
                 runner.run(
@@ -795,12 +894,14 @@ class ProviderQualificationTests(unittest.TestCase):
                 raise subprocess.TimeoutExpired("codex-worker", timeout)
 
         process = TimedOutProcess()
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "cera.providers.codex.subprocess.Popen",
-            return_value=process,
-        ) as popen, patch(
-            "cera.providers.codex._terminate_codex_worker_tree"
-        ) as terminate:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                return_value=process,
+            ) as popen,
+            patch("cera.providers.codex._terminate_codex_worker_tree") as terminate,
+        ):
             with self.assertRaises(ProviderTransportError) as caught:
                 OfflineSubprocessCodexRunner().run(
                     route=codex_reasoner_candidate(),
@@ -1077,9 +1178,7 @@ class ProviderQualificationTests(unittest.TestCase):
     def test_codex_schema_call_records_quota_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             runner = StaticCodexRunner()
-            transport = CodexSDKTransport(
-                codex_route(), workspace=Path(temporary), runner=runner
-            )
+            transport = CodexSDKTransport(codex_route(), workspace=Path(temporary), runner=runner)
             result = transport.invoke(
                 "Return the probe object.",
                 output_schema=codex_transport_probe_output_schema(),
@@ -1091,16 +1190,69 @@ class ProviderQualificationTests(unittest.TestCase):
         self.assertEqual(result.receipt.reasoning_output_tokens, 8)
         self.assertNotIn("turn_private_id", json.dumps(result.receipt, default=str))
 
+    def test_codex_forbidden_completed_item_is_receipted_and_nonretryable(
+        self,
+    ) -> None:
+        item_types = (
+            "collabAgentToolCall",
+            "commandExecution",
+            "dynamicToolCall",
+            "fileChange",
+            "imageGeneration",
+            "imageView",
+            "plan",
+            "unknown",
+            "webSearch",
+        )
+        observations = (("cera_request_evidence", "cera_get_turn_snapshot"),)
+        with tempfile.TemporaryDirectory() as temporary:
+            runner = StaticCodexRunner(
+                mcp_server_names=tuple(value[0] for value in observations),
+                mcp_tool_names=tuple(value[1] for value in observations),
+                unsupported_item_types=item_types,
+                operation_telemetry=codex_operation_telemetry(
+                    observations,
+                    ("completed",),
+                ),
+            )
+            transport = CodexSDKTransport(codex_route(), workspace=Path(temporary), runner=runner)
+            with self.assertRaises(ProviderTransportError) as caught:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=codex_mcp_binding(),
+                )
+        failure = caught.exception
+        self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertEqual(
+            failure.safe_diagnostics,
+            ("transport:unsupported_completed_item_type",),
+        )
+        self.assertIsNone(failure.retryable_failure_category)
+        self.assertEqual(failure.external_provider_calls_observed, 1)
+        self.assertIsNotNone(failure.provider_call_receipt)
+        self.assertEqual(failure.mcp_server_names, ("cera_request_evidence",))
+        self.assertEqual(failure.mcp_tool_names, ("cera_get_turn_snapshot",))
+        self.assertEqual(failure.mcp_tool_call_count, 1)
+        self.assertEqual(failure.mcp_failed_tool_call_count, 0)
+        self.assertIsNotNone(failure.operation_telemetry)
+        self.assertIsNotNone(failure.operation_telemetry.request_sha256)
+        self.assertEqual(
+            failure.operation_telemetry.transport_error,
+            ErrorCode.REASONER_CONTRACT_INVALID.value,
+        )
+        self.assertEqual(failure.operation_telemetry.tool_call_count, 1)
+        self.assertEqual(runner.calls, 1)
+        serialized_failure = str(failure)
+        for item_type in item_types:
+            self.assertNotIn(item_type, serialized_failure)
+
     def test_codex_model_drift_and_runner_failure_are_unretried(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             runner = StaticCodexRunner(returned_model="gpt-5.6-terra")
-            transport = CodexSDKTransport(
-                codex_route(), workspace=Path(temporary), runner=runner
-            )
+            transport = CodexSDKTransport(codex_route(), workspace=Path(temporary), runner=runner)
             with self.assertRaises(ProviderTransportError) as caught:
-                transport.invoke(
-                    "Probe.", output_schema=codex_transport_probe_output_schema()
-                )
+                transport.invoke("Probe.", output_schema=codex_transport_probe_output_schema())
         self.assertEqual(caught.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
         self.assertEqual(caught.exception.external_provider_calls_observed, 1)
         self.assertEqual(runner.calls, 1)
@@ -1117,13 +1269,9 @@ class ProviderQualificationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             failing = FailingRunner()
-            transport = CodexSDKTransport(
-                codex_route(), workspace=Path(temporary), runner=failing
-            )
+            transport = CodexSDKTransport(codex_route(), workspace=Path(temporary), runner=failing)
             with self.assertRaises(ProviderTransportError) as caught:
-                transport.invoke(
-                    "Probe.", output_schema=codex_transport_probe_output_schema()
-                )
+                transport.invoke("Probe.", output_schema=codex_transport_probe_output_schema())
         self.assertEqual(caught.exception.code, ErrorCode.REASONER_UNAVAILABLE)
         self.assertEqual(failing.calls, 1)
 
@@ -1132,8 +1280,7 @@ class ProviderQualificationTests(unittest.TestCase):
             def run(self, **kwargs):
                 worker = super().run(**kwargs)
                 payload = {
-                    field.name: getattr(worker, field.name)
-                    for field in fields(CodexWorkerResult)
+                    field.name: getattr(worker, field.name) for field in fields(CodexWorkerResult)
                 }
                 payload["transport_compatibility_id"] = (
                     "cera.codex_sdk_early_completion_buffer.unqualified"
@@ -1142,13 +1289,9 @@ class ProviderQualificationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             runner = MismatchedCompatibilityRunner()
-            transport = CodexSDKTransport(
-                codex_route(), workspace=Path(temporary), runner=runner
-            )
+            transport = CodexSDKTransport(codex_route(), workspace=Path(temporary), runner=runner)
             with self.assertRaises(ProviderTransportError) as caught:
-                transport.invoke(
-                    "Probe.", output_schema=codex_transport_probe_output_schema()
-                )
+                transport.invoke("Probe.", output_schema=codex_transport_probe_output_schema())
         self.assertEqual(
             caught.exception.code,
             ErrorCode.REASONER_CONTRACT_INVALID,
@@ -1166,77 +1309,6 @@ class ProviderQualificationTests(unittest.TestCase):
             (path / "unexpected.txt").write_text("not allowed", encoding="utf-8")
             with self.assertRaises(ContractValidationError):
                 CodexSDKTransport(codex_route(), workspace=path, runner=StaticCodexRunner())
-
-    def test_codex_mcp_observation_policy_is_closed(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            with self.assertRaisesRegex(
-                ContractValidationError,
-                "MCP observation policy is unqualified",
-            ):
-                CodexSDKTransport(
-                    codex_route(),
-                    workspace=Path(temporary),
-                    runner=StaticCodexRunner(),
-                    mcp_observation_policy="cera.codex_mcp_observation.unknown.v1",
-                )
-
-    def test_codex_mcp_observation_policy_rejects_post_construction_tamper(
-        self,
-    ) -> None:
-        observations = (
-            ("node_repl", "js"),
-            ("cera_request_evidence", "cera_get_turn_snapshot"),
-        )
-
-        def transport_at(path: Path) -> CodexSDKTransport:
-            return CodexSDKTransport(
-                codex_route(),
-                workspace=path,
-                runner=StaticCodexRunner(
-                    mcp_server_names=tuple(value[0] for value in observations),
-                    mcp_tool_names=tuple(value[1] for value in observations),
-                    operation_telemetry=codex_operation_telemetry(
-                        observations,
-                        ("completed", "completed"),
-                    ),
-                ),
-            )
-
-        with tempfile.TemporaryDirectory() as temporary:
-            transport = transport_at(Path(temporary))
-            self.assertEqual(
-                transport.mcp_observation_policy,
-                CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
-            )
-            with self.assertRaises(AttributeError):
-                transport.mcp_observation_policy = "arbitrary"  # type: ignore[misc]
-            with self.assertRaises(ProviderTransportError) as still_strict:
-                transport.invoke(
-                    "Probe.",
-                    output_schema=codex_transport_probe_output_schema(),
-                    mcp_binding=codex_mcp_binding(maximum_tool_calls=2),
-                )
-        self.assertEqual(still_strict.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
-        self.assertIsNone(still_strict.exception.retryable_failure_category)
-        self.assertIsNotNone(still_strict.exception.provider_call_receipt)
-
-        with tempfile.TemporaryDirectory() as temporary:
-            transport = transport_at(Path(temporary))
-            transport._mcp_observation_policy = "arbitrary"
-            with self.assertRaises(ProviderTransportError) as private_tamper:
-                transport.invoke(
-                    "Probe.",
-                    output_schema=codex_transport_probe_output_schema(),
-                    mcp_binding=codex_mcp_binding(maximum_tool_calls=2),
-                )
-        failure = private_tamper.exception
-        self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
-        self.assertEqual(failure.safe_diagnostics, ("mcp:observation_policy_invalid",))
-        self.assertIsNone(failure.retryable_failure_category)
-        self.assertEqual(failure.external_provider_calls_observed, 1)
-        self.assertIsNotNone(failure.provider_call_receipt)
-        self.assertEqual(failure.mcp_tool_call_count, 2)
-        self.assertEqual(failure.mcp_failed_tool_call_count, 0)
 
     def test_codex_mcp_binding_is_loopback_allow_listed_and_secret_safe(self) -> None:
         binding = codex_mcp_binding()
@@ -1270,6 +1342,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 StaticCodexRunner(),
                 codex_mcp_binding(),
                 ErrorCode.REASONER_CONTRACT_INVALID,
+                ("mcp:required_evidence_lookup_omitted",),
             ),
             (
                 StaticCodexRunner(
@@ -1278,6 +1351,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 ),
                 codex_mcp_binding(),
                 ErrorCode.REASONER_CONTRACT_INVALID,
+                ("mcp:outside_request_binding",),
             ),
             (
                 StaticCodexRunner(
@@ -1286,6 +1360,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 ),
                 codex_mcp_binding(),
                 ErrorCode.REASONER_CONTRACT_INVALID,
+                ("mcp:outside_request_binding",),
             ),
             (
                 StaticCodexRunner(
@@ -1295,6 +1370,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 ),
                 codex_mcp_binding(),
                 ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE,
+                (),
             ),
             (
                 StaticCodexRunner(
@@ -1309,9 +1385,10 @@ class ProviderQualificationTests(unittest.TestCase):
                 ),
                 codex_mcp_binding(minimum_tool_calls=0, maximum_tool_calls=1),
                 ErrorCode.EVIDENCE_LIMIT_EXCEEDED,
+                (),
             ),
         )
-        for runner, binding, expected in cases:
+        for runner, binding, expected, diagnostics in cases:
             with self.subTest(expected=expected, runner=runner):
                 with tempfile.TemporaryDirectory() as temporary:
                     transport = CodexSDKTransport(
@@ -1326,7 +1403,11 @@ class ProviderQualificationTests(unittest.TestCase):
                 self.assertEqual(caught.exception.code, expected)
                 self.assertEqual(runner.calls, 1)
                 if expected is ErrorCode.REASONER_CONTRACT_INVALID:
-                    self.assertIsNone(caught.exception.retryable_failure_category)
+                    self.assertEqual(
+                        caught.exception.retryable_failure_category,
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                    )
+                    self.assertEqual(caught.exception.safe_diagnostics, diagnostics)
                     self.assertIsNotNone(caught.exception.provider_call_receipt)
                 if expected is ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE:
                     self.assertEqual(
@@ -1345,269 +1426,12 @@ class ProviderQualificationTests(unittest.TestCase):
                 codex_route(), workspace=Path(temporary), runner=unbound_runner
             )
             with self.assertRaises(ProviderTransportError) as caught:
-                transport.invoke(
-                    "Probe.", output_schema=codex_transport_probe_output_schema()
-                )
+                transport.invoke("Probe.", output_schema=codex_transport_probe_output_schema())
         self.assertEqual(caught.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
         self.assertIsNone(caught.exception.retryable_failure_category)
 
-    def test_codex_code_mode_auxiliary_calls_project_to_cera_observations(self) -> None:
-        observations = (
-            ("node_repl", "js"),
-            ("node_repl", "js"),
-            ("cera_continuous_world", "get_turn_context"),
-            ("cera_continuous_world", "search_evidence"),
-            ("cera_continuous_world", "search_evidence"),
-        )
-        telemetry = codex_operation_telemetry(
-            observations,
-            ("completed",) * len(observations),
-        )
-        runner = StaticCodexRunner(
-            mcp_server_names=tuple(value[0] for value in observations),
-            mcp_tool_names=tuple(value[1] for value in observations),
-            operation_telemetry=telemetry,
-        )
-        binding = codex_mcp_binding(
-            server_name="cera_continuous_world",
-            enabled_tools=("get_turn_context", "search_evidence"),
-            minimum_tool_calls=3,
-            maximum_tool_calls=5,
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            result = CodexSDKTransport(
-                codex_route(),
-                workspace=Path(temporary),
-                runner=runner,
-                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
-            ).invoke(
-                "Probe.",
-                output_schema=codex_transport_probe_output_schema(),
-                mcp_binding=binding,
-            )
-
-        self.assertEqual(
-            result.tool_server_names,
-            ("cera_continuous_world",) * 3,
-        )
-        self.assertEqual(
-            result.tool_names,
-            ("get_turn_context", "search_evidence", "search_evidence"),
-        )
-        self.assertEqual(result.tool_call_count, 3)
-        self.assertEqual(result.failed_tool_call_count, 0)
-        self.assertIsNotNone(result.operation_telemetry)
-        self.assertEqual(result.operation_telemetry.tool_call_count, 5)
-        self.assertEqual(
-            tuple(
-                (value.server_name, value.tool_name)
-                for value in result.operation_telemetry.tool_timings
-            ),
-            observations,
-        )
-        self.assertEqual(result.receipt.external_provider_calls, 1)
-        self.assertFalse(result.receipt.retains_raw_source)
-        self.assertFalse(result.receipt.retains_private_evidence)
-
-    def test_codex_code_mode_auxiliary_failure_is_retryable_and_not_overwritten(
-        self,
-    ) -> None:
-        observations = (
-            ("node_repl", "js"),
-            ("node_repl", "js"),
-            ("cera_request_evidence", "cera_get_turn_snapshot"),
-        )
-        runner = StaticCodexRunner(
-            mcp_server_names=tuple(value[0] for value in observations),
-            mcp_tool_names=tuple(value[1] for value in observations),
-            mcp_failed_tool_call_count=1,
-            operation_telemetry=codex_operation_telemetry(
-                observations,
-                ("failed", "completed", "completed"),
-            ),
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            transport = CodexSDKTransport(
-                codex_route(),
-                workspace=Path(temporary),
-                runner=runner,
-                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
-            )
-            with self.assertRaises(ProviderTransportError) as caught:
-                transport.invoke(
-                    "Probe.",
-                    output_schema=codex_transport_probe_output_schema(),
-                    mcp_binding=codex_mcp_binding(maximum_tool_calls=3),
-                )
-
-        failure = caught.exception
-        self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
-        self.assertEqual(
-            failure.retryable_failure_category,
-            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
-        )
-        self.assertEqual(failure.safe_diagnostics, ("mcp:auxiliary_execution_failed",))
-        self.assertEqual(failure.external_provider_calls_observed, 1)
-        self.assertIsNotNone(failure.provider_call_receipt)
-        self.assertEqual(failure.mcp_tool_call_count, 3)
-        self.assertEqual(failure.mcp_failed_tool_call_count, 1)
-        self.assertIsNotNone(failure.operation_telemetry)
-        self.assertEqual(failure.operation_telemetry.tool_call_count, 3)
-
-    def test_codex_code_mode_auxiliary_requires_aligned_terminal_telemetry(
-        self,
-    ) -> None:
-        observations = (
-            ("node_repl", "js"),
-            ("cera_request_evidence", "cera_get_turn_snapshot"),
-        )
-        aligned_statuses = ("completed", "completed")
-        mismatches = (
-            ("missing", None, 0),
-            (
-                "sequence",
-                codex_operation_telemetry(
-                    observations,
-                    aligned_statuses,
-                    sequences=(2, 2),
-                ),
-                0,
-            ),
-            (
-                "identity",
-                codex_operation_telemetry(
-                    (
-                        ("node_repl", "js"),
-                        ("cera_request_evidence", "other_tool"),
-                    ),
-                    aligned_statuses,
-                ),
-                0,
-            ),
-            (
-                "status",
-                codex_operation_telemetry(
-                    observations,
-                    ("completed", "inProgress"),
-                ),
-                0,
-            ),
-            (
-                "failed_count",
-                codex_operation_telemetry(
-                    observations,
-                    ("failed", "completed"),
-                ),
-                0,
-            ),
-        )
-        for label, telemetry, failed_count in mismatches:
-            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
-                runner = StaticCodexRunner(
-                    mcp_server_names=tuple(value[0] for value in observations),
-                    mcp_tool_names=tuple(value[1] for value in observations),
-                    mcp_failed_tool_call_count=failed_count,
-                    operation_telemetry=telemetry,
-                )
-                transport = CodexSDKTransport(
-                    codex_route(),
-                    workspace=Path(temporary),
-                    runner=runner,
-                    mcp_observation_policy=(
-                        CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
-                    ),
-                )
-                with self.assertRaises(ProviderTransportError) as caught:
-                    transport.invoke(
-                        "Probe.",
-                        output_schema=codex_transport_probe_output_schema(),
-                        mcp_binding=codex_mcp_binding(maximum_tool_calls=2),
-                    )
-
-            failure = caught.exception
-            self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
-            self.assertEqual(
-                failure.retryable_failure_category,
-                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
-            )
-            self.assertEqual(
-                failure.safe_diagnostics,
-                ("mcp:auxiliary_observation_invalid",),
-            )
-            self.assertEqual(failure.external_provider_calls_observed, 1)
-            self.assertIsNotNone(failure.provider_call_receipt)
-            self.assertEqual(failure.mcp_tool_call_count, 2)
-
-    def test_codex_code_mode_auxiliary_does_not_satisfy_or_expand_call_budget(
-        self,
-    ) -> None:
-        auxiliary_only = (("node_repl", "js"),)
-        runner = StaticCodexRunner(
-            mcp_server_names=("node_repl",),
-            mcp_tool_names=("js",),
-            operation_telemetry=codex_operation_telemetry(
-                auxiliary_only,
-                ("completed",),
-            ),
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            transport = CodexSDKTransport(
-                codex_route(),
-                workspace=Path(temporary),
-                runner=runner,
-                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
-            )
-            with self.assertRaises(ProviderTransportError) as omitted:
-                transport.invoke(
-                    "Probe.",
-                    output_schema=codex_transport_probe_output_schema(),
-                    mcp_binding=codex_mcp_binding(maximum_tool_calls=1),
-                )
-        self.assertEqual(omitted.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
-        self.assertEqual(
-            omitted.exception.retryable_failure_category,
-            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
-        )
-        self.assertEqual(
-            omitted.exception.safe_diagnostics,
-            ("mcp:required_evidence_lookup_omitted",),
-        )
-
-        observations = (
-            ("node_repl", "js"),
-            ("cera_request_evidence", "cera_get_turn_snapshot"),
-        )
-        over_budget = StaticCodexRunner(
-            mcp_server_names=tuple(value[0] for value in observations),
-            mcp_tool_names=tuple(value[1] for value in observations),
-            operation_telemetry=codex_operation_telemetry(
-                observations,
-                ("completed", "completed"),
-            ),
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            transport = CodexSDKTransport(
-                codex_route(),
-                workspace=Path(temporary),
-                runner=over_budget,
-                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
-            )
-            with self.assertRaises(ProviderTransportError) as exceeded:
-                transport.invoke(
-                    "Probe.",
-                    output_schema=codex_transport_probe_output_schema(),
-                    mcp_binding=codex_mcp_binding(
-                        minimum_tool_calls=0,
-                        maximum_tool_calls=1,
-                    ),
-                )
-        self.assertEqual(exceeded.exception.code, ErrorCode.EVIDENCE_LIMIT_EXCEEDED)
-        self.assertIsNone(exceeded.exception.retryable_failure_category)
-
     def test_codex_mcp_provider_request_failure_is_narrow_and_retryable(self) -> None:
-        observations: list[
-            tuple[tuple[str, ...], tuple[str, ...], int, int]
-        ] = []
+        observations: list[tuple[tuple[str, ...], tuple[str, ...], int, int]] = []
 
         def classified(
             server_names: tuple[str, ...],
@@ -1615,23 +1439,13 @@ class ProviderQualificationTests(unittest.TestCase):
             tool_call_count: int,
             failed_tool_call_count: int,
         ) -> bool:
-            observations.append(
-                (server_names, tool_names, tool_call_count, failed_tool_call_count)
-            )
+            observations.append((server_names, tool_names, tool_call_count, failed_tool_call_count))
             return True
 
-        classified_observations = (
-            ("node_repl", "js"),
-            ("cera_request_evidence", "cera_get_turn_snapshot"),
-        )
         runner = StaticCodexRunner(
-            mcp_server_names=tuple(value[0] for value in classified_observations),
-            mcp_tool_names=tuple(value[1] for value in classified_observations),
+            mcp_server_names=("cera_request_evidence",),
+            mcp_tool_names=("cera_get_turn_snapshot",),
             mcp_failed_tool_call_count=1,
-            operation_telemetry=codex_operation_telemetry(
-                classified_observations,
-                ("completed", "failed"),
-            ),
         )
         base_binding = codex_mcp_binding()
 
@@ -1639,9 +1453,7 @@ class ProviderQualificationTests(unittest.TestCase):
             return CodexMcpRuntimeBinding(
                 server_name=base_binding.server_name,
                 url=base_binding.url,
-                bearer_token_environment_variable=(
-                    base_binding.bearer_token_environment_variable
-                ),
+                bearer_token_environment_variable=(base_binding.bearer_token_environment_variable),
                 bearer_token="qualification-secret",
                 enabled_tools=base_binding.enabled_tools,
                 binding_sha256=base_binding.binding_sha256,
@@ -1655,15 +1467,12 @@ class ProviderQualificationTests(unittest.TestCase):
         binding = binding_with_classifier(classified)
         self.assertNotIn("classifier", repr(binding))
         self.assertNotIn("classifier", json.dumps(binding.public_descriptor))
-        binding_without_classifier = codex_mcp_binding()
-        self.assertEqual(binding, binding_without_classifier)
-        self.assertEqual(hash(binding), hash(binding_without_classifier))
+        self.assertEqual(binding, codex_mcp_binding())
         with tempfile.TemporaryDirectory() as temporary:
             transport = CodexSDKTransport(
                 codex_route(),
                 workspace=Path(temporary),
                 runner=runner,
-                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
             )
             with self.assertRaises(ProviderTransportError) as caught:
                 transport.invoke(
@@ -1681,7 +1490,7 @@ class ProviderQualificationTests(unittest.TestCase):
         self.assertEqual(failure.safe_diagnostics, ("mcp:provider_request_invalid",))
         self.assertEqual(failure.external_provider_calls_observed, 1)
         self.assertIsNotNone(failure.provider_call_receipt)
-        self.assertEqual(failure.mcp_tool_call_count, 2)
+        self.assertEqual(failure.mcp_tool_call_count, 1)
         self.assertEqual(failure.mcp_failed_tool_call_count, 1)
         self.assertEqual(
             observations,
@@ -1713,9 +1522,6 @@ class ProviderQualificationTests(unittest.TestCase):
                         codex_route(),
                         workspace=Path(temporary),
                         runner=invalid_runner,
-                        mcp_observation_policy=(
-                            CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
-                        ),
                     )
                     with self.assertRaises(ProviderTransportError) as invalid:
                         transport.invoke(
@@ -1723,9 +1529,6 @@ class ProviderQualificationTests(unittest.TestCase):
                             output_schema=codex_transport_probe_output_schema(),
                             mcp_binding=binding,
                         )
-                self.assertEqual(
-                    invalid.exception.code, ErrorCode.REASONER_CONTRACT_INVALID
-                )
                 self.assertEqual(
                     invalid.exception.retryable_failure_category,
                     ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
@@ -1751,9 +1554,6 @@ class ProviderQualificationTests(unittest.TestCase):
                         codex_route(),
                         workspace=Path(temporary),
                         runner=runner,
-                        mcp_observation_policy=(
-                            CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
-                        ),
                     )
                     with self.assertRaises(ProviderTransportError) as fallback:
                         transport.invoke(
@@ -1761,22 +1561,16 @@ class ProviderQualificationTests(unittest.TestCase):
                             output_schema=codex_transport_probe_output_schema(),
                             mcp_binding=binding_with_classifier(classifier),
                         )
-                self.assertEqual(
-                    fallback.exception.code, ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE
-                )
+                self.assertEqual(fallback.exception.code, ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE)
                 self.assertIsNone(fallback.exception.retryable_failure_category)
                 self.assertNotIn("private classifier failure", str(fallback.exception))
 
     def test_codex_enforces_output_token_ceiling(self) -> None:
         runner = StaticCodexRunner(output_tokens=codex_route().maximum_output_tokens + 1)
         with tempfile.TemporaryDirectory() as temporary:
-            transport = CodexSDKTransport(
-                codex_route(), workspace=Path(temporary), runner=runner
-            )
+            transport = CodexSDKTransport(codex_route(), workspace=Path(temporary), runner=runner)
             with self.assertRaises(ProviderTransportError) as caught:
-                transport.invoke(
-                    "Probe.", output_schema=codex_transport_probe_output_schema()
-                )
+                transport.invoke("Probe.", output_schema=codex_transport_probe_output_schema())
         self.assertEqual(caught.exception.code, ErrorCode.PROVIDER_BUDGET_EXCEEDED)
         self.assertEqual(caught.exception.external_provider_calls_observed, 1)
         self.assertEqual(runner.calls, 1)

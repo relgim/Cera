@@ -35,7 +35,6 @@ from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
 from cera.pi_scene.runtime import PlannerTurnInputV1
 from cera.providers import ProviderSchemaDialect, project_provider_output_schema
-from cera.providers.codex import CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
 from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
@@ -93,11 +92,8 @@ class _InvalidCompletedCognitionTransport:
         *,
         workspace: Path,
         runner: object,
-        mcp_observation_policy: str,
     ) -> None:
         del workspace, runner
-        if mcp_observation_policy != CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1:
-            raise AssertionError("cognition transport omitted its MCP observation policy")
 
     def invoke(
         self,
@@ -137,13 +133,13 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v5")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
-            "cera.cognition.codex_planner_adapter.v3",
+            "cera.cognition.codex_planner_adapter.v4",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
             "cera.cognition.codex_planner_prompt.v4",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v3")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v4")
         self.assertIn(
             "character dossiers are complete for this request",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,

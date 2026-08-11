@@ -3,15 +3,27 @@
 from __future__ import annotations
 
 import json
+import sys
 from importlib.metadata import version
 from pathlib import Path
-import sys
 
 from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
-
+from cera.providers.codex_runtime_policy import (
+    codex_app_server_config_overrides,
+    codex_app_server_environment,
+    start_codex_thread_without_environments,
+    validate_codex_app_server_configuration,
+    validate_codex_mcp_server_status,
+    validate_codex_prompt_markers,
+)
+from cera.providers.codex_runtime_policy import (
+    runtime_config_and_environment as _runtime_config_and_environment,
+)
+from cera.providers.codex_runtime_policy import (
+    unsupported_completed_result_item_types as _unsupported_completed_result_item_types,
+)
 
 CODEX_REASONER_BASE_INSTRUCTIONS = """You are the CERA Scene Reasoner transport. Return only the requested JSON object. Do not use shell commands, files, web search, apps, skills, subagents, or external context. When the request-bound CERA evidence server is present, it is the only permitted tool source. Treat the supplied packet plus evidence returned by that server as the complete authority for this invocation. If evidence is insufficient, use the schema's uncertainty result instead of inventing facts."""
-
 
 _BASE_INSTRUCTIONS_BY_ROLE = {
     "scene_reasoner": CODEX_REASONER_BASE_INSTRUCTIONS,
@@ -35,84 +47,6 @@ def _safe_error_text(exc: Exception, request: dict | None) -> str:
     return message[:800] or "no-message"
 
 
-def _runtime_config_and_environment(
-    mcp_binding: dict | None,
-) -> tuple[dict[str, object], dict[str, str]]:
-    """Build one request-scoped no-files runtime configuration."""
-
-    config: dict[str, object] = {
-        "web_search": "disabled",
-        "features": {
-            "apps": False,
-            "apply_patch_freeform": False,
-            "collab": False,
-            "connectors": False,
-            "multi_agent": False,
-            "multi_agent_v2": False,
-            "plugins": False,
-            "search_tool": False,
-            "shell_tool": False,
-            "skill_search": False,
-            "standalone_web_search": False,
-            "tool_search": False,
-            "unified_exec": False,
-            "web_search": False,
-        },
-        "default_permissions": "cera-no-files",
-        "permissions": {
-            "cera-no-files": {
-                "description": "CERA provider qualification without filesystem or network",
-                "filesystem": {
-                    ":root": "deny",
-                    ":minimal": "read",
-                    ":tmpdir": "deny",
-                    ":slash_tmp": "deny",
-                },
-                "network": {"enabled": False},
-            }
-        },
-    }
-    codex_environment: dict[str, str] = {}
-    if mcp_binding is None:
-        config["mcp_servers"] = {}
-        return config, codex_environment
-    required_keys = {
-        "server_name",
-        "url",
-        "bearer_token_environment_variable",
-        "bearer_token",
-        "enabled_tools",
-        "binding_sha256",
-        "required",
-        "startup_timeout_seconds",
-        "tool_timeout_seconds",
-        "minimum_tool_calls",
-        "maximum_tool_calls",
-    }
-    if set(mcp_binding) != required_keys or mcp_binding["required"] is not True:
-        raise ValueError("request-bound MCP binding is malformed")
-    token_environment_variable = mcp_binding[
-        "bearer_token_environment_variable"
-    ]
-    if token_environment_variable != "CERA_REQUEST_EVIDENCE_TOKEN":
-        raise ValueError("request-bound MCP token source is not approved")
-    codex_environment[token_environment_variable] = mcp_binding["bearer_token"]
-    config["mcp_servers"] = {
-        mcp_binding["server_name"]: {
-            "url": mcp_binding["url"],
-            "bearer_token_env_var": token_environment_variable,
-            "enabled": True,
-            "required": True,
-            "enabled_tools": mcp_binding["enabled_tools"],
-            "default_tools_approval_mode": "approve",
-            "startup_timeout_sec": mcp_binding["startup_timeout_seconds"],
-            "tool_timeout_sec": mcp_binding["tool_timeout_seconds"],
-            "supports_parallel_tool_calls": False,
-        }
-    }
-    return config, codex_environment
-
-
 def main() -> int:
     assert_provider_dispatch_allowed("providers.codex.worker.sdk_start")
     stage = "request_decode"
@@ -126,6 +60,7 @@ def main() -> int:
             raise ValueError("Codex worker service tier is unsupported")
         role = request["role"]
         prompt = request["prompt"]
+        validate_codex_prompt_markers(prompt)
         output_schema = request["output_schema"]
         workspace = Path(request["workspace"])
         progress_path = Path(request["progress_path"])
@@ -162,18 +97,20 @@ def main() -> int:
 
         record_stage("sdk_import")
         from openai_codex import Codex, CodexConfig
-        from openai_codex.api import ApprovalMode, ReasoningEffort
+        from openai_codex.api import ReasoningEffort
 
         record_stage("transport_version_check")
         if version("openai-codex") != expected_transport_version:
             raise RuntimeError("Codex SDK version does not match the qualified route")
 
         config, codex_environment = _runtime_config_and_environment(mcp_binding)
+        app_server_overrides = codex_app_server_config_overrides(workspace)
         record_stage("sdk_start")
         with Codex(
             CodexConfig(
-                config_overrides=("mcp_servers={}",),
-                env=codex_environment,
+                config_overrides=app_server_overrides,
+                cwd=str(workspace),
+                env=codex_app_server_environment(codex_environment),
             )
         ) as codex:
             record_stage("sdk_compatibility_install")
@@ -182,19 +119,31 @@ def main() -> int:
             )
 
             compatibility_state = install_early_turn_completion_buffer(codex)
+            validate_codex_app_server_configuration(
+                codex,
+                cwd=workspace,
+            )
+            validate_codex_mcp_server_status(codex)
             record_stage("account_check")
             account = codex.account()
             if account.account is None:
                 raise RuntimeError("ChatGPT Codex session is unavailable")
             record_stage("thread_start")
-            thread = codex.thread_start(
+            thread = start_codex_thread_without_environments(
+                codex,
                 model=model,
                 cwd=str(workspace),
                 ephemeral=True,
                 base_instructions=base_instructions,
                 config=config,
                 service_name=f"cera_{role}_qualification",
-                approval_mode=ApprovalMode.deny_all,
+                service_tier=service_tier,
+            )
+            validate_codex_mcp_server_status(
+                codex,
+                thread_id=thread.id,
+                request_server_name=(None if mcp_binding is None else mcp_binding["server_name"]),
+                request_tool_names=(() if mcp_binding is None else mcp_binding["enabled_tools"]),
             )
             record_stage("thread_run")
             result = thread.run(
@@ -218,6 +167,7 @@ def main() -> int:
         mcp_server_names: list[str] = []
         mcp_tool_names: list[str] = []
         failed_mcp_calls = 0
+        unsupported_item_types = _unsupported_completed_result_item_types(result.items)
         for wrapped in result.items:
             item = wrapped.root if hasattr(wrapped, "root") else wrapped
             if getattr(item, "type", None) != "mcpToolCall":
@@ -241,17 +191,14 @@ def main() -> int:
             "mcp_tool_names": mcp_tool_names,
             "mcp_tool_call_count": len(mcp_tool_names),
             "mcp_failed_tool_call_count": failed_mcp_calls,
+            "unsupported_item_types": unsupported_item_types,
             "transport_compatibility_id": compatibility_state.compatibility_id,
-            "transport_compatibility_source_sha256": (
-                compatibility_state.source_sha256
-            ),
+            "transport_compatibility_source_sha256": (compatibility_state.source_sha256),
             "transport_compatibility_activated": True,
             "buffered_early_completion_count": (
                 compatibility_state.buffered_early_completion_count
             ),
-            "pre_registered_turn_count": (
-                compatibility_state.pre_registered_turn_count
-            ),
+            "pre_registered_turn_count": (compatibility_state.pre_registered_turn_count),
         }
         record_stage("response_encode")
         # The parent/worker framing protocol is ASCII JSON so Windows code

@@ -18,6 +18,13 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
+from cera.providers.codex_runtime_policy import (
+    require_qualified_codex_model,
+    runtime_config_and_environment,
+    start_codex_thread_without_environments,
+    validate_codex_app_server_configuration,
+    validate_codex_mcp_server_status,
+)
 from cera.serialization import text_sha256
 
 from .models import (
@@ -36,39 +43,19 @@ from .models import (
 def _stored_runtime_config() -> dict[str, object]:
     """Return the no-files/no-network baseline for a stored Reasoner thread."""
 
-    return {
-        "web_search": "disabled",
-        "features": {
-            "apps": False,
-            "apply_patch_freeform": False,
-            "collab": False,
-            "connectors": False,
-            "multi_agent": False,
-            "multi_agent_v2": False,
-            "plugins": False,
-            "search_tool": False,
-            "shell_tool": False,
-            "skill_search": False,
-            "standalone_web_search": False,
-            "tool_search": False,
-            "unified_exec": False,
-            "web_search": False,
-        },
-        "default_permissions": "cera-no-files",
-        "permissions": {
-            "cera-no-files": {
-                "description": "CERA stored Reasoner without filesystem or network",
-                "filesystem": {
-                    ":root": "deny",
-                    ":minimal": "read",
-                    ":tmpdir": "deny",
-                    ":slash_tmp": "deny",
-                },
-                "network": {"enabled": False},
-            }
-        },
-        "mcp_servers": {},
-    }
+    config, environment = runtime_config_and_environment(None)
+    if environment:
+        raise ContractValidationError(
+            "stored Codex runtime unexpectedly retained request credentials"
+        )
+    permissions = config["permissions"]
+    if not isinstance(permissions, dict):
+        raise ContractValidationError("stored Codex permission profile is invalid")
+    profile = permissions.get("cera-no-files")
+    if not isinstance(profile, dict):
+        raise ContractValidationError("stored Codex permission profile is missing")
+    profile["description"] = "CERA stored Reasoner without filesystem or network"
+    return config
 
 
 @runtime_checkable
@@ -114,6 +101,7 @@ class OpenAICodexStoredThreadBackend:
     _session_epoch_id: str = ""
 
     def __post_init__(self) -> None:
+        require_qualified_codex_model(self.model)
         for value, field in (
             (self.model, "model"),
             (self.cwd, "cwd"),
@@ -124,9 +112,7 @@ class OpenAICodexStoredThreadBackend:
             if not isinstance(value, str) or not value.strip():
                 raise ContractValidationError(f"stored Codex {field} is required")
         if self.service_tier not in {None, "priority"}:
-            raise ContractValidationError(
-                "stored Codex service tier must be priority or omitted"
-            )
+            raise ContractValidationError("stored Codex service tier must be priority or omitted")
         if version("openai-codex") != self.transport_version:
             raise StateConflictError(
                 "installed Codex SDK does not match stored-thread compatibility"
@@ -150,9 +136,12 @@ class OpenAICodexStoredThreadBackend:
             "reasoner_session.codex_stored.thread_start",
             external_provider_boundary=self._external_provider_boundary(),
         )
-        from openai_codex.api import ApprovalMode
-
-        thread = self.codex.thread_start(
+        validate_codex_app_server_configuration(
+            self.codex,
+            cwd=self.cwd,
+        )
+        thread = start_codex_thread_without_environments(
+            self.codex,
             model=self.model,
             cwd=self.cwd,
             ephemeral=False,
@@ -160,9 +149,9 @@ class OpenAICodexStoredThreadBackend:
             config=_stored_runtime_config(),
             service_name=self.service_name,
             service_tier=self.service_tier,
-            approval_mode=ApprovalMode.deny_all,
         )
         thread_id = self._thread_id(thread)
+        validate_codex_mcp_server_status(self.codex, thread_id=thread_id)
         self._materialize_thread(thread_id, role="root")
         return thread_id
 
@@ -173,6 +162,10 @@ class OpenAICodexStoredThreadBackend:
         )
         from openai_codex.api import ApprovalMode
 
+        validate_codex_app_server_configuration(
+            self.codex,
+            cwd=self.cwd,
+        )
         thread = self.codex.thread_fork(
             parent_thread_id,
             model=self.model,
@@ -184,6 +177,7 @@ class OpenAICodexStoredThreadBackend:
             approval_mode=ApprovalMode.deny_all,
         )
         thread_id = self._thread_id(thread)
+        validate_codex_mcp_server_status(self.codex, thread_id=thread_id)
         self._materialize_thread(thread_id, role="candidate")
         return thread_id
 
@@ -195,6 +189,10 @@ class OpenAICodexStoredThreadBackend:
         from openai_codex.api import ApprovalMode
 
         try:
+            validate_codex_app_server_configuration(
+                self.codex,
+                cwd=self.cwd,
+            )
             thread = self.codex.thread_resume(
                 thread_id,
                 model=self.model,
@@ -204,7 +202,14 @@ class OpenAICodexStoredThreadBackend:
                 service_tier=self.service_tier,
                 approval_mode=ApprovalMode.deny_all,
             )
-            return self._thread_id(thread) == thread_id
+            resumed_thread_id = self._thread_id(thread)
+            if resumed_thread_id != thread_id:
+                return False
+            validate_codex_mcp_server_status(
+                self.codex,
+                thread_id=resumed_thread_id,
+            )
+            return True
         except Exception as exc:
             diagnostic = " ".join(str(exc).lower().split())
             if any(
@@ -238,9 +243,7 @@ class OpenAICodexStoredThreadBackend:
         client = getattr(self.codex, "_client", None)
         request = getattr(client, "request", None)
         if not callable(request):
-            raise StateConflictError(
-                "installed Codex SDK cannot inject stored-thread context"
-            )
+            raise StateConflictError("installed Codex SDK cannot inject stored-thread context")
         from openai_codex.generated.v2_all import ThreadInjectItemsResponse
 
         request(
@@ -307,9 +310,7 @@ class OpenAICodexStoredThreadBackend:
         client = getattr(self.codex, "_client", None)
         set_name = getattr(client, "thread_set_name", None)
         if not callable(set_name):
-            raise StateConflictError(
-                "installed Codex SDK cannot materialize a stored thread"
-            )
+            raise StateConflictError("installed Codex SDK cannot materialize a stored thread")
         set_name(
             thread_id,
             f"CERA {role} {text_sha256(thread_id)[:12]}",
@@ -389,9 +390,7 @@ class CodexStoredThreadSessionPort:
         # Reasoner turn, so the handle remains the exact checkpoint.
         if not self.backend.resume_stored_thread(candidate.provider_thread_id):
             raise StateConflictError("accepted candidate thread is unavailable")
-        self.operations.append(
-            ("accept:python_receipt_only", candidate.handle_sha256)
-        )
+        self.operations.append(("accept:python_receipt_only", candidate.handle_sha256))
         return candidate
 
     def mark_rejected(
@@ -403,9 +402,7 @@ class CodexStoredThreadSessionPort:
         self._remember_archived(candidate, role=ProviderThreadRole.CANDIDATE)
         self.operations.append(("thread/archive:rejected_leaf", candidate.handle_sha256))
 
-    def discard_failed_candidate(
-        self, handle: ProviderSessionHandle, reason: str
-    ) -> None:
+    def discard_failed_candidate(self, handle: ProviderSessionHandle, reason: str) -> None:
         self.backend.archive_stored_leaf(handle.provider_thread_id)
         self._remember_archived(handle, role=ProviderThreadRole.CANDIDATE)
         self.operations.append(("thread/archive:failed_leaf", handle.handle_sha256))
@@ -416,9 +413,7 @@ class CodexStoredThreadSessionPort:
         self._descriptors[handle.provider_thread_id] = ProviderThreadCustodyDescriptor(
             schema_version=ProviderThreadCustodyDescriptor.SCHEMA_VERSION,
             provider_thread_id_sha256=descriptor.provider_thread_id_sha256,
-            parent_provider_thread_id_sha256=(
-                descriptor.parent_provider_thread_id_sha256
-            ),
+            parent_provider_thread_id_sha256=(descriptor.parent_provider_thread_id_sha256),
             storage_mode=ProviderThreadStorageMode.STORED_LOCAL,
             role=descriptor.role,
             raw_context_retained=True,
@@ -443,22 +438,16 @@ class CodexStoredThreadSessionPort:
     def try_resume(self, handle: ProviderSessionHandle) -> ProviderSessionHandle | None:
         if not self.backend.resume_stored_thread(handle.provider_thread_id):
             prior = self._descriptors.get(handle.provider_thread_id)
-            self._descriptors[handle.provider_thread_id] = (
-                ProviderThreadCustodyDescriptor(
-                    schema_version=ProviderThreadCustodyDescriptor.SCHEMA_VERSION,
-                    provider_thread_id_sha256=text_sha256(
-                        handle.provider_thread_id
-                    ),
-                    parent_provider_thread_id_sha256=(
-                        prior.parent_provider_thread_id_sha256
-                        if prior is not None
-                        else None
-                    ),
-                    storage_mode=ProviderThreadStorageMode.STORED_LOCAL,
-                    role=prior.role if prior is not None else ProviderThreadRole.ROOT,
-                    raw_context_retained=False,
-                    provider_context_is_story_authority=False,
-                )
+            self._descriptors[handle.provider_thread_id] = ProviderThreadCustodyDescriptor(
+                schema_version=ProviderThreadCustodyDescriptor.SCHEMA_VERSION,
+                provider_thread_id_sha256=text_sha256(handle.provider_thread_id),
+                parent_provider_thread_id_sha256=(
+                    prior.parent_provider_thread_id_sha256 if prior is not None else None
+                ),
+                storage_mode=ProviderThreadStorageMode.STORED_LOCAL,
+                role=prior.role if prior is not None else ProviderThreadRole.ROOT,
+                raw_context_retained=False,
+                provider_context_is_story_authority=False,
             )
             self.operations.append(("thread/resume:missing", handle.handle_sha256))
             return None
@@ -477,9 +466,7 @@ class CodexStoredThreadSessionPort:
         self.operations.append(("thread/resume:stored", handle.handle_sha256))
         return handle
 
-    def describe_thread(
-        self, handle: ProviderSessionHandle
-    ) -> ProviderThreadCustodyDescriptor:
+    def describe_thread(self, handle: ProviderSessionHandle) -> ProviderThreadCustodyDescriptor:
         return self._descriptor_or_default(handle)
 
     def restore_descriptor(
@@ -489,9 +476,7 @@ class CodexStoredThreadSessionPort:
     ) -> None:
         """Restore privacy-safe custody metadata after a CERA process restart."""
 
-        if descriptor.provider_thread_id_sha256 != text_sha256(
-            handle.provider_thread_id
-        ):
+        if descriptor.provider_thread_id_sha256 != text_sha256(handle.provider_thread_id):
             raise StateConflictError("stored-thread descriptor changed provider identity")
         self._descriptors[handle.provider_thread_id] = descriptor
 

@@ -36,7 +36,7 @@ from .prompting import (
 )
 from .schema import reader_verdict_json_schema
 
-SOL_READER_ADAPTER = "cera.reader_validation.sol_adapter.v1"
+SOL_READER_ADAPTER = "cera.reader_validation.sol_adapter.v2"
 SOL_READER_PROMPT = "cera.reader_validation.sol_prompt.v1"
 SOL_READER_HARD_TIMEOUT_SECONDS = 600
 
@@ -47,7 +47,7 @@ def sol_reader_route() -> LiveProviderRoute:
             model="gpt-5.6-sol",
             effort="medium",
         ),
-        route_id="cera_reader_validation_sol_medium_v1",
+        route_id="cera_reader_validation_sol_medium_v2",
         adapter_id=SOL_READER_ADAPTER,
         prompt_version=SOL_READER_PROMPT,
         timeout_seconds=SOL_READER_HARD_TIMEOUT_SECONDS,
@@ -113,7 +113,10 @@ class CodexSolReaderBackend:
         transport = CodexSDKTransport(
             self.route,
             workspace=operation_workspace,
-            runner=StoredCodexThreadRunner(thread_id),
+            runner=StoredCodexThreadRunner(
+                thread_id,
+                base_instructions=SOL_READER_BASE_INSTRUCTIONS,
+            ),
         )
         prompt = build_reader_validation_prompt(request)
         output_schema = reader_verdict_json_schema(

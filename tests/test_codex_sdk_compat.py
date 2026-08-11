@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from openai_codex._message_router import MessageRouter
@@ -31,9 +31,11 @@ def completed_turn(turn_id: str) -> Turn:
 class SimulatedEarlyCompletionClient:
     def __init__(self) -> None:
         self._router = MessageRouter()
+        self.turn_start_params = []
 
     def turn_start(self, thread_id, input_items, params=None):
-        del input_items, params
+        del input_items
+        self.turn_start_params.append((thread_id, params))
         turn = completed_turn("turn:early")
         self._router.route_notification(
             Notification(
@@ -51,9 +53,11 @@ class SimulatedEarlyCompletionClient:
 class SimulatedPostResponseCompletionClient:
     def __init__(self) -> None:
         self._router = MessageRouter()
+        self.turn_start_params = []
 
     def turn_start(self, thread_id, input_items, params=None):
-        del thread_id, input_items, params
+        del input_items
+        self.turn_start_params.append((thread_id, params))
         return TurnStartResponse(turn=completed_turn("turn:post-response"))
 
 
@@ -69,6 +73,10 @@ class CodexSdkCompatibilityTests(unittest.TestCase):
         self.assertEqual(state.compatibility_id, CODEX_SDK_COMPATIBILITY_ID)
         self.assertEqual(state.buffered_early_completion_count, 1)
         self.assertEqual(state.pre_registered_turn_count, 1)
+        self.assertEqual(
+            client.turn_start_params,
+            [("thread:one", {"environments": []})],
+        )
 
     def test_returned_turn_is_registered_before_post_response_completion(self) -> None:
         client = SimulatedPostResponseCompletionClient()
@@ -92,6 +100,62 @@ class CodexSdkCompatibilityTests(unittest.TestCase):
         self.assertEqual(state.buffered_early_completion_count, 0)
         self.assertEqual(state.pre_registered_turn_count, 1)
 
+    def test_every_thread_lineage_gets_an_exact_empty_environment(self) -> None:
+        client = SimulatedPostResponseCompletionClient()
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
+        install_early_turn_completion_buffer(codex)
+
+        for thread_id in ("thread:new", "thread:resumed", "thread:forked"):
+            original = {"model": "gpt-5.6-sol"}
+            client.turn_start(thread_id, "prompt", params=original)
+            self.assertEqual(original, {"model": "gpt-5.6-sol"})
+
+        self.assertEqual(
+            client.turn_start_params,
+            [
+                (
+                    "thread:new",
+                    {"model": "gpt-5.6-sol", "environments": []},
+                ),
+                (
+                    "thread:resumed",
+                    {"model": "gpt-5.6-sol", "environments": []},
+                ),
+                (
+                    "thread:forked",
+                    {"model": "gpt-5.6-sol", "environments": []},
+                ),
+            ],
+        )
+
+    def test_nonempty_turn_environment_fails_before_dispatch(self) -> None:
+        client = SimulatedPostResponseCompletionClient()
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
+        install_early_turn_completion_buffer(codex)
+
+        with self.assertRaisesRegex(ContractValidationError, "retain an environment"):
+            client.turn_start(
+                "thread:one",
+                "prompt",
+                params={"environments": [{"cwd": "forbidden"}]},
+            )
+
+        self.assertEqual(client.turn_start_params, [])
+
+    def test_unknown_turn_model_fails_before_dispatch(self) -> None:
+        client = SimulatedPostResponseCompletionClient()
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
+        install_early_turn_completion_buffer(codex)
+
+        with self.assertRaisesRegex(ContractValidationError, "static catalog"):
+            client.turn_start(
+                "thread:one",
+                "prompt",
+                params={"model": "gpt-5.6-unknown"},
+            )
+
+        self.assertEqual(client.turn_start_params, [])
+
     def test_unowned_early_completion_keeps_sdk_default_discard_behavior(self) -> None:
         client = SimulatedEarlyCompletionClient()
         codex = SimpleNamespace(_client=client, external_provider_boundary=False)
@@ -114,10 +178,13 @@ class CodexSdkCompatibilityTests(unittest.TestCase):
     def test_changed_sdk_router_source_fails_closed(self) -> None:
         client = SimulatedEarlyCompletionClient()
         codex = SimpleNamespace(_client=client, external_provider_boundary=False)
-        with patch(
-            "cera.providers.codex_sdk_compat.inspect.getsource",
-            return_value="changed",
-        ), self.assertRaisesRegex(ContractValidationError, "does not match"):
+        with (
+            patch(
+                "cera.providers.codex_sdk_compat.inspect.getsource",
+                return_value="changed",
+            ),
+            self.assertRaisesRegex(ContractValidationError, "does not match"),
+        ):
             install_early_turn_completion_buffer(codex)
 
 
