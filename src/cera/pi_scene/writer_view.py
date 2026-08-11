@@ -44,6 +44,75 @@ _INTERNAL_CAUSAL_GUIDANCE_KINDS = frozenset(
 _SURFACE_REALIZATION_KINDS = frozenset(
     kind.value for kind in SequenceItemV1.SURFACE_REALIZATION_KINDS
 )
+_GENESIS_PROJECTION_SCHEMA = "cera.pi_scene_genesis_record_projection.v1"
+_WRITER_GENESIS_BUNDLE_SCHEMA = "cera.pi_scene.writer_genesis_claim_bundle.v1"
+_WRITER_CONTEXT_PROJECTION_SCHEMA = "cera.pi_scene.writer_context_projection.v1"
+_GENESIS_PROJECTION_FIELDS = frozenset(
+    {
+        "schema_version",
+        "_cera_revision",
+        "genesis_revision_id",
+        "source_relative_path",
+        "source_content_sha256",
+        "visibility",
+        "knowledge_owner_id",
+        "record",
+    }
+)
+_GENESIS_RECORD_FIELDS = frozenset(
+    {
+        "schema_version",
+        "record_id",
+        "record_version",
+        "record_type",
+        "epistemic_layer",
+        "truth_status",
+        "claim",
+        "authority",
+        "subject_ids",
+        "owner_id",
+        "knowledge_owner_ids",
+        "visibility",
+        "knowledge_route",
+        "certainty",
+        "content_class",
+        "adult_eligibility",
+        "story_start_presence",
+        "relationship_from_id",
+        "relationship_to_id",
+        "source_refs",
+        "valid_from",
+        "valid_to",
+        "supersedes",
+        "tags",
+        "expandable_sections",
+        "payload_json",
+    }
+)
+_WRITER_GENESIS_RECORD_FIELDS = (
+    "record_id",
+    "record_version",
+    "record_type",
+    "claim",
+    "authority",
+    "epistemic_layer",
+    "truth_status",
+    "certainty",
+    "owner_id",
+    "subject_ids",
+    "knowledge_owner_ids",
+    "visibility",
+    "knowledge_route",
+    "content_class",
+    "adult_eligibility",
+    "story_start_presence",
+    "relationship_from_id",
+    "relationship_to_id",
+    "source_refs",
+    "valid_from",
+    "valid_to",
+    "supersedes",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +238,18 @@ class WriterViewMaterializer:
             }
             response_sequence = None
             decision_projection = None
+        if source.purpose == "writer":
+            (
+                writer_characters,
+                writer_relationships,
+                writer_memories,
+                context_projection,
+            ) = _project_writer_semantic_context(source)
+        else:
+            writer_characters = dict(source.characters)
+            writer_relationships = dict(source.relationships)
+            writer_memories = dict(source.relevant_memories)
+            context_projection = None
         _write_text(root / "USER_PROMPT.txt", source.user_prompt)
         _write_json(
             root / "TURN.json",
@@ -210,10 +291,10 @@ class WriterViewMaterializer:
         if decision_projection is not None:
             _write_json(root / "DECISION_BUNDLE.json", decision_projection)
         _write_json(root / "CURRENT_STATE.json", source.current_state)
-        _write_named_mapping(root / "characters", source.characters)
-        _write_named_mapping(root / "relationships", source.relationships)
+        _write_named_mapping(root / "characters", writer_characters)
+        _write_named_mapping(root / "relationships", writer_relationships)
         _write_numbered(root / "recent_prose", source.recent_prose)
-        _write_named_mapping(root / "relevant_memories", source.relevant_memories)
+        _write_named_mapping(root / "relevant_memories", writer_memories)
         _write_named_mapping(root / "voice_examples", source.voice_examples)
         _write_json(root / "craft" / "index.json", source.craft_index)
         _write_numbered(root / "accepted_records", source.accepted_records)
@@ -229,7 +310,7 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v11",
+                "schema_version": "cera.pi_scene.writer_authority_order.v12",
                 "current_route": source.route.value,
                 "current_purpose": source.purpose,
                 "current_source_path": "USER_PROMPT.txt",
@@ -291,6 +372,7 @@ class WriterViewMaterializer:
                         "accepted authority."
                     ),
                 },
+                "context_projection": context_projection,
             },
         )
         files: list[dict[str, Any]] = []
@@ -475,6 +557,145 @@ def resolve_confined_path(
     if require_file and not candidate.is_file():
         raise ContractValidationError("Writer-view path is not a file")
     return candidate
+
+
+def _project_writer_semantic_context(
+    source: WriterViewInputV1,
+) -> tuple[
+    dict[str, Mapping[str, Any]],
+    dict[str, Mapping[str, Any]],
+    dict[str, Mapping[str, Any]],
+    dict[str, Any],
+]:
+    """Expose exact active-actor claims while retaining source bytes by hash."""
+
+    active_character_ids = frozenset(source.characters)
+    source_context = {
+        "characters": dict(source.characters),
+        "relationships": dict(source.relationships),
+        "relevant_memories": dict(source.relevant_memories),
+    }
+    scoped_relationships, excluded_relationships = _active_writer_buckets(
+        source.relationships,
+        active_character_ids=active_character_ids,
+    )
+    scoped_memories, excluded_memories = _active_writer_buckets(
+        source.relevant_memories,
+        active_character_ids=active_character_ids,
+    )
+    projected_characters: dict[str, Mapping[str, Any]] = {
+        key: _project_writer_mapping_value(key, value) for key, value in source.characters.items()
+    }
+    projected_relationships: dict[str, Mapping[str, Any]] = {
+        key: _project_writer_mapping_value(key, value)
+        for key, value in scoped_relationships.items()
+    }
+    projected_memories: dict[str, Mapping[str, Any]] = {
+        key: _project_writer_mapping_value(key, value) for key, value in scoped_memories.items()
+    }
+    projected_context = {
+        "characters": projected_characters,
+        "relationships": projected_relationships,
+        "relevant_memories": projected_memories,
+    }
+    projection_receipt = {
+        "schema_version": _WRITER_CONTEXT_PROJECTION_SCHEMA,
+        "active_character_ids": sorted(active_character_ids),
+        "actor_bucket_rule": ("character_owned_buckets_require_an_exact_active_character_key"),
+        "legacy_unowned_bucket_rule": (
+            "an_exact_active_character_identity_must_occur_in_the_value"
+        ),
+        "genesis_record_rule": (
+            "exact_claim_and_authority_fields_with_omitted_source_bytes_hash_bound"
+        ),
+        "source_semantic_context_sha256": canonical_sha256(source_context),
+        "projected_semantic_context_sha256": canonical_sha256(projected_context),
+        "excluded_relationship_actor_buckets": excluded_relationships,
+        "excluded_memory_actor_buckets": excluded_memories,
+    }
+    return (
+        projected_characters,
+        projected_relationships,
+        projected_memories,
+        projection_receipt,
+    )
+
+
+def _active_writer_buckets(
+    values: Mapping[str, Mapping[str, Any]],
+    *,
+    active_character_ids: frozenset[str],
+) -> tuple[dict[str, Mapping[str, Any]], int]:
+    selected: dict[str, Mapping[str, Any]] = {}
+    for key, value in values.items():
+        if key.startswith("character:"):
+            include = key in active_character_ids
+        else:
+            include = any(
+                _contains_exact_identity(value, character_id)
+                for character_id in active_character_ids
+            )
+        if include:
+            selected[key] = value
+    return selected, len(values) - len(selected)
+
+
+def _contains_exact_identity(value: object, identity: str) -> bool:
+    if value == identity:
+        return True
+    if isinstance(value, Mapping):
+        return any(_contains_exact_identity(item, identity) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_exact_identity(item, identity) for item in value)
+    return False
+
+
+def _project_writer_mapping_value(
+    mapping_key: str,
+    value: Mapping[str, Any],
+) -> dict[str, Any]:
+    projections = value.get("genesis_record_projections")
+    if projections is None:
+        return dict(value)
+    if set(value) != {"character_id", "genesis_record_projections"}:
+        raise ContractValidationError("Genesis Writer bundle fields changed")
+    if value.get("character_id") != mapping_key:
+        raise ContractValidationError("Genesis Writer bundle character changed")
+    if not isinstance(projections, (list, tuple)) or not projections:
+        raise ContractValidationError("Genesis Writer bundle records are invalid")
+    claims: list[dict[str, Any]] = []
+    for projection in projections:
+        if not isinstance(projection, Mapping) or set(projection) != _GENESIS_PROJECTION_FIELDS:
+            raise ContractValidationError("Genesis Writer projection fields changed")
+        if projection.get("schema_version") != _GENESIS_PROJECTION_SCHEMA:
+            raise ContractValidationError("Genesis Writer projection schema changed")
+        record = projection.get("record")
+        if not isinstance(record, Mapping) or set(record) != _GENESIS_RECORD_FIELDS:
+            raise ContractValidationError("Genesis Writer record fields changed")
+        if record.get("schema_version") != "cera.genesis_record.v1":
+            raise ContractValidationError("Genesis Writer record schema changed")
+        payload_json = record.get("payload_json")
+        if not isinstance(payload_json, str):
+            raise ContractValidationError("Genesis Writer payload custody changed")
+        try:
+            payload = json.loads(payload_json)
+        except json.JSONDecodeError as exc:
+            raise ContractValidationError("Genesis Writer payload custody changed") from exc
+        if canonical_json(payload) != payload_json:
+            raise ContractValidationError("Genesis Writer payload custody changed")
+        claims.append(
+            {
+                "source_schema_version": record["schema_version"],
+                "source_record_sha256": canonical_sha256(record),
+                **{field: record[field] for field in _WRITER_GENESIS_RECORD_FIELDS},
+            }
+        )
+    return {
+        "schema_version": _WRITER_GENESIS_BUNDLE_SCHEMA,
+        "character_id": mapping_key,
+        "source_bundle_sha256": canonical_sha256(value),
+        "claims": claims,
+    }
 
 
 def _ordinary_authority_projection(

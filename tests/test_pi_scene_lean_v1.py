@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -101,6 +103,178 @@ def adult_handoff(label: str = "adult_choice") -> dict[str, object]:
         "consent_boundary": "The supplied scene remains consensual and capacity-valid.",
         "causal_direction": "The adults make one mutual choice and stop at the next user floor.",
     }
+
+
+def genesis_claim_bundle(
+    character_id: str,
+    *,
+    label: str,
+    records: int,
+    payload_chars: int,
+) -> dict[str, object]:
+    projections: list[dict[str, object]] = []
+    for index in range(records):
+        payload_json = canonical_json(
+            {
+                "omitted_writer_payload": (
+                    f"CERA-OMITTED-PAYLOAD-{label}-{index:03d}-"
+                    + ("P" * payload_chars)
+                )
+            }
+        )
+        record = {
+            "schema_version": "cera.genesis_record.v1",
+            "record_id": f"record:{label}-{index:03d}",
+            "record_version": 1,
+            "record_type": "character_profile",
+            "epistemic_layer": "objective_fact",
+            "truth_status": "objective",
+            "claim": (
+                f"CERA-{label.upper()}-CLAIM-{index:03d}: the exact accepted "
+                "character guidance remains authoritative."
+            ),
+            "authority": "creator",
+            "subject_ids": [character_id],
+            "owner_id": None,
+            "knowledge_owner_ids": [],
+            "visibility": "system_private",
+            "knowledge_route": "creator_seed",
+            "certainty": "established",
+            "content_class": "ordinary",
+            "adult_eligibility": "not_applicable",
+            "story_start_presence": "not_applicable",
+            "relationship_from_id": None,
+            "relationship_to_id": None,
+            "source_refs": [f"source:{label}"],
+            "valid_from": None,
+            "valid_to": None,
+            "supersedes": [],
+            "tags": ["writer_projection_test"],
+            "expandable_sections": ["payload"],
+            "payload_json": payload_json,
+        }
+        projections.append(
+            {
+                "schema_version": "cera.pi_scene_genesis_record_projection.v1",
+                "_cera_revision": 1,
+                "genesis_revision_id": "genesis-revision:test",
+                "source_relative_path": f"modules/{label}.json",
+                "source_content_sha256": text_sha256(f"source:{label}"),
+                "visibility": "system_private",
+                "knowledge_owner_id": None,
+                "record": record,
+            }
+        )
+    return {
+        "character_id": character_id,
+        "genesis_record_projections": projections,
+    }
+
+
+def run_pi_context_extension(
+    *,
+    root: Path,
+    view_root: Path,
+) -> subprocess.CompletedProcess[str]:
+    harness = root / "node-harness"
+    if not harness.exists():
+        harness.mkdir()
+        repository = Path(__file__).resolve().parents[1]
+        for name in ("cera-scene-context.ts", "cera-scene-view.ts"):
+            shutil.copyfile(repository / "integrations" / "pi" / name, harness / name)
+        (harness / "package.json").write_text(
+            json.dumps({"type": "module"}),
+            encoding="utf-8",
+        )
+        typebox = harness / "node_modules" / "typebox"
+        typebox.mkdir(parents=True)
+        (typebox / "package.json").write_text(
+            json.dumps(
+                {
+                    "name": "typebox",
+                    "version": "0.0.0-test",
+                    "type": "module",
+                    "exports": "./index.js",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (typebox / "index.js").write_text(
+            """
+export const Type = {
+  Object: (value) => value,
+  Optional: (value) => value,
+  String: (value = {}) => value,
+};
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+    script = """
+import { pathToFileURL } from 'node:url';
+const module = await import(pathToFileURL(process.argv[1]).href);
+const tools = new Map();
+const pi = {
+  on: () => undefined,
+  registerTool: (tool) => tools.set(tool.name, tool),
+};
+module.default(pi);
+try {
+  const result = await tools.get('context').execute();
+  const text = result.content[0].text;
+  const requestEstimate = JSON.stringify({
+    model: 'deepseek-v4-flash',
+    messages: [
+      { role: 'system', content: process.env.CERA_TEST_SYSTEM_PROMPT },
+      { role: 'user', content: process.env.CERA_TEST_INVOCATION_PROMPT },
+      { role: 'assistant', content: [{ type: 'toolCall', name: 'context', arguments: {} }] },
+      { role: 'tool', content: text },
+    ],
+    max_tokens: 4096,
+  });
+  console.log(JSON.stringify({
+    bytes: Buffer.byteLength(text, 'utf8'),
+    files: result.details.files,
+    packet: result.details.packet,
+    serializedRequestEstimateBytes: Buffer.byteLength(requestEstimate, 'utf8'),
+    hasSakuraClaim: text.includes('CERA-SAKURA-CLAIM-120'),
+    hasHanaClaim: text.includes('CERA-HANA-CLAIM-120'),
+    hasOmittedPayload: text.includes('CERA-OMITTED-PAYLOAD'),
+    hasSixthTurn: text.includes('CERA-RECENT-TURN-6'),
+  }));
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(7);
+}
+"""
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "CERA_PI_VIEW_ROOT": str(view_root),
+            "CERA_PI_PURPOSE": "writer",
+            "CERA_PI_MAX_TOOL_CALLS": "1",
+            "CERA_TEST_SYSTEM_PROMPT": ADULT_WRITER_SYSTEM_PROMPT,
+            "CERA_TEST_INVOCATION_PROMPT": (
+                "Call context exactly once and render the complete authorized scene."
+            ),
+        }
+    )
+    return subprocess.run(
+        [
+            "node",
+            "--no-warnings",
+            "--experimental-strip-types",
+            "--input-type=module",
+            "--eval",
+            script,
+            str(harness / "cera-scene-view.ts"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=environment,
+    )
 
 
 class FakePlanner:
@@ -666,7 +840,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v11",
+                "cera.pi_scene.writer_authority_order.v12",
             )
             self.assertEqual(
                 authority_order["precedence"][:2],
@@ -1868,7 +2042,276 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("writerContextPlan", extension)
         self.assertIn("USER-SUPPLIED STORY MATERIAL", extension)
         self.assertNotIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
-        self.assertIn("cera.writer_context_packet.v6", extension)
+        self.assertIn("MAX_WRITER_GENESIS_FILE_BYTES = 128 * 1024", extension)
+        self.assertIn("MAX_WRITER_CONTEXT_BYTES = 384 * 1024", extension)
+        self.assertIn("cera.writer_context_packet.v7", extension)
+
+    def test_writer_context_projects_two_active_genesis_bundles_with_growth(self) -> None:
+        sakura_id = "character:sakura"
+        hana_id = "character:hana"
+        enne_id = "character:enne"
+        sakura = genesis_claim_bundle(
+            sakura_id,
+            label="sakura",
+            records=121,
+            payload_chars=1_800,
+        )
+        hana = genesis_claim_bundle(
+            hana_id,
+            label="hana",
+            records=121,
+            payload_chars=1_800,
+        )
+        relationships = {
+            sakura_id: genesis_claim_bundle(
+                sakura_id,
+                label="sakura-relationship",
+                records=13,
+                payload_chars=600,
+            ),
+            hana_id: genesis_claim_bundle(
+                hana_id,
+                label="hana-relationship",
+                records=13,
+                payload_chars=600,
+            ),
+            enne_id: genesis_claim_bundle(
+                enne_id,
+                label="inactive-relationship",
+                records=13,
+                payload_chars=600,
+            ),
+            "relationship:active-legacy": {
+                "participants": ["character:ted", sakura_id],
+                "claim": "A legacy active relationship remains exact.",
+            },
+            "relationship:inactive-legacy": {
+                "participants": ["character:ted", enne_id],
+                "claim": "An unrelated legacy relationship is not Writer-visible.",
+            },
+        }
+        memories = {
+            sakura_id: genesis_claim_bundle(
+                sakura_id,
+                label="sakura-memory",
+                records=12,
+                payload_chars=600,
+            ),
+            hana_id: genesis_claim_bundle(
+                hana_id,
+                label="hana-memory",
+                records=12,
+                payload_chars=600,
+            ),
+            enne_id: genesis_claim_bundle(
+                enne_id,
+                label="inactive-memory",
+                records=12,
+                payload_chars=600,
+            ),
+        }
+        source_semantic_context = {
+            "characters": {sakura_id: sakura, hana_id: hana},
+            "relationships": relationships,
+            "relevant_memories": memories,
+        }
+        self.assertGreater(len(canonical_json(sakura).encode("utf-8")), 329_000)
+        self.assertGreater(len(canonical_json(hana).encode("utf-8")), 329_000)
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            materializer = WriterViewMaterializer(root / "views")
+            view = materializer.materialize(
+                WriterViewInputV1(
+                    world_id="world-large-adult-context",
+                    branch_id="branch-main",
+                    scene_id="scene-private-room",
+                    turn_id="turn-0007",
+                    candidate_id="candidate-large-adult-context",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue from the exact authorized adult handoff.",
+                    primary_authority={
+                        "schema_version": "cera.pi_scene.adult_handoff.v1",
+                        "participant_ids": ["character:ted", sakura_id, hana_id],
+                        "all_participants_adults": True,
+                        "consent_and_capacity": "The authorized adults retain agency.",
+                        "causal_direction": "Realize one bounded beat and return the floor.",
+                    },
+                    current_state={
+                        "accepted_present_character_ids": [sakura_id, hana_id],
+                        "public_scene_state": "The authorized adults remain present.",
+                    },
+                    characters={sakura_id: sakura, hana_id: hana},
+                    relationships=relationships,
+                    recent_prose=tuple(
+                        f"CERA-RECENT-TURN-{index}-" + ("R" * 7_000)
+                        for index in range(1, 7)
+                    ),
+                    relevant_memories=memories,
+                    voice_examples={
+                        sakura_id: {"guidance": "Precise and composed."},
+                        hana_id: {"guidance": "Warm and deliberate."},
+                    },
+                    craft_index={"mode": "bounded-adult-test"},
+                    accepted_records=tuple(
+                        {
+                            "accepted_order": index,
+                            "bounded_continuity": "A" * 1_500,
+                        }
+                        for index in range(1, 7)
+                    ),
+                )
+            )
+            authority = json.loads(
+                (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            projection = authority["context_projection"]
+            self.assertEqual(
+                projection["schema_version"],
+                "cera.pi_scene.writer_context_projection.v1",
+            )
+            self.assertEqual(
+                projection["active_character_ids"],
+                [hana_id, sakura_id],
+            )
+            self.assertEqual(
+                projection["source_semantic_context_sha256"],
+                canonical_sha256(source_semantic_context),
+            )
+            self.assertEqual(projection["excluded_relationship_actor_buckets"], 2)
+            self.assertEqual(projection["excluded_memory_actor_buckets"], 1)
+
+            projected_character_files = sorted((view.root / "characters").glob("*.json"))
+            self.assertEqual(len(projected_character_files), 2)
+            projected_characters = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in projected_character_files
+            ]
+            self.assertTrue(
+                all(
+                    value["schema_version"]
+                    == "cera.pi_scene.writer_genesis_claim_bundle.v1"
+                    for value in projected_characters
+                )
+            )
+            self.assertTrue(
+                all(path.stat().st_size < 128 * 1024 for path in projected_character_files)
+            )
+            by_id = {value["character_id"]: value for value in projected_characters}
+            self.assertEqual(by_id[sakura_id]["source_bundle_sha256"], canonical_sha256(sakura))
+            self.assertEqual(by_id[hana_id]["source_bundle_sha256"], canonical_sha256(hana))
+            visible_character_text = "\n".join(
+                path.read_text(encoding="utf-8") for path in projected_character_files
+            )
+            self.assertIn("CERA-SAKURA-CLAIM-120", visible_character_text)
+            self.assertIn("CERA-HANA-CLAIM-120", visible_character_text)
+            self.assertNotIn("CERA-OMITTED-PAYLOAD", visible_character_text)
+            self.assertNotIn("payload_json", visible_character_text)
+
+            relationship_values = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in (view.root / "relationships").glob("*.json")
+            ]
+            self.assertEqual(len(relationship_values), 3)
+            relationship_claims = {
+                value.get("claim")
+                for value in relationship_values
+                if value.get("claim") is not None
+            }
+            self.assertIn(
+                "A legacy active relationship remains exact.",
+                relationship_claims,
+            )
+            self.assertNotIn(
+                "An unrelated legacy relationship is not Writer-visible.",
+                relationship_claims,
+            )
+            self.assertNotIn(
+                enne_id,
+                {value.get("character_id") for value in relationship_values},
+            )
+            memory_values = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in (view.root / "relevant_memories").glob("*.json")
+            ]
+            self.assertEqual(
+                {value["character_id"] for value in memory_values},
+                {sakura_id, hana_id},
+            )
+
+            probe = run_pi_context_extension(root=root, view_root=view.root)
+            self.assertEqual(probe.returncode, 0, probe.stderr)
+            packet = json.loads(probe.stdout)
+            self.assertGreater(packet["bytes"], 64 * 1024)
+            self.assertLessEqual(packet["bytes"], 384 * 1024)
+            self.assertEqual(packet["packet"], "cera.writer_context_packet.v7")
+            self.assertTrue(packet["hasSakuraClaim"])
+            self.assertTrue(packet["hasHanaClaim"])
+            self.assertFalse(packet["hasOmittedPayload"])
+            self.assertTrue(packet["hasSixthTurn"])
+            self.assertLess(packet["serializedRequestEstimateBytes"], 524_288)
+            self.assertGreater(
+                524_288 - packet["serializedRequestEstimateBytes"],
+                32 * 1024,
+            )
+
+            over_cap = materializer.materialize(
+                WriterViewInputV1(
+                    world_id="world-large-adult-context",
+                    branch_id="branch-main",
+                    scene_id="scene-private-room",
+                    turn_id="turn-0008",
+                    candidate_id="candidate-over-cap-adult-context",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue from the same bounded handoff.",
+                    primary_authority=adult_handoff("over_cap"),
+                    current_state={
+                        "accepted_present_character_ids": [sakura_id, hana_id],
+                        "public_scene_state": "The authorized adults remain present.",
+                    },
+                    characters={sakura_id: sakura, hana_id: hana},
+                    relationships=relationships,
+                    recent_prose=tuple("X" * 30_000 for _ in range(6)),
+                    relevant_memories=memories,
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            rejected = run_pi_context_extension(root=root, view_root=over_cap.root)
+            self.assertEqual(rejected.returncode, 7)
+            self.assertIn("Writer view exceeds the context bound", rejected.stderr)
+
+            changed = json.loads(canonical_json(sakura))
+            changed["genesis_record_projections"][0]["record"][
+                "future_unprojected_field"
+            ] = "must fail closed"
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "Genesis Writer record fields changed",
+            ):
+                materializer.materialize(
+                    WriterViewInputV1(
+                        world_id="world-large-adult-context",
+                        branch_id="branch-main",
+                        scene_id="scene-private-room",
+                        turn_id="turn-0009",
+                        candidate_id="candidate-unknown-genesis-field",
+                        route=SceneRoute.ADULT,
+                        user_prompt="Continue.",
+                        primary_authority=adult_handoff("unknown_field"),
+                        current_state={"public_scene_state": "The scene remains bounded."},
+                        characters={sakura_id: changed},
+                        relationships={},
+                        recent_prose=(),
+                        relevant_memories={},
+                        voice_examples={},
+                        craft_index={},
+                        accepted_records=(),
+                    )
+                )
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(

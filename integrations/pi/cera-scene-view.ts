@@ -16,17 +16,31 @@ import { writerContextPlan } from "./cera-scene-context.ts";
 
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_CONTEXT_BYTES = 64 * 1024;
+const MAX_WRITER_GENESIS_FILE_BYTES = 128 * 1024;
+const MAX_WRITER_CONTEXT_BYTES = 384 * 1024;
 const MAX_RESULTS = 80;
 const ROOT_ENV = "CERA_PI_VIEW_ROOT";
 const MAX_TOOL_CALLS_ENV = "CERA_PI_MAX_TOOL_CALLS";
 const PURPOSE_ENV = "CERA_PI_PURPOSE";
 const WRITER_EXCLUDED_PATHS = new Set(["PRIMARY_SEQUENCE.json"]);
+const WRITER_GENESIS_PATH_PREFIXES = [
+	"characters/",
+	"relationships/",
+	"relevant_memories/",
+] as const;
 
 function isWriterExcluded(path: string): boolean {
 	return (
 		process.env[PURPOSE_ENV] === "writer" &&
 		WRITER_EXCLUDED_PATHS.has(path.replaceAll("\\", "/"))
 	);
+}
+
+function writerSemanticFileBound(path: string): number {
+	const normalized = path.replaceAll("\\", "/");
+	return WRITER_GENESIS_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+		? MAX_WRITER_GENESIS_FILE_BYTES
+		: MAX_READ_BYTES;
 }
 
 function configuredRoot(): string {
@@ -118,14 +132,19 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 		sourcePath,
 	);
 	for (const path of plan.semanticPaths) {
-		await add(`SUPPORTING ACCEPTED CONTEXT | ${path}`, path);
+		const target = (await confinedPath(path)).target;
+		const data = await readFile(target);
+		if (data.byteLength > writerSemanticFileBound(path)) {
+			throw new Error("context file exceeds the read bound");
+		}
+		sections.push(`===== SUPPORTING ACCEPTED CONTEXT | ${path} =====\n${data.toString("utf8")}`);
 	}
 	await add(
 		`LOGIC-OWNER REALIZATION AUTHORITY | ${plan.authorityPath} | PRESENT WITH NARRATIVE FREEDOM`,
 		plan.authorityPath,
 	);
 	const text = sections.join("\n\n");
-	if (Buffer.byteLength(text, "utf8") > MAX_CONTEXT_BYTES) {
+	if (Buffer.byteLength(text, "utf8") > MAX_WRITER_CONTEXT_BYTES) {
 		throw new Error("Writer view exceeds the context bound");
 	}
 	return { text, files: plan.semanticPaths.length + 3 };
@@ -170,7 +189,7 @@ export default function (pi: ExtensionAPI) {
 					details: {
 						bytes: Buffer.byteLength(packet.text, "utf8"),
 						files: packet.files,
-						packet: "cera.writer_context_packet.v6",
+						packet: "cera.writer_context_packet.v7",
 					},
 				};
 			}
