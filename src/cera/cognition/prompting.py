@@ -7,7 +7,7 @@ from cera.serialization import canonical_json
 
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v4"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v5"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
@@ -17,7 +17,9 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     "get_character_context for a character ID it already returned. Expand only "
     "for a specific unresolved gap with narrow search_evidence, get_exact_record, "
     "relationship, memory, thread, voice, or craft context. A hard factual "
-    "decision should fetch its exact record when available. Cite only evidence "
+    "decision should fetch its exact record when available. Call get_exact_record "
+    "only with an exact record_id returned by a prior successful search_evidence "
+    "call in this operation. Cite only evidence "
     "references actually returned during this operation; they expire with this "
     "request. A truncated or omitted result is uncertainty, not proof that a "
     "character lacks knowledge. "

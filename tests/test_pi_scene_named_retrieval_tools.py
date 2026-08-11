@@ -267,6 +267,132 @@ class NamedRetrievalToolTests(unittest.TestCase):
             isolated = self._dispatcher(f"request:surface-{index}", SAKURA)
             self.assertEqual(isolated.invoke(tool_name, arguments)["tool"], tool_name)
 
+    def test_search_capable_roles_require_a_prior_successful_exact_record_search(
+        self,
+    ) -> None:
+        for role in (
+            RetrievalProviderRole.PLANNER,
+            RetrievalProviderRole.VALIDATOR,
+            RetrievalProviderRole.ADULT_SCENE,
+            RetrievalProviderRole.ADULT_FILTER,
+        ):
+            with self.subTest(role=role.value):
+                dispatcher = self._dispatcher(
+                    f"request:exact-requires-search-{role.value}",
+                    SAKURA,
+                    role=role,
+                )
+                handler = dispatcher.additional_tool_handler
+                self.assertIsInstance(handler, BoundNamedRetrievalTools)
+                assert isinstance(handler, BoundNamedRetrievalTools)
+
+                with patch.object(handler.service, "get_exact_record") as exact_lookup:
+                    with self.assertRaisesRegex(
+                        ProviderToolRequestError, "prior successful search"
+                    ):
+                        dispatcher.invoke(
+                            "get_exact_record",
+                            {"record_id": self.public_record["record_id"]},
+                        )
+                exact_lookup.assert_not_called()
+                self.assertFalse(dispatcher.calls[-1].success)
+                self.assertTrue(dispatcher.calls[-1].provider_request_failure)
+                self.assertTrue(
+                    dispatcher.failed_tool_calls_are_provider_request_failures(
+                        (WORLD_MCP_SERVER_NAME,),
+                        ("get_exact_record",),
+                        1,
+                        1,
+                    )
+                )
+
+    def test_recorder_exact_record_without_search_preserves_authority_supplied_id(
+        self,
+    ) -> None:
+        dispatcher = self._dispatcher(
+            "request:recorder-authority-exact",
+            SAKURA,
+            role=RetrievalProviderRole.RECORDER,
+        )
+        with self.assertRaisesRegex(PermissionError, "not authorized"):
+            dispatcher.invoke(
+                "search_evidence",
+                {
+                    "terms": [self.public_record["record_id"]],
+                    "character_id": None,
+                    "limit": 5,
+                },
+            )
+        exact = dispatcher.invoke(
+            "get_exact_record", {"record_id": self.public_record["record_id"]}
+        )
+        self.assertEqual(exact["data"]["record"], self.public_record)
+        self.assertTrue(dispatcher.calls[-1].success)
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+
+    def test_failed_search_does_not_advertise_an_exact_record(self) -> None:
+        dispatcher = self._dispatcher("request:failed-search-exact", SAKURA)
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+
+        with patch.object(
+            handler,
+            "_allocate_source",
+            side_effect=StateConflictError("injected source-allocation failure"),
+        ):
+            with self.assertRaisesRegex(StateConflictError, "source-allocation"):
+                dispatcher.invoke(
+                    "search_evidence",
+                    {
+                        "terms": [self.public_record["record_id"]],
+                        "character_id": None,
+                        "limit": 5,
+                    },
+                )
+        with patch.object(handler.service, "get_exact_record") as exact_lookup:
+            with self.assertRaisesRegex(ProviderToolRequestError, "prior successful search"):
+                dispatcher.invoke(
+                    "get_exact_record", {"record_id": self.public_record["record_id"]}
+                )
+        exact_lookup.assert_not_called()
+
+    def test_advertised_exact_record_service_failure_is_not_provider_request_failure(
+        self,
+    ) -> None:
+        dispatcher = self._dispatcher("request:advertised-exact-service-failure", SAKURA)
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+        dispatcher.invoke(
+            "search_evidence",
+            {
+                "terms": [self.public_record["record_id"]],
+                "character_id": None,
+                "limit": 5,
+            },
+        )
+
+        with patch.object(
+            handler.service,
+            "get_exact_record",
+            side_effect=FileNotFoundError("injected exact-record service failure"),
+        ):
+            with self.assertRaisesRegex(FileNotFoundError, "service failure"):
+                dispatcher.invoke(
+                    "get_exact_record", {"record_id": self.public_record["record_id"]}
+                )
+        self.assertFalse(dispatcher.calls[-1].success)
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+        self.assertFalse(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                ("search_evidence", "get_exact_record"),
+                2,
+                1,
+            )
+        )
+
     def test_omitted_turn_characters_use_accepted_present_default_with_nine_private(self) -> None:
         index = json.loads(
             (
@@ -355,6 +481,20 @@ class NamedRetrievalToolTests(unittest.TestCase):
                     ) as (read, write, _):
                         async with ClientSession(read, write) as session:
                             await session.initialize()
+                            advertised = await session.list_tools()
+                            exact_tool = next(
+                                value
+                                for value in advertised.tools
+                                if value.name == "get_exact_record"
+                            )
+                            expected_exact_description = (
+                                "When search_evidence is available for this role, use its "
+                                "prior record ID; otherwise use request authority, never "
+                                "invention."
+                            )
+                            self.assertEqual(
+                                exact_tool.description, expected_exact_description
+                            )
                             invalid = await session.call_tool(
                                 "get_turn_context",
                                 {"character_ids": "not-an-array"},

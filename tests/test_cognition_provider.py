@@ -124,14 +124,14 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v4")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v5")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
             "cera.cognition.codex_planner_adapter.v2",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
-            "cera.cognition.codex_planner_prompt.v3",
+            "cera.cognition.codex_planner_prompt.v4",
         )
         self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v2")
         self.assertIn(
@@ -140,6 +140,10 @@ class CognitionProviderContractTests(unittest.TestCase):
         )
         self.assertIn(
             "never call get_character_context for a character ID it already returned",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "only with an exact record_id returned by a prior successful search_evidence",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
         self.assertIn(

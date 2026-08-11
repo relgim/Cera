@@ -779,6 +779,8 @@ class ContinuousWorldMcpBridge:
 
             @mcp.tool(name="get_exact_record", structured_output=True)
             def get_exact_record(record_id: str) -> dict[str, Any]:
+                """When search_evidence is available for this role, use its prior record ID; otherwise use request authority, never invention."""
+
                 return self.dispatcher.invoke(
                     "get_exact_record", {"record_id": record_id}
                 )

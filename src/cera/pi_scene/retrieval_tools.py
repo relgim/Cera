@@ -46,7 +46,7 @@ NAMED_RETRIEVAL_TOOLS = (
 )
 MAX_NAMED_RETRIEVAL_RETURNED_BYTES = 1_048_576
 NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID = (
-    "cera.pi_scene.named_retrieval_provider_request_failures.v2"
+    "cera.pi_scene.named_retrieval_provider_request_failures.v3"
 )
 
 
@@ -174,6 +174,7 @@ class BoundNamedRetrievalTools:
         self.evidence_registry = evidence_registry
         self._returned_bytes = 0
         self._turn_context_character_ids: set[str] = set()
+        self._advertised_exact_record_ids: set[str] = set()
 
     @property
     def binding_sha256(self) -> str:
@@ -235,6 +236,13 @@ class BoundNamedRetrievalTools:
                     if isinstance(value, Mapping)
                     and isinstance(value.get("character_id"), str)
                 )
+        elif tool_name == "search_evidence" and isinstance(raw, Mapping):
+            self._advertised_exact_record_ids.update(
+                str(value["record_id"])
+                for value in raw.get("records", ())
+                if isinstance(value, Mapping)
+                and isinstance(value.get("record_id"), str)
+            )
         return result
 
     def _dispatch(self, tool_name: str, arguments: dict[str, Any]) -> object:
@@ -269,6 +277,13 @@ class BoundNamedRetrievalTools:
             record_id = arguments.get("record_id")
             if not isinstance(record_id, str):
                 raise ContractValidationError("exact-record identity is invalid")
+            if (
+                "search_evidence" in _ROLE_TOOLS[self.binding.role]
+                and record_id not in self._advertised_exact_record_ids
+            ):
+                raise ProviderToolRequestError(
+                    "exact record was not advertised by a prior successful search"
+                )
             return self.service.get_exact_record(record_id)
         if tool_name == "get_relationship_context":
             return dict(self.service.get_relationship_context(_character_argument(arguments)))

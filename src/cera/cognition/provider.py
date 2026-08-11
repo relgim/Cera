@@ -35,7 +35,7 @@ from .provider_schema import cognition_plan_json_schema
 from .validation import CognitionValidationContextV1, validate_cognition_plan
 
 COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v2"
-COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v3"
+COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v4"
 # This is a transport-loss boundary, not the three-minute interaction target.
 # Retained-turn latency remains observable in provider telemetry.
 COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
