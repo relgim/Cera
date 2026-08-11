@@ -12,10 +12,9 @@ from cera.ids import IdKind, TypedId
 from cera.serialization import bytes_sha256
 
 from .codex_sdk_compat import (
-    CODEX_SDK_COMPATIBILITY_ID,
-    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
     EXPECTED_ROUTE_NOTIFICATION_SHA256,
     LEGACY_CODEX_SDK_COMPATIBILITY_ID,
+    PREVIOUS_CODEX_SDK_COMPATIBILITY_ID,
     SUPPORTED_SDK_VERSION,
 )
 
@@ -533,10 +532,11 @@ def load_persistent_codex_completion_registration_qualification(
         or payload.get("reasoning_effort") != "medium"
         or payload.get("route_sha256") != expected_route_sha256
         or not isinstance(compatibility, dict)
-        or compatibility.get("compatibility_id") != CODEX_SDK_COMPATIBILITY_ID
+        or compatibility.get("compatibility_id")
+        != PREVIOUS_CODEX_SDK_COMPATIBILITY_ID
         or compatibility.get("sdk_version") != SUPPORTED_SDK_VERSION
         or compatibility.get("route_notification_source_sha256")
-        != CODEX_SDK_COMPATIBILITY_SOURCE_SHA256
+        != EXPECTED_ROUTE_NOTIFICATION_SHA256
         or compatibility.get("activation_contract")
         != (
             "each successful transport result requires matching worker "
@@ -652,9 +652,9 @@ def load_persistent_codex_completion_registration_qualification(
         process_launches=5,
         maximum_requests_per_process=2,
         cleanup_policy="force_full_tree_before_replacement",
-        sdk_compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
+        sdk_compatibility_id=PREVIOUS_CODEX_SDK_COMPATIBILITY_ID,
         sdk_version=SUPPORTED_SDK_VERSION,
-        route_notification_source_sha256=(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256),
+        route_notification_source_sha256=(EXPECTED_ROUTE_NOTIFICATION_SHA256),
     )
 
 

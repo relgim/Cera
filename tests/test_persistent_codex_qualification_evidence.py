@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from copy import deepcopy
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from copy import deepcopy
+from pathlib import Path
 
 from cera.errors import ContractValidationError
 from cera.providers import (
@@ -16,8 +16,11 @@ from cera.providers import (
     load_persistent_codex_verifier_epoch_qualification,
     load_relational_boundary_qualification,
 )
+from cera.providers.codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+)
 from cera.serialization import bytes_sha256
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SUMMARY = (
@@ -339,6 +342,10 @@ class PersistentCodexQualificationEvidenceTests(unittest.TestCase):
             evidence.sdk_compatibility_id,
             "cera.codex_sdk_completion_registration.v2",
         )
+        self.assertEqual(
+            evidence.route_notification_source_sha256,
+            "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+        )
         self.assertEqual(evidence.route_sha256, evidence_route_sha256)
         self.assertNotEqual(evidence.route_sha256, current_route.route_sha256)
 
@@ -363,6 +370,14 @@ class PersistentCodexQualificationEvidenceTests(unittest.TestCase):
             ),
             "route drift": lambda value: value.update(
                 route_sha256="0" * 64
+            ),
+            "retroactive current compatibility promotion": lambda value: value[
+                "sdk_compatibility"
+            ].update(
+                compatibility_id=CODEX_SDK_COMPATIBILITY_ID,
+                route_notification_source_sha256=(
+                    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256
+                ),
             ),
             "duplicate provider request": lambda value: value["calls"][9][
                 "provider_receipt"
