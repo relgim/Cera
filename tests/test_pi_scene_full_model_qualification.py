@@ -26,6 +26,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_MANIFEST_SCHEMA_V5,
+    QUALIFICATION_MANIFEST_SCHEMA_V6,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
@@ -40,6 +41,7 @@ from cera.pi_scene.qualification import (
     QualificationFixtureV1,
     QualificationFixtureV2,
     QualificationFixtureV3,
+    QualificationFixtureV4,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
@@ -69,7 +71,10 @@ LEGACY_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualif
 HISTORICAL_FIXTURES_V2 = (
     ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v2.json"
 )
-FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v3.json"
+HISTORICAL_FIXTURES_V3 = (
+    ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v3.json"
+)
+FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v4.json"
 _ORIGINAL_PROVIDER_DISPATCH_DISABLED = os.environ.get("CERA_PROVIDER_DISPATCH_DISABLED")
 
 
@@ -2141,7 +2146,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v6_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v7_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -2175,25 +2180,32 @@ class FullModelQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateConflictError, "fixture ancestry changed"):
             validate_qualification_manifest(manifest)
 
-    def test_v3_stress_fixtures_are_cumulatively_novel_and_history_remains_readable(
+    def test_v4_stress_fixtures_are_cumulatively_novel_and_history_remains_readable(
         self,
     ) -> None:
         legacy = load_qualification_fixtures(LEGACY_FIXTURES)
-        historical = load_qualification_fixtures(HISTORICAL_FIXTURES_V2)
+        historical_v2 = load_qualification_fixtures(HISTORICAL_FIXTURES_V2)
+        historical_v3 = load_qualification_fixtures(HISTORICAL_FIXTURES_V3)
         stress = load_qualification_fixtures(FIXTURES)
         self.assertEqual(len(legacy), 30)
-        self.assertEqual(len(historical), 30)
+        self.assertEqual(len(historical_v2), 30)
+        self.assertEqual(len(historical_v3), 30)
         self.assertEqual(len(stress), 30)
         self.assertTrue(all(type(value) is QualificationFixtureV1 for value in legacy))
-        self.assertTrue(all(type(value) is QualificationFixtureV2 for value in historical))
-        self.assertTrue(all(type(value) is QualificationFixtureV3 for value in stress))
+        self.assertTrue(all(type(value) is QualificationFixtureV2 for value in historical_v2))
+        self.assertTrue(all(type(value) is QualificationFixtureV3 for value in historical_v3))
+        self.assertTrue(all(type(value) is QualificationFixtureV4 for value in stress))
         self.assertEqual(len({value.user_source for value in stress}), 30)
         self.assertEqual(len({value.novelty_id for value in stress}), 30)
         current_sources = {value.user_source for value in stress}
         self.assertFalse({value.user_source for value in legacy} & current_sources)
-        self.assertFalse({value.user_source for value in historical} & current_sources)
+        self.assertFalse({value.user_source for value in historical_v2} & current_sources)
+        self.assertFalse({value.user_source for value in historical_v3} & current_sources)
         self.assertFalse(
-            {value.novelty_id for value in historical} & {value.novelty_id for value in stress}
+            {value.novelty_id for value in historical_v2} & {value.novelty_id for value in stress}
+        )
+        self.assertFalse(
+            {value.novelty_id for value in historical_v3} & {value.novelty_id for value in stress}
         )
         self.assertEqual(
             DEFAULT_INITIAL_PRESENT_CHARACTER_IDS,
@@ -2207,24 +2219,25 @@ class FullModelQualificationTests(unittest.TestCase):
         ]
         self.assertEqual(len(adult_sources), 15)
         self.assertTrue(all("adult" in value for value in adult_sources))
-        self.assertTrue(all("capab" in value or "capacity" in value for value in adult_sources))
+        self.assertTrue(all("capab" in value for value in adult_sources))
+        self.assertTrue(all("current consent" in value for value in adult_sources))
+        self.assertTrue(all("stop" in value for value in adult_sources))
+        self.assertTrue(all("sakura" in value for value in adult_sources))
         self.assertTrue(
-            all(
-                "stop" in value
-                or "end" in value
-                or "not resume" in value
-                or "not to resume" in value
-                for value in adult_sources
-            )
+            all("before ted" in value or "floor to ted" in value for value in adult_sources)
         )
         metadata = qualification_fixture_manifest_metadata(stress)
         self.assertEqual(
             metadata["fixture_baseline"]["path"],
-            HISTORICAL_FIXTURES_V2.name,
+            HISTORICAL_FIXTURES_V3.name,
         )
         self.assertEqual(
             [value["path"] for value in metadata["fixture_ancestry"]],
-            [LEGACY_FIXTURES.name, HISTORICAL_FIXTURES_V2.name],
+            [
+                LEGACY_FIXTURES.name,
+                HISTORICAL_FIXTURES_V2.name,
+                HISTORICAL_FIXTURES_V3.name,
+            ],
         )
         self.assertEqual(entrypoint.DEFAULT_FIXTURES, FIXTURES)
 
@@ -2280,7 +2293,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 load_qualification_fixtures(stress_path)
 
     def test_v3_stress_fixture_contract_and_cumulative_ancestry_fail_closed(self) -> None:
-        source = json.loads(FIXTURES.read_text(encoding="utf-8"))
+        source = json.loads(HISTORICAL_FIXTURES_V3.read_text(encoding="utf-8"))
         historical = json.loads(HISTORICAL_FIXTURES_V2.read_text(encoding="utf-8"))
         cases: dict[str, Callable[[dict[str, Any]], None]] = {
             "baseline hash": lambda value: value.__setitem__("baseline_fixture_sha256", "0" * 64),
@@ -2322,7 +2335,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 )
                 changed = deepcopy(source)
                 mutate(changed)
-                candidate = root / FIXTURES.name
+                candidate = root / HISTORICAL_FIXTURES_V3.name
                 candidate.write_text(json.dumps(changed), encoding="utf-8")
                 with self.assertRaises((ContractValidationError, StateConflictError)):
                     load_qualification_fixtures(candidate)
@@ -2336,15 +2349,76 @@ class FullModelQualificationTests(unittest.TestCase):
             historical_path = root / HISTORICAL_FIXTURES_V2.name
             historical_path.write_text(json.dumps(historical), encoding="utf-8")
             changed_hash = bytes_sha256(historical_path.read_bytes())
-            current = json.loads(FIXTURES.read_text(encoding="utf-8"))
+            current = json.loads(HISTORICAL_FIXTURES_V3.read_text(encoding="utf-8"))
             current["baseline_fixture_sha256"] = changed_hash
             current["baseline_ancestry"][1]["sha256"] = changed_hash
+            current_path = root / HISTORICAL_FIXTURES_V3.name
+            current_path.write_text(json.dumps(current), encoding="utf-8")
+            with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
+                load_qualification_fixtures(current_path)
+
+    def test_v4_stress_fixture_contract_and_cumulative_ancestry_fail_closed(self) -> None:
+        source = json.loads(FIXTURES.read_text(encoding="utf-8"))
+        historical_v3 = json.loads(HISTORICAL_FIXTURES_V3.read_text(encoding="utf-8"))
+        cases: dict[str, Callable[[dict[str, Any]], None]] = {
+            "baseline hash": lambda value: value.__setitem__("baseline_fixture_sha256", "0" * 64),
+            "ancestry hash": lambda value: value["baseline_ancestry"][2].__setitem__(
+                "sha256", "0" * 64
+            ),
+            "ancestry order": lambda value: value.__setitem__(
+                "baseline_ancestry", list(reversed(value["baseline_ancestry"]))
+            ),
+            "novelty identity": lambda value: value["fixtures"][1].__setitem__(
+                "novelty_id", value["fixtures"][0]["novelty_id"]
+            ),
+            "source": lambda value: value["fixtures"][1].__setitem__(
+                "user_source", value["fixtures"][0]["user_source"]
+            ),
+            "unsupported cast": lambda value: value["fixtures"][0].__setitem__(
+                "user_source", value["fixtures"][0]["user_source"].replace("Sakura", "Enne")
+            ),
+            "v3 source reuse": lambda value: value["fixtures"][0].__setitem__(
+                "user_source", historical_v3["fixtures"][0]["user_source"]
+            ),
+            "v3 novelty reuse": lambda value: value["fixtures"][0].__setitem__(
+                "novelty_id", historical_v3["fixtures"][0]["novelty_id"]
+            ),
+        }
+        for label, mutate in cases.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                for ancestor in (
+                    LEGACY_FIXTURES,
+                    HISTORICAL_FIXTURES_V2,
+                    HISTORICAL_FIXTURES_V3,
+                ):
+                    shutil.copy2(ancestor, root / ancestor.name)
+                changed = deepcopy(source)
+                mutate(changed)
+                candidate = root / FIXTURES.name
+                candidate.write_text(json.dumps(changed), encoding="utf-8")
+                with self.assertRaises((ContractValidationError, StateConflictError)):
+                    load_qualification_fixtures(candidate)
+
+    def test_v4_rejects_a_self_consistent_noncanonical_v3_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shutil.copy2(LEGACY_FIXTURES, root / LEGACY_FIXTURES.name)
+            shutil.copy2(HISTORICAL_FIXTURES_V2, root / HISTORICAL_FIXTURES_V2.name)
+            historical = json.loads(HISTORICAL_FIXTURES_V3.read_text(encoding="utf-8"))
+            historical["fixtures"][0]["user_source"] += " Altered V3 marker."
+            historical_path = root / HISTORICAL_FIXTURES_V3.name
+            historical_path.write_text(json.dumps(historical), encoding="utf-8")
+            changed_hash = bytes_sha256(historical_path.read_bytes())
+            current = json.loads(FIXTURES.read_text(encoding="utf-8"))
+            current["baseline_fixture_sha256"] = changed_hash
+            current["baseline_ancestry"][2]["sha256"] = changed_hash
             current_path = root / FIXTURES.name
             current_path.write_text(json.dumps(current), encoding="utf-8")
             with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
                 load_qualification_fixtures(current_path)
 
-    def test_spent_v3_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
+    def test_spent_v4_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-stress-20260811",
@@ -2385,7 +2459,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 spent_manifests=(prior_with_different_set,),
             )
 
-    def test_spent_v3_manifest_rejects_renamed_sources_and_preserves_closure(self) -> None:
+    def test_spent_v4_manifest_rejects_renamed_sources_and_preserves_closure(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-source-20260811",
@@ -2399,6 +2473,7 @@ class FullModelQualificationTests(unittest.TestCase):
             root = Path(temporary)
             shutil.copy2(LEGACY_FIXTURES, root / LEGACY_FIXTURES.name)
             shutil.copy2(HISTORICAL_FIXTURES_V2, root / HISTORICAL_FIXTURES_V2.name)
+            shutil.copy2(HISTORICAL_FIXTURES_V3, root / HISTORICAL_FIXTURES_V3.name)
             raw = json.loads(FIXTURES.read_text(encoding="utf-8"))
             renamed = deepcopy(raw)
             for index, row in enumerate(renamed["fixtures"], start=1):
@@ -2451,7 +2526,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     spent_manifests=(prior_second,),
                 )
 
-    def test_spent_v5_and_v6_sibling_manifests_are_discovered_automatically(self) -> None:
+    def test_v7_closure_ingests_root_g_v5_and_root_h_v6_spent_authority(self) -> None:
         manifest_v5 = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-historical-source-20260811",
@@ -2475,23 +2550,51 @@ class FullModelQualificationTests(unittest.TestCase):
             validate_qualification_manifest(expanded_v5)
         manifest_v6 = build_qualification_manifest(
             repository_root=ROOT,
-            qualification_id="qualification-discovered-source-20260811",
+            qualification_id="qualification-root-h-source-20260811",
+            source_commit="a" * 40,
+            source_tree="b" * 40,
+            fixture_path=HISTORICAL_FIXTURES_V3,
+            repository_artifacts={"fixture": (HISTORICAL_FIXTURES_V3,)},
+            external_artifacts={"external_fixture": (HISTORICAL_FIXTURES_V3,)},
+            spent_manifests=(manifest_v5,),
+        )
+        manifest_v6["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V6
+        manifest_v6["manifest_sha256"] = canonical_sha256(
+            {key: value for key, value in manifest_v6.items() if key != "manifest_sha256"}
+        )
+        validate_qualification_manifest(manifest_v6)
+        self.assertIn(manifest_v5["manifest_sha256"], manifest_v6["spent_manifest_sha256s"])
+        manifest_v7 = build_qualification_manifest(
+            repository_root=ROOT,
+            qualification_id="qualification-root-i-source-20260811",
             source_commit="a" * 40,
             source_tree="b" * 40,
             fixture_path=FIXTURES,
             repository_artifacts={"fixture": (FIXTURES,)},
             external_artifacts={"external_fixture": (FIXTURES,)},
-            spent_manifests=(manifest_v5,),
+            spent_manifests=(manifest_v5, manifest_v6),
         )
-        self.assertIn(manifest_v5["manifest_sha256"], manifest_v6["spent_manifest_sha256s"])
+        self.assertEqual(manifest_v7["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
         self.assertEqual(
-            set(manifest_v6["spent_novelty_ids"]),
-            {value["novelty_id"] for value in manifest_v5["fixture_novelty"]},
+            set(manifest_v7["spent_manifest_sha256s"]),
+            {manifest_v5["manifest_sha256"], manifest_v6["manifest_sha256"]},
         )
         self.assertEqual(
-            set(manifest_v6["spent_source_sha256s"]),
-            {value["source_sha256"] for value in manifest_v5["fixture_novelty"]},
+            set(manifest_v7["spent_fixture_set_sha256s"]),
+            {manifest_v5["fixture_set_sha256"], manifest_v6["fixture_set_sha256"]},
         )
+        expected_novelty = {
+            value["novelty_id"]
+            for manifest in (manifest_v5, manifest_v6)
+            for value in manifest["fixture_novelty"]
+        }
+        expected_sources = {
+            value["source_sha256"]
+            for manifest in (manifest_v5, manifest_v6)
+            for value in manifest["fixture_novelty"]
+        }
+        self.assertEqual(set(manifest_v7["spent_novelty_ids"]), expected_novelty)
+        self.assertEqual(set(manifest_v7["spent_source_sha256s"]), expected_sources)
         with tempfile.TemporaryDirectory() as temporary:
             parent = Path(temporary)
             sibling_v5 = parent / "prior-v5" / "QUALIFICATION_MANIFEST.json"
@@ -2599,7 +2702,7 @@ class FullModelQualificationTests(unittest.TestCase):
             ):
                 self.assertEqual(
                     result["fixture_schema_version"],
-                    "cera.pi_scene.full_model_qualification_fixtures.v3",
+                    "cera.pi_scene.full_model_qualification_fixtures.v4",
                 )
                 self.assertEqual(result["novelty_id"], fixture.novelty_id)
                 self.assertEqual(result["stress_tags"], list(fixture.stress_tags))
@@ -3791,6 +3894,8 @@ class FullModelQualificationTests(unittest.TestCase):
             baseline.write_bytes(LEGACY_FIXTURES.read_bytes())
             historical = root / HISTORICAL_FIXTURES_V2.name
             historical.write_bytes(HISTORICAL_FIXTURES_V2.read_bytes())
+            historical_v3 = root / HISTORICAL_FIXTURES_V3.name
+            historical_v3.write_bytes(HISTORICAL_FIXTURES_V3.read_bytes())
             manifest = build_qualification_manifest(
                 repository_root=root,
                 qualification_id="qualification-test-20260809",
@@ -3803,6 +3908,7 @@ class FullModelQualificationTests(unittest.TestCase):
                         Path("fixtures.json"),
                         Path(LEGACY_FIXTURES.name),
                         Path(HISTORICAL_FIXTURES_V2.name),
+                        Path(HISTORICAL_FIXTURES_V3.name),
                     )
                 },
                 external_artifacts={"external": (artifact,)},
@@ -4667,7 +4773,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(result["sillytavern"], 10)
         self.assertEqual(
             result["fixture_schema_version"],
-            "cera.pi_scene.full_model_qualification_fixtures.v3",
+            "cera.pi_scene.full_model_qualification_fixtures.v4",
         )
         self.assertRegex(str(result["novelty_set_sha256"]), r"^[a-f0-9]{64}$")
         self.assertGreater(len(result["stress_coverage"]), 10)
