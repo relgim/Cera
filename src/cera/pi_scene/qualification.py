@@ -57,12 +57,16 @@ from cera.serialization import (
 from .http_contracts import PI_SCENE_AUTO_MODEL, PI_SCENE_PROFILE
 
 QUALIFICATION_FIXTURE_SCHEMA_V1 = "cera.pi_scene.full_model_qualification_fixtures.v1"
-QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v2"
-QUALIFICATION_BASELINE_FIXTURE_PATH = "pi_scene_full_model_qualification_v1.json"
-QUALIFICATION_BASELINE_FIXTURE_SHA256 = (
-    "0df9fc6ca8f621ab6ea44ed2ed5c7751138f9442ea3a16af9c97a57679163f35"
-)
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v5"
+QUALIFICATION_FIXTURE_SCHEMA_V2 = "cera.pi_scene.full_model_qualification_fixtures.v2"
+QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v3"
+QUALIFICATION_FIXTURE_PATH_V1 = "pi_scene_full_model_qualification_v1.json"
+QUALIFICATION_FIXTURE_SHA256_V1 = "0df9fc6ca8f621ab6ea44ed2ed5c7751138f9442ea3a16af9c97a57679163f35"
+QUALIFICATION_FIXTURE_PATH_V2 = "pi_scene_full_model_qualification_v2.json"
+QUALIFICATION_FIXTURE_SHA256_V2 = "32d92771e78b39c90722e05cc85738ed3b9f23dd6b5e15fd7d11ef7818d7ba88"
+QUALIFICATION_BASELINE_FIXTURE_PATH = QUALIFICATION_FIXTURE_PATH_V2
+QUALIFICATION_BASELINE_FIXTURE_SHA256 = QUALIFICATION_FIXTURE_SHA256_V2
+QUALIFICATION_MANIFEST_SCHEMA_V5 = "cera.pi_scene.full_model_qualification_manifest.v5"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v6"
 QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v5"
 
 _QUALIFICATION_ADVERSARIAL_STRESS_TAGS = frozenset(
@@ -347,6 +351,11 @@ class QualificationFixtureV2(QualificationFixtureV1):
             raise ContractValidationError("qualification stress fixture lacks its bound actor")
         if _QUALIFICATION_UNSUPPORTED_STRESS_CAST.search(self.user_source) is not None:
             raise ContractValidationError("qualification stress fixture exceeds its bound cast")
+
+
+@dataclass(frozen=True, slots=True)
+class QualificationFixtureV3(QualificationFixtureV2):
+    """One novel stress case bound to the cumulative V1/V2 spent ancestry."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -2595,8 +2604,11 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
     if schema_version == QUALIFICATION_FIXTURE_SCHEMA_V1:
         if set(raw) != {"schema_version", "fixtures"}:
             raise ContractValidationError("qualification fixture envelope changed")
-        fixtures = _decode_qualification_fixture_rows(raw.get("fixtures"), stress=False)
-    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA:
+        fixtures = _decode_qualification_fixture_rows(
+            raw.get("fixtures"),
+            schema_version=QUALIFICATION_FIXTURE_SCHEMA_V1,
+        )
+    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA_V2:
         if set(raw) != {
             "schema_version",
             "baseline_fixture_path",
@@ -2604,12 +2616,35 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
             "fixtures",
         }:
             raise ContractValidationError("qualification fixture envelope changed")
-        fixtures = _decode_qualification_fixture_rows(raw.get("fixtures"), stress=True)
-        _validate_qualification_novelty_baseline(
+        fixtures = _decode_qualification_fixture_rows(
+            raw.get("fixtures"),
+            schema_version=QUALIFICATION_FIXTURE_SCHEMA_V2,
+        )
+        _validate_v2_qualification_novelty_baseline(
             fixture_path=path,
             fixtures=fixtures,
             baseline_fixture_path=raw.get("baseline_fixture_path"),
             baseline_fixture_sha256=raw.get("baseline_fixture_sha256"),
+        )
+    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA:
+        if set(raw) != {
+            "schema_version",
+            "baseline_fixture_path",
+            "baseline_fixture_sha256",
+            "baseline_ancestry",
+            "fixtures",
+        }:
+            raise ContractValidationError("qualification fixture envelope changed")
+        fixtures = _decode_qualification_fixture_rows(
+            raw.get("fixtures"),
+            schema_version=QUALIFICATION_FIXTURE_SCHEMA,
+        )
+        _validate_v3_qualification_novelty_ancestry(
+            fixture_path=path,
+            fixtures=fixtures,
+            baseline_fixture_path=raw.get("baseline_fixture_path"),
+            baseline_fixture_sha256=raw.get("baseline_fixture_sha256"),
+            baseline_ancestry=raw.get("baseline_ancestry"),
         )
     else:
         raise ContractValidationError("qualification fixture schema changed")
@@ -2620,8 +2655,14 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
 def _decode_qualification_fixture_rows(
     rows: object,
     *,
-    stress: bool,
+    schema_version: str,
 ) -> tuple[QualificationFixtureV1, ...]:
+    if schema_version not in {
+        QUALIFICATION_FIXTURE_SCHEMA_V1,
+        QUALIFICATION_FIXTURE_SCHEMA_V2,
+        QUALIFICATION_FIXTURE_SCHEMA,
+    }:
+        raise ContractValidationError("qualification fixture schema changed")
     if not isinstance(rows, list):
         raise ContractValidationError("qualification fixtures are not a list")
     fixtures: list[QualificationFixtureV1] = []
@@ -2634,6 +2675,7 @@ def _decode_qualification_fixture_rows(
         "adult_craft_mode",
         "user_source",
     }
+    stress = schema_version != QUALIFICATION_FIXTURE_SCHEMA_V1
     required_keys = common_keys | ({"novelty_id", "stress_tags"} if stress else set())
     for value in rows:
         if not isinstance(value, Mapping) or set(value) != required_keys:
@@ -2653,10 +2695,13 @@ def _decode_qualification_fixture_rows(
                 tags = value["stress_tags"]
                 if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
                     raise ContractValidationError("qualification stress tags are invalid")
-                fixture = QualificationFixtureV2(
-                    **common,
-                    novelty_id=str(value["novelty_id"]),
-                    stress_tags=tuple(tags),
+                fixture_type = (
+                    QualificationFixtureV2
+                    if schema_version == QUALIFICATION_FIXTURE_SCHEMA_V2
+                    else QualificationFixtureV3
+                )
+                fixture = fixture_type(
+                    **common, novelty_id=str(value["novelty_id"]), stress_tags=tuple(tags)
                 )
             else:
                 fixture = QualificationFixtureV1(**common)
@@ -2687,34 +2732,28 @@ def _validate_qualification_fixture_set(
         _validate_phase_route_lineage(selected)
 
 
-def _validate_qualification_novelty_baseline(
+def _validate_v2_qualification_novelty_baseline(
     *,
     fixture_path: Path,
     fixtures: tuple[QualificationFixtureV1, ...],
     baseline_fixture_path: object,
     baseline_fixture_sha256: object,
 ) -> None:
-    if baseline_fixture_path != QUALIFICATION_BASELINE_FIXTURE_PATH:
+    if baseline_fixture_path != QUALIFICATION_FIXTURE_PATH_V1:
         raise ContractValidationError("qualification novelty baseline path is invalid")
-    if baseline_fixture_sha256 != QUALIFICATION_BASELINE_FIXTURE_SHA256:
+    if baseline_fixture_sha256 != QUALIFICATION_FIXTURE_SHA256_V1:
         raise ContractValidationError("qualification novelty baseline hash is invalid")
-    baseline_path = fixture_path.resolve().parent / QUALIFICATION_BASELINE_FIXTURE_PATH
-    try:
-        baseline_bytes = baseline_path.read_bytes()
-        baseline_raw = json.loads(baseline_bytes.decode("utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ContractValidationError("qualification novelty baseline is unreadable") from exc
-    if bytes_sha256(baseline_bytes) != baseline_fixture_sha256:
-        raise StateConflictError("qualification novelty baseline binding changed")
-    if (
-        not isinstance(baseline_raw, Mapping)
-        or set(baseline_raw) != {"schema_version", "fixtures"}
-        or baseline_raw.get("schema_version") != QUALIFICATION_FIXTURE_SCHEMA_V1
-    ):
+    _, baseline_raw = _read_bound_qualification_fixture(
+        fixture_path=fixture_path,
+        bound_path=QUALIFICATION_FIXTURE_PATH_V1,
+        bound_sha256=QUALIFICATION_FIXTURE_SHA256_V1,
+        expected_schema=QUALIFICATION_FIXTURE_SCHEMA_V1,
+    )
+    if set(baseline_raw) != {"schema_version", "fixtures"}:
         raise ContractValidationError("qualification novelty baseline schema changed")
     baseline = _decode_qualification_fixture_rows(
         baseline_raw.get("fixtures"),
-        stress=False,
+        schema_version=QUALIFICATION_FIXTURE_SCHEMA_V1,
     )
     _validate_qualification_fixture_set(baseline)
     prior_sources = {text_sha256(value.user_source) for value in baseline}
@@ -2722,12 +2761,105 @@ def _validate_qualification_novelty_baseline(
         raise ContractValidationError("qualification stress fixture reuses a baseline source")
 
 
+def _qualification_fixture_ancestry() -> list[dict[str, str]]:
+    return [
+        {
+            "schema_version": QUALIFICATION_FIXTURE_SCHEMA_V1,
+            "path": QUALIFICATION_FIXTURE_PATH_V1,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V1,
+        },
+        {
+            "schema_version": QUALIFICATION_FIXTURE_SCHEMA_V2,
+            "path": QUALIFICATION_FIXTURE_PATH_V2,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V2,
+        },
+    ]
+
+
+def _read_bound_qualification_fixture(
+    *,
+    fixture_path: Path,
+    bound_path: str,
+    bound_sha256: str,
+    expected_schema: str,
+) -> tuple[Path, Mapping[str, Any]]:
+    baseline_path = fixture_path.resolve().parent / bound_path
+    if baseline_path.is_symlink() or not baseline_path.is_file():
+        raise ContractValidationError("qualification novelty baseline is unreadable")
+    try:
+        baseline_bytes = baseline_path.read_bytes()
+        baseline_raw = json.loads(baseline_bytes.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractValidationError("qualification novelty baseline is unreadable") from exc
+    if bytes_sha256(baseline_bytes) != bound_sha256:
+        raise StateConflictError("qualification novelty baseline binding changed")
+    if (
+        not isinstance(baseline_raw, Mapping)
+        or baseline_raw.get("schema_version") != expected_schema
+    ):
+        raise ContractValidationError("qualification novelty baseline schema changed")
+    return baseline_path, baseline_raw
+
+
+def _validate_v3_qualification_novelty_ancestry(
+    *,
+    fixture_path: Path,
+    fixtures: tuple[QualificationFixtureV1, ...],
+    baseline_fixture_path: object,
+    baseline_fixture_sha256: object,
+    baseline_ancestry: object,
+) -> None:
+    if baseline_fixture_path != QUALIFICATION_BASELINE_FIXTURE_PATH:
+        raise ContractValidationError("qualification novelty baseline path is invalid")
+    if baseline_fixture_sha256 != QUALIFICATION_BASELINE_FIXTURE_SHA256:
+        raise ContractValidationError("qualification novelty baseline hash is invalid")
+    if not isinstance(baseline_ancestry, list) or any(
+        not isinstance(value, Mapping) or set(value) != {"schema_version", "path", "sha256"}
+        for value in baseline_ancestry
+    ):
+        raise ContractValidationError("qualification novelty ancestry changed")
+    expected_ancestry = _qualification_fixture_ancestry()
+    if baseline_ancestry != expected_ancestry:
+        raise StateConflictError("qualification novelty ancestry binding changed")
+
+    ancestors: list[tuple[QualificationFixtureV1, ...]] = []
+    for binding in expected_ancestry:
+        ancestor_path, _ = _read_bound_qualification_fixture(
+            fixture_path=fixture_path,
+            bound_path=binding["path"],
+            bound_sha256=binding["sha256"],
+            expected_schema=binding["schema_version"],
+        )
+        ancestors.append(load_qualification_fixtures(ancestor_path))
+
+    prior_sources = {text_sha256(value.user_source) for ancestor in ancestors for value in ancestor}
+    if any(text_sha256(value.user_source) in prior_sources for value in fixtures):
+        raise ContractValidationError("qualification stress fixture reuses an ancestor source")
+    prior_novelty = {
+        value.novelty_id
+        for ancestor in ancestors
+        for value in ancestor
+        if isinstance(value, QualificationFixtureV2)
+    }
+    current_novelty = {
+        value.novelty_id for value in fixtures if isinstance(value, QualificationFixtureV2)
+    }
+    if current_novelty.intersection(prior_novelty):
+        raise ContractValidationError("qualification stress fixture reuses ancestor novelty")
+
+
 def _fixture_novelty_evidence(
     fixture: QualificationFixtureV1,
 ) -> dict[str, Any]:
-    if isinstance(fixture, QualificationFixtureV2):
+    if isinstance(fixture, QualificationFixtureV3):
         return {
             "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA,
+            "novelty_id": fixture.novelty_id,
+            "stress_tags": list(fixture.stress_tags),
+        }
+    if isinstance(fixture, QualificationFixtureV2):
+        return {
+            "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA_V2,
             "novelty_id": fixture.novelty_id,
             "stress_tags": list(fixture.stress_tags),
         }
@@ -2772,14 +2904,32 @@ def qualification_request_payload(
 def qualification_fixture_manifest_metadata(
     fixtures: Sequence[QualificationFixtureV1],
 ) -> dict[str, Any]:
-    if not fixtures or not all(isinstance(value, QualificationFixtureV2) for value in fixtures):
+    fixture_types = {type(value) for value in fixtures}
+    if not fixtures or fixture_types == {QualificationFixtureV1}:
         return {
             "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA_V1,
             "fixture_baseline": None,
+            "fixture_ancestry": [],
             "fixture_novelty": [],
             "novelty_set_sha256": None,
             "stress_coverage": {},
         }
+    if fixture_types == {QualificationFixtureV2}:
+        fixture_schema_version = QUALIFICATION_FIXTURE_SCHEMA_V2
+        fixture_baseline = {
+            "path": QUALIFICATION_FIXTURE_PATH_V1,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V1,
+        }
+        fixture_ancestry = _qualification_fixture_ancestry()[:1]
+    elif fixture_types == {QualificationFixtureV3}:
+        fixture_schema_version = QUALIFICATION_FIXTURE_SCHEMA
+        fixture_baseline = {
+            "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
+            "sha256": QUALIFICATION_BASELINE_FIXTURE_SHA256,
+        }
+        fixture_ancestry = _qualification_fixture_ancestry()
+    else:
+        raise ContractValidationError("qualification fixture versions are mixed")
     stress_fixtures = cast(Sequence[QualificationFixtureV2], fixtures)
     novelty = [
         {
@@ -2795,11 +2945,9 @@ def qualification_fixture_manifest_metadata(
         for tag in sorted({tag for value in stress_fixtures for tag in value.stress_tags})
     }
     return {
-        "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA,
-        "fixture_baseline": {
-            "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
-            "sha256": QUALIFICATION_BASELINE_FIXTURE_SHA256,
-        },
+        "fixture_schema_version": fixture_schema_version,
+        "fixture_baseline": fixture_baseline,
+        "fixture_ancestry": fixture_ancestry,
         "fixture_novelty": novelty,
         "novelty_set_sha256": canonical_sha256(novelty),
         "stress_coverage": coverage,
@@ -2924,6 +3072,7 @@ def build_qualification_manifest(
 
 
 def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
+    schema_version = manifest.get("schema_version")
     required = {
         "schema_version",
         "qualification_id",
@@ -2947,10 +3096,12 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         "artifact_categories",
         "manifest_sha256",
     }
+    if schema_version == QUALIFICATION_MANIFEST_SCHEMA:
+        required.add("fixture_ancestry")
+    elif schema_version != QUALIFICATION_MANIFEST_SCHEMA_V5:
+        raise ContractValidationError("qualification manifest schema changed")
     if set(manifest) != required:
         raise ContractValidationError("qualification manifest shape changed")
-    if manifest["schema_version"] != QUALIFICATION_MANIFEST_SCHEMA:
-        raise ContractValidationError("qualification manifest schema changed")
     unsigned = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
     if manifest["manifest_sha256"] != canonical_sha256(unsigned):
         raise StateConflictError("qualification manifest binding changed")
@@ -2958,7 +3109,7 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         raise StateConflictError("qualification route model changed")
     if manifest["profile_id"] != PI_SCENE_PROFILE:
         raise StateConflictError("qualification profile changed")
-    _validate_manifest_fixture_metadata(manifest)
+    _validate_manifest_fixture_metadata(manifest, manifest_schema=str(schema_version))
     expected_counts = {phase: dict(routes) for phase, routes in EXPECTED_PHASE_COUNTS.items()}
     if manifest["fixture_counts"] != expected_counts:
         raise StateConflictError("qualification fixture counts changed")
@@ -2975,7 +3126,11 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         raise StateConflictError("qualification execution policy changed")
 
 
-def _validate_manifest_fixture_metadata(manifest: Mapping[str, Any]) -> None:
+def _validate_manifest_fixture_metadata(
+    manifest: Mapping[str, Any],
+    *,
+    manifest_schema: str,
+) -> None:
     schema_version = manifest["fixture_schema_version"]
     baseline = manifest["fixture_baseline"]
     novelty = manifest["fixture_novelty"]
@@ -3020,14 +3175,33 @@ def _validate_manifest_fixture_metadata(manifest: Mapping[str, Any]) -> None:
     if schema_version == QUALIFICATION_FIXTURE_SCHEMA_V1:
         if baseline is not None or novelty != [] or novelty_sha256 is not None or coverage != {}:
             raise StateConflictError("legacy qualification fixture metadata changed")
+        if manifest_schema == QUALIFICATION_MANIFEST_SCHEMA and manifest["fixture_ancestry"] != []:
+            raise StateConflictError("legacy qualification fixture ancestry changed")
         return
-    if schema_version != QUALIFICATION_FIXTURE_SCHEMA:
+    if schema_version == QUALIFICATION_FIXTURE_SCHEMA_V2:
+        expected_baseline = {
+            "path": QUALIFICATION_FIXTURE_PATH_V1,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V1,
+        }
+        expected_ancestry = _qualification_fixture_ancestry()[:1]
+    elif (
+        schema_version == QUALIFICATION_FIXTURE_SCHEMA
+        and manifest_schema == QUALIFICATION_MANIFEST_SCHEMA
+    ):
+        expected_baseline = {
+            "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
+            "sha256": QUALIFICATION_BASELINE_FIXTURE_SHA256,
+        }
+        expected_ancestry = _qualification_fixture_ancestry()
+    else:
         raise ContractValidationError("qualification fixture manifest schema changed")
-    if baseline != {
-        "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
-        "sha256": QUALIFICATION_BASELINE_FIXTURE_SHA256,
-    }:
+    if baseline != expected_baseline:
         raise StateConflictError("qualification fixture baseline changed")
+    if (
+        manifest_schema == QUALIFICATION_MANIFEST_SCHEMA
+        and manifest["fixture_ancestry"] != expected_ancestry
+    ):
+        raise StateConflictError("qualification fixture ancestry changed")
     if not isinstance(novelty, list) or len(novelty) != 30:
         raise ContractValidationError("qualification fixture novelty set changed")
     fixture_ids: list[str] = []
@@ -5340,6 +5514,7 @@ __all__ = [
     "QualificationClient",
     "QualificationFixtureV1",
     "QualificationFixtureV2",
+    "QualificationFixtureV3",
     "QualificationManualActionAuthorizationV1",
     "QualificationManualActionAuthorizer",
     "QualificationManualActionRequestV1",

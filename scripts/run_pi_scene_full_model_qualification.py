@@ -61,6 +61,7 @@ from cera.pi_scene.qualification import (
     DEEPSEEK_PER_INVOCATION_CEILING,
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_MANIFEST_SCHEMA,
+    QUALIFICATION_MANIFEST_SCHEMA_V5,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
@@ -68,7 +69,7 @@ from cera.pi_scene.qualification import (
     FullModelQualificationRunner,
     ManualActionRequiredError,
     QualificationFixtureV1,
-    QualificationFixtureV2,
+    QualificationFixtureV3,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
@@ -100,7 +101,8 @@ from scripts.run_pi_scene_lean_server import (
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY_FIXTURES_V1 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v1.json"
-DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v2.json"
+LEGACY_FIXTURES_V2 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v2.json"
+DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v3.json"
 PI_PACKAGE_ROOT = Path(
     r"C:\Users\Ted\AppData\Roaming\npm\node_modules\@earendil-works\pi-coding-agent"
 )
@@ -430,6 +432,15 @@ def _preflight_runtime_path_budget(output_root: Path) -> None:
 
 def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
     relative_fixture = fixture_path.resolve().relative_to(ROOT.resolve())
+    fixture_artifacts = tuple(
+        dict.fromkeys(
+            (
+                relative_fixture,
+                LEGACY_FIXTURES_V1.relative_to(ROOT),
+                LEGACY_FIXTURES_V2.relative_to(ROOT),
+            )
+        )
+    )
     return {
         "source": (
             Path("src/cera/pi_scene"),
@@ -456,10 +467,7 @@ def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
             Path("pyproject.toml"),
             Path("integrations/sillytavern/pi_scene_lean_v1_profile.json"),
         ),
-        "fixtures": (
-            relative_fixture,
-            Path("evaluation/fixtures/pi_scene_full_model_qualification_v1.json"),
-        ),
+        "fixtures": fixture_artifacts,
         "genesis": (Path("genesis/packages"),),
         "adult_craft": (Path("adult/catalog/adult_craft_v1"),),
     }
@@ -1158,8 +1166,8 @@ def freeze(
     if root.exists():
         raise StateConflictError("qualification output root already exists")
     fixtures = load_qualification_fixtures(fixture_path)
-    if not fixtures or not all(isinstance(value, QualificationFixtureV2) for value in fixtures):
-        raise StateConflictError("live qualification requires novel stress fixtures v2")
+    if not fixtures or not all(type(value) is QualificationFixtureV3 for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v3")
     spent_manifests = _load_spent_qualification_manifests(
         output_root=root,
         explicit_paths=spent_manifest_paths,
@@ -1197,13 +1205,12 @@ def _load_spent_qualification_manifests(
     output_root: Path,
     explicit_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], ...]:
-    """Load the cumulative v5 fixture authority from this root family.
+    """Load cumulative V5/V6 fixture authority from this root family.
 
-    Older manifests used the retired v1 fixture suite, which the v2 fixture
-    envelope already binds as its baseline. Every v5 sibling is included
-    automatically so a caller cannot accidentally omit an earlier novel suite.
-    Explicit paths extend the authority to campaigns outside the output-root
-    parent.
+    V5 remains exact historical authority for the retired V2 suite. Every V5
+    or V6 sibling is included automatically so a caller cannot accidentally
+    omit an earlier novel suite. Explicit paths extend the authority to
+    campaigns outside the output-root parent.
     """
 
     candidates: dict[Path, None] = {}
@@ -1221,10 +1228,10 @@ def _load_spent_qualification_manifests(
                 raw = json.loads(candidate.read_text(encoding="utf-8"))
             except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ContractValidationError("qualification spent manifest is unreadable") from exc
-            if (
-                isinstance(raw, Mapping)
-                and raw.get("schema_version") == QUALIFICATION_MANIFEST_SCHEMA
-            ):
+            if isinstance(raw, Mapping) and raw.get("schema_version") in {
+                QUALIFICATION_MANIFEST_SCHEMA_V5,
+                QUALIFICATION_MANIFEST_SCHEMA,
+            }:
                 candidates[candidate.resolve()] = None
     for path in explicit_paths:
         if path.is_symlink():
@@ -2324,8 +2331,8 @@ def live(
     _assert_frozen_python_interpreter(manifest)
     verify_qualification_artifacts(manifest, repository_root=ROOT)
     fixtures = load_qualification_fixtures(fixture_path)
-    if not fixtures or not all(isinstance(value, QualificationFixtureV2) for value in fixtures):
-        raise StateConflictError("live qualification requires novel stress fixtures v2")
+    if not fixtures or not all(type(value) is QualificationFixtureV3 for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v3")
     if manifest["fixture_set_sha256"] != __import__(
         "cera.serialization", fromlist=["bytes_sha256"]
     ).bytes_sha256(fixture_path.read_bytes()):
