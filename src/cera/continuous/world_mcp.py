@@ -323,6 +323,53 @@ class ContinuousWorldToolDispatcher:
             value.provider_request_failure for value in failed_calls
         )
 
+    def record_pre_dispatch_failure(
+        self,
+        tool_name: str,
+        arguments: object,
+        *,
+        framework_argument_validation: bool,
+        expected_call_count: int,
+        duration_ns: int,
+    ) -> None:
+        """Record a framework-rejected call without retaining argument values."""
+
+        if (
+            tool_name not in self.tool_names
+            or not isinstance(arguments, dict)
+            or type(framework_argument_validation) is not bool
+            or type(expected_call_count) is not int
+            or type(duration_ns) is not int
+            or duration_ns < 0
+        ):
+            return
+        try:
+            request_hash = canonical_sha256({"tool": tool_name, "arguments": arguments})
+        except Exception:
+            return
+        handler = self.additional_tool_handler
+        provider_request_failure = (
+            handler is not None
+            and tool_name in handler.tool_names
+            and framework_argument_validation
+        )
+        with self._lock:
+            # A concurrent or already-dispatched call makes the observation
+            # ambiguous.  Leave it unrecorded so reconciliation fails closed.
+            if len(self.calls) != expected_call_count or len(self.calls) >= self.maximum_calls:
+                return
+            self.calls.append(
+                ContinuousWorldToolCallV1(
+                    call_index=len(self.calls) + 1,
+                    tool_name=tool_name,
+                    request_sha256=request_hash,
+                    returned_bytes=0,
+                    duration_ns=duration_ns,
+                    success=False,
+                    provider_request_failure=provider_request_failure,
+                )
+            )
+
     def _allowed_roots(self) -> tuple[Path, ...]:
         roots = [self.branch_root / "ACTIVE", self.branch_root / "DERIVED"]
         if self.role is ContinuousSessionRole.VALIDATOR and self.current_turn_id:
@@ -608,6 +655,8 @@ class ContinuousWorldMcpBridge:
         from mcp.server.auth.provider import AccessToken
         from mcp.server.auth.settings import AuthSettings
         from mcp.server.fastmcp import FastMCP
+        from mcp.server.fastmcp.exceptions import ToolError
+        from pydantic_core import ValidationError as PydanticValidationError
 
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -628,7 +677,28 @@ class ContinuousWorldMcpBridge:
                     scopes=["cera.world.read"],
                 )
 
-        mcp = FastMCP(
+        dispatcher = self.dispatcher
+
+        class AuditedFastMCP(FastMCP):
+            async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+                before = len(dispatcher.calls)
+                started = time.perf_counter_ns()
+                try:
+                    return await super().call_tool(name, arguments)
+                except Exception as exc:
+                    dispatcher.record_pre_dispatch_failure(
+                        name,
+                        arguments,
+                        framework_argument_validation=(
+                            isinstance(exc, ToolError)
+                            and isinstance(exc.__cause__, PydanticValidationError)
+                        ),
+                        expected_call_count=before,
+                        duration_ns=time.perf_counter_ns() - started,
+                    )
+                    raise
+
+        mcp = AuditedFastMCP(
             WORLD_MCP_SERVER_NAME,
             instructions=(
                 "Read-only current-branch CERA world lookup. Search/list locate records; "

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import importlib.util
 import json
 import tempfile
 import unittest
@@ -264,6 +266,147 @@ class NamedRetrievalToolTests(unittest.TestCase):
         for index, (tool_name, arguments) in enumerate(calls, start=1):
             isolated = self._dispatcher(f"request:surface-{index}", SAKURA)
             self.assertEqual(isolated.invoke(tool_name, arguments)["tool"], tool_name)
+
+    def test_omitted_turn_characters_use_accepted_present_default_with_nine_private(self) -> None:
+        index = json.loads(
+            (
+                self.workspace.branch_root / "DERIVED" / "CurrentCharacterDossiers" / "INDEX.json"
+            ).read_text(encoding="utf-8")
+        )
+        private_character_ids = tuple(index["characters"])
+        self.assertEqual(len(private_character_ids), 9)
+        dispatcher = self._dispatcher(
+            "request:default-turn-context",
+            *private_character_ids,
+        )
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+
+        with patch.object(
+            handler.service,
+            "get_turn_context",
+            wraps=handler.service.get_turn_context,
+        ) as get_turn_context:
+            result = dispatcher.invoke(
+                "get_turn_context",
+                {"character_ids": None},
+            )
+
+        get_turn_context.assert_called_once_with(())
+        self.assertTrue(dispatcher.calls[-1].success)
+        self.assertLessEqual(
+            len(result["data"]["character_dossiers"]),
+            8,
+        )
+
+    def test_explicit_turn_character_over_budget_is_provider_request_failure(self) -> None:
+        index = json.loads(
+            (
+                self.workspace.branch_root / "DERIVED" / "CurrentCharacterDossiers" / "INDEX.json"
+            ).read_text(encoding="utf-8")
+        )
+        private_character_ids = tuple(index["characters"])
+        self.assertEqual(len(private_character_ids), 9)
+        dispatcher = self._dispatcher(
+            "request:over-budget-turn-context",
+            *private_character_ids,
+        )
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+
+        with self.assertRaisesRegex(ProviderToolRequestError, "budget exceeded"):
+            dispatcher.invoke(
+                "get_turn_context",
+                {"character_ids": list(private_character_ids)},
+            )
+
+        self.assertEqual(handler.service.call_count, 0)
+        self.assertFalse(dispatcher.calls[-1].success)
+        self.assertTrue(dispatcher.calls[-1].provider_request_failure)
+        self.assertTrue(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (WORLD_MCP_SERVER_NAME,),
+                ("get_turn_context",),
+                1,
+                1,
+            )
+        )
+
+    @unittest.skipUnless(importlib.util.find_spec("mcp"), "optional MCP SDK not installed")
+    def test_loopback_classifies_fastmcp_named_argument_rejection(self) -> None:
+        async def exercise() -> None:
+            import httpx
+            from mcp import ClientSession
+            from mcp.client.streamable_http import streamable_http_client
+
+            dispatcher = self._dispatcher(
+                "request:fastmcp-invalid-arguments",
+                SAKURA,
+            )
+            with ContinuousWorldMcpBridge(dispatcher) as bridge:
+                binding = bridge.runtime_binding
+                headers = {"Authorization": f"Bearer {binding.bearer_token}"}
+                async with httpx.AsyncClient(headers=headers) as client:
+                    async with streamable_http_client(
+                        binding.url,
+                        http_client=client,
+                    ) as (read, write, _):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            invalid = await session.call_tool(
+                                "get_turn_context",
+                                {"character_ids": "not-an-array"},
+                            )
+                            self.assertTrue(invalid.isError)
+                            valid = await session.call_tool(
+                                "get_turn_context",
+                                {"character_ids": [SAKURA]},
+                            )
+                            self.assertFalse(valid.isError)
+
+            self.assertEqual(len(dispatcher.calls), 2)
+            self.assertFalse(dispatcher.calls[0].success)
+            self.assertTrue(dispatcher.calls[0].provider_request_failure)
+            self.assertNotIn("not-an-array", repr(dispatcher.calls[0]))
+            self.assertTrue(dispatcher.calls[1].success)
+            self.assertTrue(
+                dispatcher.failed_tool_calls_are_provider_request_failures(
+                    (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                    ("get_turn_context", "get_turn_context"),
+                    2,
+                    1,
+                )
+            )
+
+        asyncio.run(exercise())
+
+    def test_non_validation_predispatch_failure_remains_untyped_and_content_free(self) -> None:
+        dispatcher = self._dispatcher(
+            "request:fastmcp-non-validation-failure",
+            SAKURA,
+        )
+        dispatcher.record_pre_dispatch_failure(
+            "get_turn_context",
+            {"character_ids": "private-marker"},
+            framework_argument_validation=False,
+            expected_call_count=0,
+            duration_ns=1,
+        )
+
+        self.assertEqual(len(dispatcher.calls), 1)
+        self.assertFalse(dispatcher.calls[0].success)
+        self.assertFalse(dispatcher.calls[0].provider_request_failure)
+        self.assertNotIn("private-marker", repr(dispatcher.calls[0]))
+        self.assertFalse(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (WORLD_MCP_SERVER_NAME,),
+                ("get_turn_context",),
+                1,
+                1,
+            )
+        )
 
     def test_complete_turn_context_rejects_redundant_character_refetch(self) -> None:
         dispatcher = self._dispatcher("request:duplicate-context", SAKURA)

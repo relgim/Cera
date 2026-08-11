@@ -46,7 +46,7 @@ NAMED_RETRIEVAL_TOOLS = (
 )
 MAX_NAMED_RETRIEVAL_RETURNED_BYTES = 1_048_576
 NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID = (
-    "cera.pi_scene.named_retrieval_provider_request_failures.v1"
+    "cera.pi_scene.named_retrieval_provider_request_failures.v2"
 )
 
 
@@ -244,13 +244,9 @@ class BoundNamedRetrievalTools:
                 character_ids = ()
             if not isinstance(character_ids, list | tuple):
                 raise ContractValidationError("turn-context character IDs are invalid")
-            selected = tuple(character_ids) or tuple(
-                value
-                for value in self.binding.private_character_ids
-                if value in self._available_dossier_ids()
-            )
+            selected = tuple(character_ids)
             if len(selected) > MAX_TURN_CHARACTERS:
-                raise ContractValidationError("turn-context character budget exceeded")
+                raise ProviderToolRequestError("turn-context character budget exceeded")
             return self.service.get_turn_context(selected)
         if tool_name == "get_character_context":
             return self.service.get_character_context(_character_argument(arguments))
