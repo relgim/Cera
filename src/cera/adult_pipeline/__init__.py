@@ -5,6 +5,7 @@ from .acceptance import (
     AdultFilterExecutionBindingV1,
     AdultIntegratedExecutionV1,
     AdultSceneSessionBindingV1,
+    AdultSceneSessionBindingV2,
 )
 from .contracts import (
     AdultAcceptedPromotionReceiptV1,
@@ -32,6 +33,7 @@ from .contracts import (
     AdultProtectedEventV1,
     AdultProtectedFullRecordV1,
     AdultProviderReceiptV1,
+    AdultProviderReceiptV2,
     AdultProviderRole,
     AdultRouteStateSnapshotV1,
     AdultRouteTransitionV1,
@@ -105,6 +107,7 @@ __all__ = [
     "AdultProtectedEventV1",
     "AdultProtectedFullRecordV1",
     "AdultProviderReceiptV1",
+    "AdultProviderReceiptV2",
     "AdultProviderRole",
     "AdultRouteTransitionV1",
     "AdultRouteStatePort",
@@ -116,6 +119,7 @@ __all__ = [
     "AdultSceneRequestV1",
     "AdultScenePreparationV1",
     "AdultSceneSessionBindingV1",
+    "AdultSceneSessionBindingV2",
     "AdultRoleViewContextV1",
     "AdultSessionScope",
     "BoundAdultPromotionV1",

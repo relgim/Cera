@@ -2520,7 +2520,19 @@ def _accepted_object_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
 def _adult_receipt_from_envelope(
     envelope: AdultAcceptedTurnEnvelopeV1,
 ) -> LeanAcceptedTurnReceiptV1:
+    from cera.adult_pipeline.contracts import AdultProviderReceiptV2
+
     scene_receipt = envelope.scene_invocation.receipt
+    parent_session_id_sha256 = (
+        scene_receipt.parent_session_id_sha256
+        if isinstance(scene_receipt, AdultProviderReceiptV2)
+        else None
+    )
+    rehydrated = (
+        scene_receipt.rehydrated
+        if isinstance(scene_receipt, AdultProviderReceiptV2)
+        else False
+    )
     writer_receipt = PiWriterReceiptV1(
         schema_version=PiWriterReceiptV1.SCHEMA_VERSION,
         route=SceneRoute.ADULT,
@@ -2528,7 +2540,7 @@ def _adult_receipt_from_envelope(
         model=scene_receipt.model,
         pi_version="adult-pipeline-v1",
         session_id_sha256=scene_receipt.session_id_sha256,
-        parent_session_id_sha256=None,
+        parent_session_id_sha256=parent_session_id_sha256,
         request_sha256=scene_receipt.request_sha256,
         output_sha256=envelope.promotion_bundle.exact_story_prose_sha256,
         provider_operations=scene_receipt.provider_operations,
@@ -2540,7 +2552,7 @@ def _adult_receipt_from_envelope(
         reasoning_tokens=0,
         duration_ms=0,
         finish_status=scene_receipt.finish_status,
-        rehydrated=False,
+        rehydrated=rehydrated,
     )
     return LeanAcceptedTurnReceiptV1(
         schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,

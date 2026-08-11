@@ -13,7 +13,7 @@ from cera.adult_pipeline.ports import promote_passed_adult_candidate
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene._branch_state_payloads import accepted_event_from_payload
 from cera.pi_scene.branch_state import BranchStateReducerV1, GenesisBranchStateV1
-from cera.pi_scene.store import LeanSceneStore
+from cera.pi_scene.store import AcceptedPiSessionV1, LeanSceneStore
 from cera.pi_scene.world_workspace import (
     ForkChatWorkspaceRequestV1,
     NewChatWorkspaceRequestV1,
@@ -39,6 +39,8 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
         protected_prose: str = adult_support.PROTECTED_PROSE,
         exact_source: str | None = None,
         autonomy_mode: str | None = None,
+        accepted_parent_session: AcceptedPiSessionV1 | None = None,
+        accepted_turn_id: str | None = None,
     ):
         support = adult_support.AdultPiIntegrationTests(
             methodName="test_full_fake_route_creates_restart_safe_acceptance_custody"
@@ -46,6 +48,7 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
         support.setUp()
         self.addCleanup(support.tearDown)
         integration = support._integration()
+        integration.scene_port.accepted_parent_session = accepted_parent_session
         request = support._request(integration)
         if exact_source is not None:
             request = replace(request, exact_current_source=exact_source)
@@ -76,12 +79,77 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
                 scene_request=request,
             )
         envelope = execution.acceptance_envelope(
-            accepted_turn_id=support.context.turn_id,
+            accepted_turn_id=accepted_turn_id or support.context.turn_id,
             parent_accepted_turn_id=parent_accepted_turn_id,
             scene_id=support.context.scene_id,
             generation=generation,
         )
         return support, execution, envelope
+
+    def test_consecutive_adult_acceptance_retains_parent_rehydration_after_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first_support, first_execution, first_envelope = self._execution_and_envelope(
+                next_route=AdultNextRoute.ADULT,
+                identity_suffix="rehydrate-parent",
+                accepted_turn_id="turn:adult:rehydrate-parent",
+            )
+            store = LeanSceneStore(root / "world")
+            first = promote_passed_adult_candidate(
+                first_execution.result,
+                store.adult_promotion_port(first_envelope),
+            )
+            parent_session = store.load_accepted_pi_session(
+                world_id=first_support.context.world_id,
+                branch_id=first_support.context.branch_id,
+            )
+            assert parent_session is not None
+
+            _, second_execution, second_envelope = self._execution_and_envelope(
+                next_route=AdultNextRoute.ADULT,
+                accepted_head_sha256=first.receipt.accepted_head_after_sha256,
+                parent_accepted_turn_id=first_envelope.accepted_turn_id,
+                generation=2,
+                identity_suffix="rehydrate-child",
+                accepted_parent_session=parent_session,
+                accepted_turn_id="turn:adult:rehydrate-child",
+            )
+            second = promote_passed_adult_candidate(
+                second_execution.result,
+                store.adult_promotion_port(second_envelope),
+            )
+
+            restarted = LeanSceneStore(root / "world")
+            head = restarted.load_head(
+                world_id=first_support.context.world_id,
+                branch_id=first_support.context.branch_id,
+            )
+            assert head.receipt is not None
+            self.assertEqual(
+                head.accepted_head_sha256,
+                second.receipt.accepted_head_after_sha256,
+            )
+            self.assertEqual(
+                head.receipt.writer_receipt.parent_session_id_sha256,
+                parent_session.session_id_sha256,
+            )
+            self.assertTrue(head.receipt.writer_receipt.rehydrated)
+            recovered_envelope, _ = restarted.load_promoted_adult_acceptance(
+                world_id=first_support.context.world_id,
+                branch_id=first_support.context.branch_id,
+                accepted_turn_id=second_envelope.accepted_turn_id,
+            )
+            self.assertEqual(recovered_envelope, second_envelope)
+            self.assertEqual(
+                recovered_envelope.scene_invocation.receipt.parent_session_id_sha256,
+                parent_session.session_id_sha256,
+            )
+            self.assertTrue(recovered_envelope.scene_invocation.receipt.rehydrated)
+            self.assertEqual(
+                recovered_envelope.scene_session.parent_session_id_sha256,
+                parent_session.session_id_sha256,
+            )
+            self.assertTrue(recovered_envelope.scene_session.rehydrated)
 
     def test_atomic_promotion_restart_replay_route_session_and_privacy(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

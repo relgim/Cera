@@ -23,6 +23,7 @@ from .contracts import (
     AdultFilterRequestV1,
     AdultPipelineResultV1,
     AdultPromotionBundleV1,
+    AdultProviderReceiptV2,
     AdultSceneCustodyV1,
     AdultSceneInvocationV1,
     AdultSceneRequestV1,
@@ -76,6 +77,26 @@ class AdultSceneSessionBindingV1:
 
 
 @dataclass(frozen=True, slots=True)
+class AdultSceneSessionBindingV2(AdultSceneSessionBindingV1):
+    """Fresh Scene-session custody with exact accepted-parent provenance."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.adult_pipeline.scene_session_binding.v2"
+
+    parent_session_id_sha256: str | None
+    rehydrated: bool
+
+    def __post_init__(self) -> None:
+        AdultSceneSessionBindingV1.__post_init__(self)
+        if self.parent_session_id_sha256 is not None:
+            _sha(
+                self.parent_session_id_sha256,
+                "adult_scene_session.parent_session_id_sha256",
+            )
+        if self.rehydrated is not True:
+            raise ContractValidationError("adult Scene session must prove rehydration")
+
+
+@dataclass(frozen=True, slots=True)
 class AdultFilterExecutionBindingV1:
     """Durable proof that the isolated Filter used its exact protected view."""
 
@@ -113,7 +134,7 @@ class AdultIntegratedExecutionV1:
     """Complete candidate result plus its durable protected transport custody."""
 
     result: AdultPipelineResultV1
-    scene_session: AdultSceneSessionBindingV1
+    scene_session: AdultSceneSessionBindingV1 | AdultSceneSessionBindingV2
     filter_execution: AdultFilterExecutionBindingV1
 
     def __post_init__(self) -> None:
@@ -135,6 +156,18 @@ class AdultIntegratedExecutionV1:
             self.result.scene.invocation.receipt.session_id_sha256
         ):
             raise ContractValidationError("adult Scene session hash changed")
+        scene_receipt = self.result.scene.invocation.receipt
+        if isinstance(scene_receipt, AdultProviderReceiptV2):
+            if not isinstance(self.scene_session, AdultSceneSessionBindingV2):
+                raise ContractValidationError("adult Scene receipt lost v2 session custody")
+            if (
+                self.scene_session.parent_session_id_sha256
+                != scene_receipt.parent_session_id_sha256
+                or self.scene_session.rehydrated != scene_receipt.rehydrated
+            ):
+                raise ContractValidationError("adult Scene rehydration custody changed")
+        elif isinstance(self.scene_session, AdultSceneSessionBindingV2):
+            raise ContractValidationError("adult Scene session lost its v2 receipt")
         if self.filter_execution.session_id_sha256 != (
             self.result.filtered.invocation.receipt.session_id_sha256
         ):
@@ -216,7 +249,7 @@ class AdultAcceptedTurnEnvelopeV1:
     filter_writer_view_manifest_sha256: str
     scene_invocation: AdultSceneInvocationV1
     filter_invocation: AdultFilterInvocationV1
-    scene_session: AdultSceneSessionBindingV1
+    scene_session: AdultSceneSessionBindingV1 | AdultSceneSessionBindingV2
     filter_execution: AdultFilterExecutionBindingV1
     promotion_bundle: AdultPromotionBundleV1
     pipeline_execution_sha256: str

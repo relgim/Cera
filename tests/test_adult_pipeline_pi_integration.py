@@ -8,13 +8,18 @@ from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import NAMESPACE_URL, uuid5
 
-from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
+from cera.adult_pipeline.acceptance import (
+    AdultAcceptedTurnEnvelopeV1,
+    AdultSceneSessionBindingV2,
+)
 from cera.adult_pipeline.contracts import (
     AdultContextFactV1,
     AdultCraftMode,
     AdultCraftQueryV1,
     AdultEntryReason,
+    AdultProviderReceiptV2,
     AdultProviderRole,
 )
 from cera.adult_pipeline.craft_catalog import CatalogAdultCraftRetrieval
@@ -23,6 +28,7 @@ from cera.adult_pipeline.integration import (
     AdultScenePreparationV1,
 )
 from cera.adult_pipeline.pi_roles import (
+    ADULT_PI_ROLE_COMPATIBILITY_VERSION,
     AdultRoleViewContextV1,
     LazyProtectedWriterViewMaterializer,
     PiDeepSeekAdultFilterPort,
@@ -34,6 +40,8 @@ from cera.adult_pipeline.pipeline import AdultPipeline
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
+from cera.pi_scene.pi_adapter import PiSceneAdapter
+from cera.pi_scene.store import AcceptedPiSessionV1
 from cera.pi_scene.writer_view import WriterViewInputV1, WriterViewMaterializer
 from cera.provider_dispatch_guard import PROVIDER_DISPATCH_DISABLED_ENV
 from cera.providers.models import (
@@ -167,13 +175,19 @@ class _FakePiAdapter:
         self.operation_ledger = ledger
         self.output = output
         self.command: tuple[str, ...] | None = None
+        self.requests = []
+        self.process_invocations = 0
+        self.pi_executable = Path("fake-pi")
+        self.extension_path = Path("fake-cera-scene-view.ts")
 
     def command_for(self, request, *, system_prompt=None):  # type: ignore[no-untyped-def]
-        self.command = ("fake-pi", "--system-prompt", system_prompt or "", request.prompt)
+        self.requests.append(request)
+        self.command = PiSceneAdapter.command_for(self, request, system_prompt=system_prompt)
         return self.command
 
     def _process_runner(self, command, cwd, environment, timeout, on_line):  # type: ignore[no-untyped-def]
         del command, cwd, environment, timeout
+        self.process_invocations += 1
         events = [
             {"type": "session", "id": "structured-session"},
             {"type": "turn_start"},
@@ -476,6 +490,185 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertEqual(result.provider_operations, 2)
         self.assertEqual(ledger.operation_count, 2)
         self.assertIn("--system-prompt", fake.command or ())
+        self.assertNotIn("--fork", fake.command or ())
+        self.assertIsNone(fake.requests[0].accepted_parent_session)
+
+    def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:
+        prior_records = tuple(
+            {
+                "accepted_turn_id": f"turn:accepted:{ordinal}",
+                "exact_accepted_prose": (
+                    f"PRIOR_ACCEPTED_STATE_MARKER_{ordinal}:" + ("x" * 12_000)
+                ),
+            }
+            for ordinal in range(1, 7)
+        )
+        context = replace(self.context, accepted_records=prior_records)
+        ledger = PiProviderOperationLedger(
+            (self.root / "rehydrate-ledger.jsonl").resolve(),
+            maximum_operations=4,
+            maximum_operations_per_invocation=4,
+        )
+        fake = _FakePiAdapter(ledger, _scene_wire())
+        parent_id = "accepted-adult-parent-session"
+        parent = AcceptedPiSessionV1(
+            accepted_turn_id="turn:accepted:6",
+            session_id=parent_id,
+            session_path=str((self.root / "accepted-parent-session").resolve()),
+            session_id_sha256=text_sha256(parent_id),
+            accepted_receipt_sha256=text_sha256("accepted-parent-receipt"),
+        )
+        scene = PiDeepSeekAdultScenePort(
+            transport=PiStructuredAdultRoleTransport(fake),  # type: ignore[arg-type]
+            materializer=WriterViewMaterializer(self.root / "rehydrate-view"),
+            context=context,
+            session_root=self.root / "rehydrate-session",
+            accepted_parent_session=parent,
+        )
+
+        execution = scene.execute_adult_scene(self._request(self._integration()))
+
+        self.assertEqual(fake.process_invocations, 1)
+        self.assertEqual(len(fake.requests), 1)
+        self.assertEqual(ledger.operation_count, 2)
+        request = fake.requests[0]
+        self.assertEqual(request.accepted_parent_session, parent)
+        self.assertTrue(request.force_rehydrate)
+        command = fake.command or ()
+        self.assertNotIn("--fork", command)
+        self.assertEqual(command.count("--session-id"), 1)
+        self.assertEqual(
+            command[command.index("--session-id") + 1],
+            str(uuid5(NAMESPACE_URL, f"cera.pi_scene:{request.candidate_id}")),
+        )
+        self.assertNotEqual(command[command.index("--session-id") + 1], parent.session_id)
+        self.assertEqual(
+            command,
+            PiSceneAdapter.command_for(
+                fake,
+                request,
+                system_prompt=command[command.index("--system-prompt") + 1],
+            ),
+        )
+
+        accepted_record_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((request.view.root / "accepted_records").glob("*.json"))
+        )
+        self.assertIn("PRIOR_ACCEPTED_STATE_MARKER_1", accepted_record_text)
+        self.assertIn("PRIOR_ACCEPTED_STATE_MARKER_6", accepted_record_text)
+        context_payload = canonical_json(
+            {
+                path.relative_to(request.view.root).as_posix(): path.read_text(encoding="utf-8")
+                for path in sorted(request.view.root.rglob("*"))
+                if path.is_file()
+            }
+        )
+        request_estimate = canonical_json(
+            {
+                "model": fake.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": command[command.index("--system-prompt") + 1],
+                    },
+                    {"role": "user", "content": request.prompt},
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "toolCall", "name": "context", "arguments": {}}],
+                    },
+                    {"role": "tool", "content": context_payload},
+                ],
+                "max_tokens": 4096,
+            }
+        )
+        self.assertGreater(len(context_payload.encode("utf-8")), 64 * 1024)
+        self.assertLess(len(context_payload.encode("utf-8")), 384 * 1024)
+        request_estimate_bytes = len(request_estimate.encode("utf-8"))
+        self.assertLess(request_estimate_bytes, 524_288)
+        self.assertGreater(524_288 - request_estimate_bytes, 32 * 1024)
+
+        receipt = execution.invocation.receipt
+        self.assertIsInstance(receipt, AdultProviderReceiptV2)
+        assert isinstance(receipt, AdultProviderReceiptV2)
+        self.assertEqual(receipt.parent_session_id_sha256, parent.session_id_sha256)
+        self.assertTrue(receipt.rehydrated)
+        self.assertIsInstance(execution.session_binding, AdultSceneSessionBindingV2)
+        assert isinstance(execution.session_binding, AdultSceneSessionBindingV2)
+        self.assertEqual(
+            execution.session_binding.parent_session_id_sha256,
+            parent.session_id_sha256,
+        )
+        self.assertTrue(execution.session_binding.rehydrated)
+        self.assertEqual(
+            execution.session_binding.transport_request_binding_sha256,
+            canonical_sha256(
+                {
+                    "compatibility_version": ADULT_PI_ROLE_COMPATIBILITY_VERSION,
+                    "role": AdultProviderRole.SCENE.value,
+                    "view_manifest_sha256": request.view.manifest_sha256,
+                    "prompt": request.prompt,
+                    "system_prompt": command[command.index("--system-prompt") + 1],
+                    "model": fake.model,
+                    "thinking": "off",
+                    "tools": ["context"],
+                    "session_mode": "python_state_rehydrate",
+                    "parent_session_id_sha256": parent.session_id_sha256,
+                }
+            ),
+        )
+
+        recovered = scene.scene_session_binding()
+        self.assertEqual(recovered, execution.session_binding)
+
+    def test_filter_transport_rejects_parent_and_stays_candidate_isolated(self) -> None:
+        materializer = WriterViewMaterializer(self.root / "filter-view")
+        view = materializer.materialize(
+            WriterViewInputV1(
+                world_id=self.context.world_id,
+                branch_id=self.context.branch_id,
+                scene_id=self.context.scene_id,
+                turn_id=self.context.turn_id,
+                candidate_id=self.context.candidate_id,
+                route=SceneRoute.ADULT,
+                user_prompt="Exact source.",
+                primary_authority={"handoff": "exact"},
+                current_state={"location": "room"},
+                characters={},
+                relationships={},
+                recent_prose=(),
+                relevant_memories={},
+                voice_examples={},
+                craft_index={"mode": "off"},
+                accepted_records=(),
+            )
+        )
+        ledger = PiProviderOperationLedger(
+            (self.root / "filter-ledger.jsonl").resolve(),
+            maximum_operations=4,
+            maximum_operations_per_invocation=4,
+        )
+        fake = _FakePiAdapter(ledger, _filter_wire())
+        transport = PiStructuredAdultRoleTransport(fake)  # type: ignore[arg-type]
+        parent_id = "forbidden-filter-parent"
+        parent = AcceptedPiSessionV1(
+            accepted_turn_id="turn:accepted:filter",
+            session_id=parent_id,
+            session_path=str((self.root / "filter-parent").resolve()),
+            session_id_sha256=text_sha256(parent_id),
+        )
+        with self.assertRaisesRegex(ContractValidationError, "cannot inherit"):
+            transport.invoke_structured_role(
+                role=AdultProviderRole.FILTER,
+                view=view,
+                candidate_id="candidate:adult-test:adult-filter",
+                session_dir=self.root / "filter-session",
+                system_prompt="Return JSON.",
+                prompt="Run.",
+                accepted_parent_session=parent,
+            )
+        self.assertEqual(fake.process_invocations, 0)
+        self.assertEqual(ledger.operation_count, 0)
 
     def test_acceptance_envelope_detects_parent_head_drift(self) -> None:
         integration = self._integration()

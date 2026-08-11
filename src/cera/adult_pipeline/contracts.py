@@ -347,6 +347,28 @@ class AdultProviderReceiptV1:
 
 
 @dataclass(frozen=True, slots=True)
+class AdultProviderReceiptV2(AdultProviderReceiptV1):
+    """Scene receipt with explicit accepted-session rehydration provenance."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.adult_pipeline.provider_receipt.v2"
+
+    parent_session_id_sha256: str | None
+    rehydrated: bool
+
+    def __post_init__(self) -> None:
+        AdultProviderReceiptV1.__post_init__(self)
+        if self.role is not AdultProviderRole.SCENE:
+            raise ContractValidationError("adult provider receipt v2 is Scene-only")
+        if self.parent_session_id_sha256 is not None:
+            _sha(
+                self.parent_session_id_sha256,
+                "adult_receipt.parent_session_id_sha256",
+            )
+        if self.rehydrated is not True:
+            raise ContractValidationError("adult Scene receipt must prove rehydration")
+
+
+@dataclass(frozen=True, slots=True)
 class AdultSceneCustodyV1:
     """Python-only candidate binding; never requested from Adult Scene."""
 
@@ -375,7 +397,7 @@ class AdultSceneCustodyV1:
 @dataclass(frozen=True, slots=True)
 class AdultSceneInvocationV1:
     output: AdultSceneOutputV1
-    receipt: AdultProviderReceiptV1
+    receipt: AdultProviderReceiptV1 | AdultProviderReceiptV2
 
     def __post_init__(self) -> None:
         if self.receipt.role is not AdultProviderRole.SCENE:

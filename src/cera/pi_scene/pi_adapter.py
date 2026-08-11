@@ -179,7 +179,7 @@ class PiSceneAdapter:
                 "tools": ["context"],
                 "parent_session_id_sha256": (
                     None
-                    if request.accepted_parent_session is None or request.force_rehydrate
+                    if request.accepted_parent_session is None
                     else request.accepted_parent_session.session_id_sha256
                 ),
             }
@@ -252,7 +252,7 @@ class PiSceneAdapter:
                 ) from None
             parent_hash = (
                 None
-                if request.accepted_parent_session is None or request.force_rehydrate
+                if request.accepted_parent_session is None
                 else request.accepted_parent_session.session_id_sha256
             )
             receipt = PiWriterReceiptV1(

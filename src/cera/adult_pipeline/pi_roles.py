@@ -46,7 +46,11 @@ from cera.providers.models import (
 from cera.schema import from_mapping
 from cera.serialization import canonical_json, canonical_sha256, text_sha256
 
-from .acceptance import AdultFilterExecutionBindingV1, AdultSceneSessionBindingV1
+from .acceptance import (
+    AdultFilterExecutionBindingV1,
+    AdultSceneSessionBindingV1,
+    AdultSceneSessionBindingV2,
+)
 from .contracts import (
     AdultCodexProjectionV2,
     AdultCurrentDataUseV1,
@@ -65,6 +69,7 @@ from .contracts import (
     AdultProtectedEventV1,
     AdultProtectedFullRecordV1,
     AdultProviderReceiptV1,
+    AdultProviderReceiptV2,
     AdultProviderRole,
     AdultRouteTransitionV1,
     AdultSceneInvocationV1,
@@ -73,7 +78,7 @@ from .contracts import (
     AdultSessionScope,
 )
 
-ADULT_PI_ROLE_COMPATIBILITY_VERSION = "cera.adult_pipeline.pi_roles.v1"
+ADULT_PI_ROLE_COMPATIBILITY_VERSION = "cera.adult_pipeline.pi_roles.v2"
 
 _SCENE_SYSTEM_PROMPT = """You are CERA's sole DeepSeek Adult Scene logic and prose owner. Call the context tool exactly once. The confined view is the complete current authority. Decide the characters' causal and psychological response, realize the complete visible scene, and select whether the next logic owner remains adult or returns to ordinary Codex. Adult craft is realization guidance only and never chooses the route. Do not expose files, tools, policies, or analysis. Return exactly one JSON object and no Markdown with keys decision_path, exact_story_prose, resulting_state, unresolved_threads, next_route, next_route_reason. decision_path is a non-empty ordered array of objects with exactly decision_key, character_id, concise_decision, evidence_refs. evidence_refs may cite only current_context evidence_ref values. unresolved_threads and evidence_refs are arrays of strings. next_route is adult or ordinary. Do not author schemas, hashes, branch or transaction custody, or a logic_owner field."""
 
@@ -132,7 +137,7 @@ class AdultSceneRoleExecutionV1:
     """Protected Scene result plus the exact Pi invocation ledger locator."""
 
     invocation: AdultSceneInvocationV1
-    session_binding: AdultSceneSessionBindingV1
+    session_binding: AdultSceneSessionBindingV1 | AdultSceneSessionBindingV2
     provider_invocation_id: str
 
     def __post_init__(self) -> None:
@@ -331,6 +336,8 @@ class PiStructuredAdultRoleTransport:
         verified = verify_writer_view(view.root)
         if verified.manifest_sha256 != view.manifest_sha256 or verified.purpose != "writer":
             raise StateConflictError("adult Pi role Writer-view binding changed")
+        if role is AdultProviderRole.FILTER and accepted_parent_session is not None:
+            raise ContractValidationError("adult Filter cannot inherit a parent session")
         session_dir = session_dir.resolve()
         session_dir.mkdir(parents=True, exist_ok=True)
         invocation = PiSceneInvocationV1(
@@ -341,6 +348,11 @@ class PiStructuredAdultRoleTransport:
             candidate_id=candidate_id,
             session_dir=session_dir,
             accepted_parent_session=accepted_parent_session,
+            # Adult Scene history is complete in the Python-materialized view.
+            # The accepted parent remains provenance only and is never forked.
+            force_rehydrate=(
+                role is AdultProviderRole.SCENE and accepted_parent_session is not None
+            ),
         )
         command = self.adapter.command_for(invocation, system_prompt=system_prompt)
         environment = dict(os.environ)
@@ -362,6 +374,11 @@ class PiStructuredAdultRoleTransport:
                 "model": self.adapter.model,
                 "thinking": "off",
                 "tools": ["context"],
+                "session_mode": (
+                    "python_state_rehydrate"
+                    if role is AdultProviderRole.SCENE
+                    else "candidate_isolated"
+                ),
                 "parent_session_id_sha256": (
                     None
                     if accepted_parent_session is None
@@ -575,9 +592,15 @@ class PiDeepSeekAdultScenePort:
             request_sha256=canonical_sha256(request),
             output_sha256=canonical_sha256(output),
             terminalized=False,
+            accepted_parent_session=self.accepted_parent_session,
         )
-        binding = AdultSceneSessionBindingV1(
-            schema_version=AdultSceneSessionBindingV1.SCHEMA_VERSION,
+        parent_session_id_sha256 = (
+            None
+            if self.accepted_parent_session is None
+            else self.accepted_parent_session.session_id_sha256
+        )
+        binding = AdultSceneSessionBindingV2(
+            schema_version=AdultSceneSessionBindingV2.SCHEMA_VERSION,
             scene_request_sha256=canonical_sha256(request),
             writer_view_manifest_sha256=view.manifest_sha256,
             provider_receipt_sha256=canonical_sha256(receipt),
@@ -585,6 +608,8 @@ class PiDeepSeekAdultScenePort:
             session_id=result.session_id,
             session_id_sha256=result.session_id_sha256,
             session_path=str(result.session_dir),
+            parent_session_id_sha256=parent_session_id_sha256,
+            rehydrated=True,
         )
         _write_durable_binding(
             self.session_root / "ADULT_SCENE_SESSION_BINDING.json",
@@ -609,11 +634,10 @@ class PiDeepSeekAdultScenePort:
             session_id_sha256=binding.session_id_sha256,
         )
 
-    def scene_session_binding(self) -> AdultSceneSessionBindingV1:
-        return _load_durable_binding(
-            self.session_root / "ADULT_SCENE_SESSION_BINDING.json",
-            AdultSceneSessionBindingV1,
-        )
+    def scene_session_binding(
+        self,
+    ) -> AdultSceneSessionBindingV1 | AdultSceneSessionBindingV2:
+        return _load_scene_session_binding(self.session_root / "ADULT_SCENE_SESSION_BINDING.json")
 
 
 class PiDeepSeekAdultFilterPort:
@@ -767,15 +791,32 @@ def _receipt(
     request_sha256: str,
     output_sha256: str,
     terminalized: bool,
-) -> AdultProviderReceiptV1:
+    accepted_parent_session: AcceptedPiSessionV1 | None = None,
+) -> AdultProviderReceiptV1 | AdultProviderReceiptV2:
+    if role is AdultProviderRole.SCENE:
+        return AdultProviderReceiptV2(
+            schema_version=AdultProviderReceiptV2.SCHEMA_VERSION,
+            role=role,
+            session_scope=AdultSessionScope.ACCEPTED_BRANCH,
+            provider=result.provider,
+            model=result.model,
+            session_id_sha256=result.session_id_sha256,
+            request_sha256=request_sha256,
+            output_sha256=output_sha256,
+            provider_operations=result.provider_operations,
+            finish_status=result.finish_status,
+            session_terminalized=terminalized,
+            parent_session_id_sha256=(
+                None
+                if accepted_parent_session is None
+                else accepted_parent_session.session_id_sha256
+            ),
+            rehydrated=True,
+        )
     return AdultProviderReceiptV1(
         schema_version=AdultProviderReceiptV1.SCHEMA_VERSION,
         role=role,
-        session_scope=(
-            AdultSessionScope.ACCEPTED_BRANCH
-            if role is AdultProviderRole.SCENE
-            else AdultSessionScope.CANDIDATE
-        ),
+        session_scope=AdultSessionScope.CANDIDATE,
         provider=result.provider,
         model=result.model,
         session_id_sha256=result.session_id_sha256,
@@ -785,6 +826,29 @@ def _receipt(
         finish_status=result.finish_status,
         session_terminalized=terminalized,
     )
+
+
+def _load_scene_session_binding(
+    path: Path,
+) -> AdultSceneSessionBindingV1 | AdultSceneSessionBindingV2:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StateConflictError("adult role execution binding is unavailable") from exc
+    if not isinstance(payload, dict):
+        raise StateConflictError("adult role execution binding is invalid")
+    schema_version = payload.get("schema_version")
+    if schema_version == AdultSceneSessionBindingV2.SCHEMA_VERSION:
+        return cast(
+            AdultSceneSessionBindingV2,
+            from_mapping(AdultSceneSessionBindingV2, payload),
+        )
+    if schema_version == AdultSceneSessionBindingV1.SCHEMA_VERSION:
+        return cast(
+            AdultSceneSessionBindingV1,
+            from_mapping(AdultSceneSessionBindingV1, payload),
+        )
+    raise StateConflictError("adult Scene session binding schema is unsupported")
 
 
 def _decode_scene_output(raw: str) -> AdultSceneOutputV1:

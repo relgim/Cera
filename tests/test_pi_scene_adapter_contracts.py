@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -10,6 +11,7 @@ from cera.errors import StateConflictError
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import (
+    ORDINARY_WRITER_SYSTEM_PROMPT,
     PiOutputLimitError,
     PiSceneAdapter,
     PiSceneInvocationV1,
@@ -18,11 +20,13 @@ from cera.pi_scene.pi_adapter import (
     _ProcessResult,
     _validate_pi_completion,
 )
+from cera.pi_scene.store import AcceptedPiSessionV1
 from cera.pi_scene.writer_view import MaterializedWriterViewV1
 from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
 )
+from cera.serialization import canonical_sha256, text_sha256
 
 
 def _parsed(
@@ -171,6 +175,88 @@ class PiSceneCompletionContractTests(unittest.TestCase):
             self.assertEqual(metrics.provider_operations_completed, 1)
             self.assertEqual(metrics.duration_ms, 125)
             self.assertIsNone(metrics.failure_category)
+
+    def test_rehydrated_writer_retains_parent_provenance_without_fork(self) -> None:
+        stream = "\n".join(
+            json.dumps(value)
+            for value in (
+                {"type": "session", "id": "session-1"},
+                {"type": "turn_start"},
+                {
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "toolCall", "name": "context"}],
+                        "usage": {"input": 80, "output": 1},
+                        "stopReason": "toolUse",
+                    },
+                },
+                {
+                    "type": "tool_execution_start",
+                    "toolName": "context",
+                    "toolCallId": "tool-1",
+                },
+                {
+                    "type": "tool_execution_end",
+                    "toolName": "context",
+                    "toolCallId": "tool-1",
+                    "isError": False,
+                },
+                {"type": "turn_start"},
+                {
+                    "type": "message_end",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Visible scene prose."}],
+                        "usage": {"input": 100, "cacheRead": 80, "output": 20},
+                        "stopReason": "stop",
+                    },
+                },
+            )
+        )
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            adapter, base_request, _, view = _offline_invocation(root, stream)
+            parent_id = "accepted-parent-session"
+            parent = AcceptedPiSessionV1(
+                accepted_turn_id="turn:accepted:parent",
+                session_id=parent_id,
+                session_path=str((root / "accepted-parent").resolve()),
+                session_id_sha256=text_sha256(parent_id),
+            )
+            request = replace(
+                base_request,
+                accepted_parent_session=parent,
+                force_rehydrate=True,
+            )
+
+            command = adapter.command_for(request)
+            self.assertNotIn("--fork", command)
+            self.assertEqual(command.count("--session-id"), 1)
+            with patch("cera.pi_scene.pi_adapter.verify_writer_view", return_value=view):
+                result = adapter.invoke(request)
+
+            self.assertTrue(result.writer_receipt.rehydrated)
+            self.assertEqual(
+                result.writer_receipt.parent_session_id_sha256,
+                parent.session_id_sha256,
+            )
+            self.assertEqual(
+                result.writer_receipt.request_sha256,
+                canonical_sha256(
+                    {
+                        "route": SceneRoute.ORDINARY.value,
+                        "purpose": "writer",
+                        "view_manifest_sha256": view.manifest_sha256,
+                        "prompt": request.prompt,
+                        "system_prompt": ORDINARY_WRITER_SYSTEM_PROMPT,
+                        "model": adapter.model,
+                        "thinking": "off",
+                        "tools": ["context"],
+                        "parent_session_id_sha256": parent.session_id_sha256,
+                    }
+                ),
+            )
 
     def _assert_closed_invocation_failure(
         self,
