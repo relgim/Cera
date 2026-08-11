@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
 import unittest
 from dataclasses import dataclass, field
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from cera.cognition import (
     CharacterAutonomyMode,
@@ -14,13 +19,22 @@ from cera.cognition.prompting import (
     COGNITION_PLANNER_BASE_INSTRUCTIONS,
     COGNITION_PLANNER_PROFILE,
 )
-from cera.cognition.provider import cognition_planner_route
+from cera.cognition.provider import CodexCognitionPlannerBackend, cognition_planner_route
 from cera.cognition.provider_schema import cognition_plan_json_schema
-from cera.errors import StateConflictError
+from cera.continuous.call_ledger import (
+    ContinuousProviderCallLedger,
+    ProviderCallState,
+)
+from cera.errors import ErrorCode, StateConflictError
 from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
 from cera.pi_scene.runtime import PlannerTurnInputV1
+from cera.providers.models import (
+    ProviderRetryableFailureCategory,
+    ProviderTransportError,
+)
 from cera.sequence_first.contracts import ProviderReferenceScopeV1
+from cera.serialization import to_primitive
 
 from .test_cognition_contracts import _plan, _turn
 
@@ -65,12 +79,95 @@ class _FakeBackend:
         return self.resumable and thread_id == self.thread_id
 
 
+class _InvalidCompletedCognitionTransport:
+    def __init__(self, _route, *, workspace: Path, runner: object) -> None:
+        del workspace, runner
+
+    def invoke(
+        self,
+        _prompt: str,
+        *,
+        output_schema: dict[str, object],
+        mcp_binding: object,
+        on_worker_started,
+        on_worker_preflight,
+        on_transport_invoke,
+    ) -> object:
+        del output_schema, mcp_binding
+        on_worker_started()
+        on_worker_preflight()
+        on_transport_invoke()
+        payload = to_primitive(_plan())
+        perceived = payload["decision_records"][0]["observer_frame"]["directly_perceived"]
+        perceived.append(dict(perceived[0]))
+        return SimpleNamespace(
+            output_text=json.dumps(payload, sort_keys=True),
+            parsed_json=payload,
+            receipt={"provider": "offline-planner"},
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            tool_names=(),
+            tool_server_names=(),
+        )
+
+
 class CognitionProviderContractTests(unittest.TestCase):
     def test_live_route_uses_bounded_hard_timeout_without_retry(self) -> None:
         route = cognition_planner_route()
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
+
+    def test_completed_invalid_plan_is_typed_retryable_provider_output(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+            )
+            context = _context()
+            with (
+                patch(
+                    "cera.cognition.provider.CodexSDKTransport",
+                    _InvalidCompletedCognitionTransport,
+                ),
+                self.assertRaises(ProviderTransportError) as caught,
+            ):
+                backend.run_cognition_turn(
+                    thread_id="thread:cognition-invalid",
+                    prompt="Return one cognition plan.",
+                    context=context,
+                    reference_scope=ProviderReferenceScopeV1.from_turn(context.turn),
+                )
+
+            failure = caught.exception
+            self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+            self.assertEqual(
+                failure.retryable_failure_category,
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            )
+            self.assertEqual(failure.external_provider_calls_observed, 1)
+            self.assertEqual(failure.provider_call_receipt, {"provider": "offline-planner"})
+            self.assertEqual(
+                failure.safe_diagnostics,
+                ("provider_output:cognition_plan_contract_invalid",),
+            )
+            self.assertIsNone(failure.__cause__)
+            self.assertNotIn("duplicates", str(failure))
+            self.assertEqual(ledger.dispatched_call_count, 1)
+            self.assertEqual(
+                tuple(value["state"] for value in ledger.events[-2:]),
+                (
+                    ProviderCallState.PROVIDER_COMPLETED.value,
+                    ProviderCallState.POST_VALIDATION_FAILED.value,
+                ),
+            )
+            self.assertFalse(
+                any(value["state"] == ProviderCallState.ACCEPTED.value for value in ledger.events)
+            )
 
     def test_schema_closes_autonomy_and_provisional_scope(self) -> None:
         context = _context()

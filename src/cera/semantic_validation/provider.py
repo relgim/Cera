@@ -17,7 +17,11 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
-from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
+from cera.providers.codex import (
+    CodexSDKTransport,
+    StoredCodexThreadRunner,
+    decode_completed_codex_output,
+)
 from cera.providers.models import LiveProviderRoute, ProviderCallResult
 from cera.providers.routes import codex_realization_verifier_candidate
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
@@ -133,12 +137,24 @@ class CodexLunaSemanticValidatorBackend:
             )
 
         def finalize(result: ProviderCallResult) -> ContinuousProviderResultV1:
-            payload = result.parsed_json or {}
-            if set(payload) != {"result"} or not isinstance(payload.get("result"), dict):
-                raise ContractValidationError("Luna result changed its closed provider envelope")
-            verdict = from_mapping(
-                SemanticValidationVerdictV1,
-                payload["result"],
+            def decode_verdict() -> SemanticValidationVerdictV1:
+                payload = result.parsed_json or {}
+                if set(payload) != {"result"} or not isinstance(payload.get("result"), dict):
+                    raise ContractValidationError(
+                        "Luna result changed its closed provider envelope"
+                    )
+                return cast(
+                    SemanticValidationVerdictV1,
+                    from_mapping(
+                        SemanticValidationVerdictV1,
+                        payload["result"],
+                    ),
+                )
+
+            verdict = decode_completed_codex_output(
+                result,
+                safe_diagnostic="provider_output:luna_verdict_contract_invalid",
+                decoder=decode_verdict,
             )
             return ContinuousProviderResultV1(
                 value=verdict,

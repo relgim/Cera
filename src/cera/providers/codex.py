@@ -55,6 +55,42 @@ def _runner_external_provider_boundary(runner: object) -> bool:
     return is_external_provider_boundary(runner)
 
 
+def decode_completed_codex_output[T](
+    result: ProviderCallResult,
+    *,
+    safe_diagnostic: str,
+    decoder: Callable[[], T],
+) -> T:
+    """Decode one completed Codex result at a closed DTO boundary.
+
+    The transport has already proven one provider operation and constructed
+    its content-free receipt before this helper is reachable.  Only declared
+    contract invalidity from the role-specific decoder is Retry-eligible;
+    custody, state, and unexpected implementation failures remain outside this
+    conversion and therefore fail closed at their existing boundaries.
+    """
+
+    if not isinstance(safe_diagnostic, str) or not safe_diagnostic.strip():
+        raise ContractValidationError("completed Codex output diagnostic must be non-empty")
+    try:
+        return decoder()
+    except ContractValidationError:
+        failure = ProviderTransportError(
+            ErrorCode.REASONER_CONTRACT_INVALID,
+            "Codex structured output failed closed DTO validation",
+            safe_diagnostics=(safe_diagnostic,),
+            external_provider_calls_observed=1,
+            provider_call_receipt=result.receipt,
+            retryable_failure_category=(ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID),
+        )
+        failure.mcp_server_names = result.tool_server_names
+        failure.mcp_tool_names = result.tool_names
+        failure.mcp_tool_call_count = result.tool_call_count
+        failure.mcp_failed_tool_call_count = result.failed_tool_call_count
+        failure.operation_telemetry = result.operation_telemetry
+        raise failure from None
+
+
 @dataclass(frozen=True, slots=True)
 class CodexMcpRuntimeBinding:
     """Ephemeral MCP capability supplied to one Codex worker invocation.

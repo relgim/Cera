@@ -12,6 +12,7 @@ from .codex import (
     CodexWorkerResult,
     PersistentNoMcpCodexRunner,
     StoredCodexThreadRunner,
+    decode_completed_codex_output,
 )
 from .codex_cli_qualification import (
     ACTIVE_CODEX_CLI_VERIFIER_QUALIFICATION_ID,
@@ -90,6 +91,7 @@ __all__ = [
     "CodexWorkerResult",
     "PersistentNoMcpCodexRunner",
     "StoredCodexThreadRunner",
+    "decode_completed_codex_output",
     "RelationalBoundaryQualificationEvidence",
     "load_relational_boundary_qualification",
     "DeepSeekChatTransport",

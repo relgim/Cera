@@ -17,7 +17,11 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
-from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
+from cera.providers.codex import (
+    CodexSDKTransport,
+    StoredCodexThreadRunner,
+    decode_completed_codex_output,
+)
 from cera.providers.models import LiveProviderRoute, ProviderCallResult
 from cera.providers.routes import codex_realization_verifier_candidate
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
@@ -128,10 +132,20 @@ class CodexSolReaderBackend:
             )
 
         def finalize(result: ProviderCallResult) -> ContinuousProviderResultV1:
-            payload = result.parsed_json or {}
-            if set(payload) != {"verdict"} or not isinstance(payload.get("verdict"), dict):
-                raise ContractValidationError("Sol Reader result changed its closed envelope")
-            verdict = from_mapping(ReaderVerdictV1, payload["verdict"])
+            def decode_verdict() -> ReaderVerdictV1:
+                payload = result.parsed_json or {}
+                if set(payload) != {"verdict"} or not isinstance(payload.get("verdict"), dict):
+                    raise ContractValidationError("Sol Reader result changed its closed envelope")
+                return cast(
+                    ReaderVerdictV1,
+                    from_mapping(ReaderVerdictV1, payload["verdict"]),
+                )
+
+            verdict = decode_completed_codex_output(
+                result,
+                safe_diagnostic="provider_output:reader_verdict_contract_invalid",
+                decoder=decode_verdict,
+            )
             return ContinuousProviderResultV1(
                 value=verdict,
                 provider_receipt=result.receipt,

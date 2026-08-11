@@ -17,7 +17,11 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
-from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
+from cera.providers.codex import (
+    CodexSDKTransport,
+    StoredCodexThreadRunner,
+    decode_completed_codex_output,
+)
 from cera.providers.models import LiveProviderRoute, ProviderCallResult
 from cera.providers.routes import codex_reasoner_candidate
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
@@ -143,16 +147,28 @@ class CodexCognitionPlannerBackend:
             available_evidence_refs = tuple(
                 dict.fromkeys((*reference_scope.evidence_keys, *dynamic_evidence_refs))
             )
-            plan = from_mapping(CognitionPlanV1, result.parsed_json or {})
-            validate_cognition_plan(
-                plan,
-                turn=context.turn,
-                context=CognitionValidationContextV1(
-                    autonomy_mode=context.autonomy_mode,
-                    logic_route=context.logic_route,
-                    available_evidence_refs=available_evidence_refs,
-                    available_provisional_record_ids=(context.available_provisional_record_ids),
-                ),
+
+            def decode_plan() -> CognitionPlanV1:
+                plan = cast(
+                    CognitionPlanV1,
+                    from_mapping(CognitionPlanV1, result.parsed_json or {}),
+                )
+                validate_cognition_plan(
+                    plan,
+                    turn=context.turn,
+                    context=CognitionValidationContextV1(
+                        autonomy_mode=context.autonomy_mode,
+                        logic_route=context.logic_route,
+                        available_evidence_refs=available_evidence_refs,
+                        available_provisional_record_ids=(context.available_provisional_record_ids),
+                    ),
+                )
+                return plan
+
+            plan = decode_completed_codex_output(
+                result,
+                safe_diagnostic="provider_output:cognition_plan_contract_invalid",
+                decoder=decode_plan,
             )
             self.last_available_evidence_refs = available_evidence_refs
             return ContinuousProviderResultV1(
