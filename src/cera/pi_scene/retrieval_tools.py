@@ -21,7 +21,7 @@ from cera.continuous.evidence import (
     RequestEvidenceBindingRegistry,
     RequestEvidenceBindingV1,
 )
-from cera.errors import ContractValidationError, StateConflictError
+from cera.errors import ContractValidationError, ProviderToolRequestError, StateConflictError
 from cera.serialization import canonical_sha256, domain_sha256, text_sha256
 
 from ._world_workspace_files import read_json_object
@@ -45,6 +45,9 @@ NAMED_RETRIEVAL_TOOLS = (
     "get_craft_context",
 )
 MAX_NAMED_RETRIEVAL_RETURNED_BYTES = 1_048_576
+NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID = (
+    "cera.pi_scene.named_retrieval_provider_request_failures.v1"
+)
 
 
 class RetrievalProviderRole(StrEnum):
@@ -144,6 +147,9 @@ class BoundNamedRetrievalTools:
     """Typed named operations over one branch-local retrieval service."""
 
     tool_names: tuple[str, ...] = NAMED_RETRIEVAL_TOOLS
+    provider_request_failure_policy_id = (
+        NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID
+    )
 
     def __init__(
         self,
@@ -167,6 +173,7 @@ class BoundNamedRetrievalTools:
         self.binding = binding
         self.evidence_registry = evidence_registry
         self._returned_bytes = 0
+        self._turn_context_character_ids: set[str] = set()
 
     @property
     def binding_sha256(self) -> str:
@@ -185,6 +192,14 @@ class BoundNamedRetrievalTools:
         # Private scope authorization happens before any character-private
         # bytes are searched or fetched.  This prevents yes/no term probing.
         self._authorize_private_arguments(tool_name, arguments)
+        if (
+            tool_name == "get_character_context"
+            and isinstance(arguments.get("character_id"), str)
+            and arguments["character_id"] in self._turn_context_character_ids
+        ):
+            raise ProviderToolRequestError(
+                "named retrieval rejected a redundant complete-dossier request"
+            )
         raw = self._dispatch(tool_name, arguments)
         self._authorize_exact_result(tool_name, raw)
         source_paths = self._source_paths(tool_name, arguments, raw)
@@ -211,6 +226,15 @@ class BoundNamedRetrievalTools:
             raise StateConflictError("named retrieval reached its returned-byte ceiling")
         self._returned_bytes += len(encoded)
         self._assert_current_binding()
+        if tool_name == "get_turn_context" and isinstance(raw, Mapping):
+            dossiers = raw.get("character_dossiers", ())
+            if isinstance(dossiers, list | tuple):
+                self._turn_context_character_ids.update(
+                    str(value["character_id"])
+                    for value in dossiers
+                    if isinstance(value, Mapping)
+                    and isinstance(value.get("character_id"), str)
+                )
         return result
 
     def _dispatch(self, tool_name: str, arguments: dict[str, Any]) -> object:

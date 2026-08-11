@@ -118,6 +118,15 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v3")
+        self.assertIn(
+            "character dossiers are complete for this request",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "never call get_character_context for a character ID it already returned",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
 
     def test_completed_invalid_plan_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:

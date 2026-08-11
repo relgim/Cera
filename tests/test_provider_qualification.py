@@ -27,6 +27,7 @@ from cera.providers import (
     ProviderOutputMode,
     ProviderPricing,
     ProviderResponseFailureKind,
+    ProviderRetryableFailureCategory,
     ProviderTransportError,
     PersistentNoMcpCodexRunner,
     StoredCodexThreadRunner,
@@ -1178,6 +1179,145 @@ class ProviderQualificationTests(unittest.TestCase):
                     "Probe.", output_schema=codex_transport_probe_output_schema()
                 )
         self.assertEqual(caught.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
+
+    def test_codex_mcp_provider_request_failure_is_narrow_and_retryable(self) -> None:
+        observations: list[
+            tuple[tuple[str, ...], tuple[str, ...], int, int]
+        ] = []
+
+        def classified(
+            server_names: tuple[str, ...],
+            tool_names: tuple[str, ...],
+            tool_call_count: int,
+            failed_tool_call_count: int,
+        ) -> bool:
+            observations.append(
+                (server_names, tool_names, tool_call_count, failed_tool_call_count)
+            )
+            return True
+
+        runner = StaticCodexRunner(
+            mcp_server_names=("cera_request_evidence",),
+            mcp_tool_names=("cera_get_turn_snapshot",),
+            mcp_failed_tool_call_count=1,
+        )
+        base_binding = codex_mcp_binding()
+
+        def binding_with_classifier(classifier) -> CodexMcpRuntimeBinding:
+            return CodexMcpRuntimeBinding(
+                server_name=base_binding.server_name,
+                url=base_binding.url,
+                bearer_token_environment_variable=(
+                    base_binding.bearer_token_environment_variable
+                ),
+                bearer_token="qualification-secret",
+                enabled_tools=base_binding.enabled_tools,
+                binding_sha256=base_binding.binding_sha256,
+                startup_timeout_seconds=base_binding.startup_timeout_seconds,
+                tool_timeout_seconds=base_binding.tool_timeout_seconds,
+                minimum_tool_calls=base_binding.minimum_tool_calls,
+                maximum_tool_calls=base_binding.maximum_tool_calls,
+                failed_tool_call_provider_request_classifier=classifier,
+            )
+
+        binding = binding_with_classifier(classified)
+        self.assertNotIn("classifier", repr(binding))
+        self.assertNotIn("classifier", json.dumps(binding.public_descriptor))
+        binding_without_classifier = codex_mcp_binding()
+        self.assertEqual(binding, binding_without_classifier)
+        self.assertEqual(hash(binding), hash(binding_without_classifier))
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = CodexSDKTransport(
+                codex_route(), workspace=Path(temporary), runner=runner
+            )
+            with self.assertRaises(ProviderTransportError) as caught:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=binding,
+                )
+
+        failure = caught.exception
+        self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertEqual(
+            failure.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(failure.safe_diagnostics, ("mcp:provider_request_invalid",))
+        self.assertEqual(failure.external_provider_calls_observed, 1)
+        self.assertIsNotNone(failure.provider_call_receipt)
+        self.assertEqual(failure.mcp_tool_call_count, 1)
+        self.assertEqual(failure.mcp_failed_tool_call_count, 1)
+        self.assertEqual(
+            observations,
+            [
+                (
+                    ("cera_request_evidence",),
+                    ("cera_get_turn_snapshot",),
+                    1,
+                    1,
+                )
+            ],
+        )
+
+        for invalid_runner in (
+            StaticCodexRunner(
+                mcp_server_names=("other_server",),
+                mcp_tool_names=("cera_get_turn_snapshot",),
+                mcp_failed_tool_call_count=1,
+            ),
+            StaticCodexRunner(
+                mcp_server_names=("cera_request_evidence",),
+                mcp_tool_names=("unapproved_tool",),
+                mcp_failed_tool_call_count=1,
+            ),
+        ):
+            with self.subTest(invalid_runner=invalid_runner):
+                with tempfile.TemporaryDirectory() as temporary:
+                    transport = CodexSDKTransport(
+                        codex_route(), workspace=Path(temporary), runner=invalid_runner
+                    )
+                    with self.assertRaises(ProviderTransportError) as invalid:
+                        transport.invoke(
+                            "Probe.",
+                            output_schema=codex_transport_probe_output_schema(),
+                            mcp_binding=binding,
+                        )
+                self.assertEqual(
+                    invalid.exception.code, ErrorCode.REASONER_CONTRACT_INVALID
+                )
+                self.assertIsNone(invalid.exception.retryable_failure_category)
+                self.assertEqual(len(observations), 1)
+
+        def classifier_error(
+            _server_names: tuple[str, ...],
+            _tool_names: tuple[str, ...],
+            _tool_call_count: int,
+            _failed_tool_call_count: int,
+        ) -> bool:
+            raise RuntimeError("private classifier failure")
+
+        for classifier in (
+            lambda _servers, _tools, _total, _failed: False,
+            lambda _servers, _tools, _total, _failed: 1,
+            classifier_error,
+        ):
+            with self.subTest(classifier=classifier):
+                with tempfile.TemporaryDirectory() as temporary:
+                    transport = CodexSDKTransport(
+                        codex_route(), workspace=Path(temporary), runner=runner
+                    )
+                    with self.assertRaises(ProviderTransportError) as fallback:
+                        transport.invoke(
+                            "Probe.",
+                            output_schema=codex_transport_probe_output_schema(),
+                            mcp_binding=binding_with_classifier(classifier),
+                        )
+                self.assertEqual(
+                    fallback.exception.code, ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE
+                )
+                self.assertIsNone(fallback.exception.retryable_failure_category)
+                self.assertNotIn("private classifier failure", str(fallback.exception))
 
     def test_codex_enforces_output_token_ceiling(self) -> None:
         runner = StaticCodexRunner(output_tokens=codex_route().maximum_output_tokens + 1)

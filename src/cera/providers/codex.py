@@ -110,6 +110,9 @@ class CodexMcpRuntimeBinding:
     tool_timeout_seconds: int = 10
     minimum_tool_calls: int = 0
     maximum_tool_calls: int = 12
+    failed_tool_call_provider_request_classifier: (
+        Callable[[tuple[str, ...], tuple[str, ...], int, int], bool] | None
+    ) = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.url)
@@ -142,6 +145,10 @@ class CodexMcpRuntimeBinding:
             raise ContractValidationError("Codex MCP maximum tool calls must be 1..32")
         if self.minimum_tool_calls > self.maximum_tool_calls:
             raise ContractValidationError("Codex MCP minimum calls exceed maximum calls")
+        if self.failed_tool_call_provider_request_classifier is not None and not callable(
+            self.failed_tool_call_provider_request_classifier
+        ):
+            raise ContractValidationError("Codex MCP failure classifier is invalid")
 
     @property
     def public_descriptor(self) -> dict[str, object]:
@@ -581,11 +588,6 @@ class CodexSDKTransport:
                 ErrorCode.EVIDENCE_LIMIT_EXCEEDED,
                 "Codex exceeded the request-bound MCP tool-call budget",
             )
-        if result.mcp_failed_tool_call_count:
-            raise ProviderTransportError(
-                ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE,
-                "Codex MCP evidence lookup failed",
-            )
         if any(value != binding.server_name for value in result.mcp_server_names):
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
@@ -596,6 +598,35 @@ class CodexSDKTransport:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex used an MCP tool outside the request allow-list",
+            )
+        if result.mcp_failed_tool_call_count:
+            provider_request_failure = False
+            classifier = binding.failed_tool_call_provider_request_classifier
+            if classifier is not None:
+                try:
+                    provider_request_failure = (
+                        classifier(
+                            result.mcp_server_names,
+                            result.mcp_tool_names,
+                            result.mcp_tool_call_count,
+                            result.mcp_failed_tool_call_count,
+                        )
+                        is True
+                    )
+                except Exception:
+                    provider_request_failure = False
+            if provider_request_failure:
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_CONTRACT_INVALID,
+                    "Codex MCP request violated the bounded evidence protocol",
+                    safe_diagnostics=("mcp:provider_request_invalid",),
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                    ),
+                )
+            raise ProviderTransportError(
+                ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE,
+                "Codex MCP evidence lookup failed",
             )
 
 

@@ -96,6 +96,10 @@ class StateConflictError(CeraError):
     """Optimistic state or branch-head expectations do not match."""
 
 
+class ProviderToolRequestError(CeraError):
+    """A provider-issued tool request violated a closed request-local policy."""
+
+
 class TransactionError(CeraError):
     """An authority-store transaction could not commit safely."""
 

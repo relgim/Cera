@@ -14,7 +14,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Protocol
 
-from cera.errors import ContractValidationError, StateConflictError
+from cera.errors import ContractValidationError, ProviderToolRequestError, StateConflictError
 from cera.providers import CodexMcpRuntimeBinding
 from cera.serialization import canonical_sha256, domain_sha256, text_sha256
 
@@ -44,12 +44,14 @@ class ContinuousWorldToolCallV1:
     returned_bytes: int
     duration_ns: int
     success: bool
+    provider_request_failure: bool = False
 
 
 class AdditionalWorldToolHandler(Protocol):
     """Optional typed extension that leaves historical generic tools intact."""
 
     tool_names: tuple[str, ...]
+    provider_request_failure_policy_id: str
 
     @property
     def binding_sha256(self) -> str: ...
@@ -207,6 +209,11 @@ class ContinuousWorldToolDispatcher:
                         if self.additional_tool_handler is None
                         else self.additional_tool_handler.binding_sha256
                     ),
+                    "provider_request_failure_policy_id": (
+                        None
+                        if self.additional_tool_handler is None
+                        else self.additional_tool_handler.provider_request_failure_policy_id
+                    ),
                 }
             )
         return domain_sha256(
@@ -220,6 +227,7 @@ class ContinuousWorldToolDispatcher:
         started = time.perf_counter_ns()
         request_hash = canonical_sha256({"tool": tool_name, "arguments": arguments})
         success = False
+        provider_request_failure = False
         returned_bytes = 0
         with self._lock:
             if len(self.calls) >= self.maximum_calls:
@@ -275,6 +283,9 @@ class ContinuousWorldToolDispatcher:
                     }
                 )
                 return result
+            except ProviderToolRequestError:
+                provider_request_failure = True
+                raise
             finally:
                 self.calls.append(
                     ContinuousWorldToolCallV1(
@@ -284,8 +295,33 @@ class ContinuousWorldToolDispatcher:
                         returned_bytes=returned_bytes,
                         duration_ns=time.perf_counter_ns() - started,
                         success=success,
+                        provider_request_failure=provider_request_failure,
                     )
                 )
+
+    def failed_tool_calls_are_provider_request_failures(
+        self,
+        server_names: tuple[str, ...],
+        tool_names: tuple[str, ...],
+        tool_call_count: int,
+        failed_tool_call_count: int,
+    ) -> bool:
+        """Reconcile content-free provider observations with local call origins."""
+
+        with self._lock:
+            calls = tuple(self.calls)
+        if (
+            failed_tool_call_count <= 0
+            or tool_call_count != len(calls)
+            or len(server_names) != tool_call_count
+            or any(value != WORLD_MCP_SERVER_NAME for value in server_names)
+            or tuple(value.tool_name for value in calls) != tool_names
+        ):
+            return False
+        failed_calls = tuple(value for value in calls if not value.success)
+        return len(failed_calls) == failed_tool_call_count and all(
+            value.provider_request_failure for value in failed_calls
+        )
 
     def _allowed_roots(self) -> tuple[Path, ...]:
         roots = [self.branch_root / "ACTIVE", self.branch_root / "DERIVED"]
@@ -558,6 +594,9 @@ class ContinuousWorldMcpBridge:
             tool_timeout_seconds=30,
             minimum_tool_calls=0,
             maximum_tool_calls=self.dispatcher.maximum_calls,
+            failed_tool_call_provider_request_classifier=(
+                self.dispatcher.failed_tool_calls_are_provider_request_failures
+            ),
         )
 
     def start(self) -> ContinuousWorldMcpBridge:

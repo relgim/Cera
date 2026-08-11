@@ -29,7 +29,11 @@ from cera.continuous.world_mcp import (
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
 )
-from cera.errors import ContractValidationError, StateConflictError
+from cera.errors import (
+    ContractValidationError,
+    ProviderToolRequestError,
+    StateConflictError,
+)
 from cera.pi_scene.context import initial_hanezawa_doorway_seed
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
@@ -261,6 +265,90 @@ class NamedRetrievalToolTests(unittest.TestCase):
             isolated = self._dispatcher(f"request:surface-{index}", SAKURA)
             self.assertEqual(isolated.invoke(tool_name, arguments)["tool"], tool_name)
 
+    def test_complete_turn_context_rejects_redundant_character_refetch(self) -> None:
+        dispatcher = self._dispatcher("request:duplicate-context", SAKURA)
+        dispatcher.invoke("get_turn_context", {"character_ids": [SAKURA]})
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+        service_call_count = handler.service.call_count
+        returned_bytes = handler.returned_bytes
+        binding_count = len(dispatcher.evidence_registry.bindings)
+
+        with self.assertRaisesRegex(ProviderToolRequestError, "redundant"):
+            dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+
+        self.assertEqual(handler.service.call_count, service_call_count)
+        self.assertEqual(handler.returned_bytes, returned_bytes)
+        self.assertEqual(len(dispatcher.evidence_registry.bindings), binding_count)
+        self.assertEqual(len(dispatcher.calls), 2)
+        self.assertTrue(dispatcher.calls[0].success)
+        self.assertFalse(dispatcher.calls[1].success)
+        self.assertTrue(dispatcher.calls[1].provider_request_failure)
+        self.assertTrue(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                ("get_turn_context", "get_character_context"),
+                2,
+                1,
+            )
+        )
+
+        with ContinuousWorldMcpBridge(dispatcher) as bridge:
+            binding = bridge.runtime_binding
+            classifier = binding.failed_tool_call_provider_request_classifier
+            self.assertNotIn("classifier", repr(binding))
+            self.assertNotIn("classifier", json.dumps(binding.public_descriptor))
+            self.assertIsNotNone(classifier)
+            assert classifier is not None
+            self.assertTrue(
+                classifier(
+                    (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                    ("get_turn_context", "get_character_context"),
+                    2,
+                    1,
+                )
+            )
+
+    def test_turn_context_only_blocks_dossiers_it_already_returned(self) -> None:
+        dispatcher = self._dispatcher("request:omitted-context", SAKURA, HANA)
+        dispatcher.invoke("get_turn_context", {"character_ids": [SAKURA]})
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+        service_call_count = handler.service.call_count
+        with self.assertRaisesRegex(StateConflictError, "returned-byte ceiling"):
+            dispatcher.invoke("get_character_context", {"character_id": HANA})
+        self.assertEqual(handler.service.call_count, service_call_count + 1)
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+        self.assertFalse(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                ("get_turn_context", "get_character_context"),
+                2,
+                1,
+            )
+        )
+        with self.assertRaisesRegex(ProviderToolRequestError, "redundant"):
+            dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+        self.assertTrue(dispatcher.calls[-1].provider_request_failure)
+        self.assertFalse(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (
+                    WORLD_MCP_SERVER_NAME,
+                    WORLD_MCP_SERVER_NAME,
+                    WORLD_MCP_SERVER_NAME,
+                ),
+                (
+                    "get_turn_context",
+                    "get_character_context",
+                    "get_character_context",
+                ),
+                3,
+                2,
+            )
+        )
+
     def test_request_mcp_advertises_the_named_tools_only_for_named_binding(self) -> None:
         named = self._dispatcher("request:mcp-binding", SAKURA)
         with ContinuousWorldMcpBridge(named) as bridge:
@@ -384,6 +472,15 @@ class NamedRetrievalToolTests(unittest.TestCase):
         index_path.write_text(json.dumps(index), encoding="utf-8")
         with self.assertRaisesRegex(StateConflictError, "accepted checkpoint"):
             dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+        self.assertFalse(
+            dispatcher.failed_tool_calls_are_provider_request_failures(
+                (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                ("get_character_context", "get_character_context"),
+                2,
+                1,
+            )
+        )
 
     def test_failed_tool_result_cannot_allocate_a_citable_evidence_key(self) -> None:
         request_id = "request:failed-result"
@@ -421,11 +518,28 @@ class NamedRetrievalToolTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(StateConflictError, "returned-byte ceiling"):
             dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
         self.assertEqual(len(registry.bindings), 1)
+        with self.assertRaisesRegex(StateConflictError, "returned-byte ceiling"):
+            dispatcher.invoke("get_turn_context", {"character_ids": [SAKURA]})
+        with self.assertRaisesRegex(StateConflictError, "returned-byte ceiling"):
+            dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+        self.assertEqual(handler.service.call_count, 3)
+        self.assertTrue(
+            all(not value.provider_request_failure for value in dispatcher.calls)
+        )
         receipt = ContinuousWorldMcpBridge(dispatcher).finalize(
             SimpleNamespace(
-                tool_names=("get_character_context",),
-                tool_server_names=(WORLD_MCP_SERVER_NAME,),
+                tool_names=(
+                    "get_character_context",
+                    "get_turn_context",
+                    "get_character_context",
+                ),
+                tool_server_names=(
+                    WORLD_MCP_SERVER_NAME,
+                    WORLD_MCP_SERVER_NAME,
+                    WORLD_MCP_SERVER_NAME,
+                ),
             )
         )
         self.assertEqual(receipt["evidence_bindings"], [])
