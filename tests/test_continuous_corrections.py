@@ -1707,7 +1707,7 @@ class ContinuousCallAccountingTests(unittest.TestCase):
                     tool_call_count=1,
                     failed_tool_call_count=0,
                     tool_names=("cera_world_read",),
-                    tool_server_names=("cera_continuous_world_v1",),
+                    tool_server_names=("cera_continuous_world",),
                 )
 
         class Bridge:

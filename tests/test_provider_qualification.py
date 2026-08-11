@@ -40,6 +40,11 @@ from cera.providers.codex import (
     _codex_transport_json,
     _SubprocessCodexRunner,
 )
+from cera.providers.codex_runtime_policy import (
+    CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES,
+    CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME,
+    CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+)
 from cera.providers.codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
     CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
@@ -1312,6 +1317,16 @@ class ProviderQualificationTests(unittest.TestCase):
 
     def test_codex_mcp_binding_is_loopback_allow_listed_and_secret_safe(self) -> None:
         binding = codex_mcp_binding()
+        self.assertEqual(
+            {
+                codex_mcp_binding(server_name=name).server_name
+                for name in CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES
+            },
+            {
+                CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+                CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME,
+            },
+        )
         self.assertNotIn("qualification-secret", repr(binding))
         self.assertNotIn("qualification-secret", json.dumps(binding.public_descriptor))
         self.assertNotIn("url", binding.public_descriptor)
@@ -1326,6 +1341,17 @@ class ProviderQualificationTests(unittest.TestCase):
             )
         with self.assertRaises(ContractValidationError):
             codex_mcp_binding(minimum_tool_calls=2, maximum_tool_calls=1)
+        with self.assertRaisesRegex(ContractValidationError, "server name is not approved"):
+            codex_mcp_binding(server_name="unknown_request_server")
+        with self.assertRaisesRegex(ContractValidationError, "server name is not approved"):
+            CodexMcpRuntimeBinding(
+                server_name=[],  # type: ignore[arg-type]
+                url=binding.url,
+                bearer_token_environment_variable=binding.bearer_token_environment_variable,
+                bearer_token="secret",
+                enabled_tools=binding.enabled_tools,
+                binding_sha256=binding.binding_sha256,
+            )
         with self.assertRaises(ContractValidationError):
             CodexMcpRuntimeBinding(
                 server_name=binding.server_name,

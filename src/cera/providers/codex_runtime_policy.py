@@ -18,12 +18,19 @@ CODEX_REMOTE_CONTROL_DISABLED_ENVIRONMENT_VARIABLE = (
     "CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED"
 )
 CODEX_REQUEST_BOUND_MCP_SERVER_NAME = "cera_request_evidence"
+CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME = "cera_continuous_world"
+CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES = frozenset(
+    {
+        CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+        CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME,
+    }
+)
 CODEX_CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/"
 CODEX_MODEL_CATALOG_SHA256 = "a9b13b0c6935adaf465206151609ca3322ef6bec836ebab40c686a9ba76393bd"
 CODEX_MODEL_INSTRUCTIONS_SHA256 = "910d589b12f34e69cb6d4bf399bc38f74ce9f68f182e3a34d54b91611f26ff3f"
 CODEX_AUTO_COMPACT_TOKEN_LIMIT = 9_223_372_036_854_775_807
 CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID = (
-    "cera.codex_runtime_tool_surface.v2.catalog_"
+    "cera.codex_runtime_tool_surface.v3.catalog_"
     + CODEX_MODEL_CATALOG_SHA256
     + ".instructions_"
     + CODEX_MODEL_INSTRUCTIONS_SHA256
@@ -355,7 +362,10 @@ def runtime_config_and_environment(
         raise ValueError("request-bound MCP token is invalid")
     codex_environment[token_environment_variable] = bearer_token
     server_name = mcp_binding["server_name"]
-    if server_name != CODEX_REQUEST_BOUND_MCP_SERVER_NAME:
+    if (
+        not isinstance(server_name, str)
+        or server_name not in CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES
+    ):
         raise ValueError("request-bound MCP server name is not approved")
     config[f"mcp_servers.{server_name}"] = {
         "url": mcp_binding["url"],
@@ -598,7 +608,7 @@ def _effective_mcp_surface_from_config_response(
             or type(definition.get("enabled")) is not bool
         ):
             raise RuntimeError("Codex config/read returned invalid MCP metadata")
-        if name == CODEX_REQUEST_BOUND_MCP_SERVER_NAME:
+        if name in CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES:
             raise RuntimeError("host config collides with request-bound CERA MCP")
         surface.append((name, definition["enabled"]))
     surface.sort()
@@ -661,7 +671,8 @@ def validate_codex_mcp_server_status(
         if requested_tools:
             raise ValueError("request MCP tools have no server")
     elif (
-        request_server_name != CODEX_REQUEST_BOUND_MCP_SERVER_NAME
+        not isinstance(request_server_name, str)
+        or request_server_name not in CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES
         or not requested_tools
         or any(_CODEX_MCP_SERVER_NAME.fullmatch(name) is None for name in requested_tools)
     ):
@@ -740,7 +751,7 @@ def validate_codex_mcp_server_status(
     if any(observed.get(name, frozenset()) for name in inherited_names):
         raise RuntimeError("Codex MCP tool surface is not closed")
     if request_server_name is None:
-        if CODEX_REQUEST_BOUND_MCP_SERVER_NAME in observed:
+        if CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES.intersection(observed):
             raise RuntimeError("Codex MCP tool surface is not closed")
     elif observed.get(request_server_name) != requested_tools:
         raise RuntimeError("Codex MCP tool surface is not closed")

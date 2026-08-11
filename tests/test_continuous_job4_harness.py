@@ -1732,7 +1732,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 continuous_planner_route(), workspace=workspace, runner=Runner('{"ok":true}')
             )
             binding = CodexMcpRuntimeBinding(
-                server_name="cera_continuous_world_v1",
+                server_name="cera_continuous_world",
                 url="http://127.0.0.1:43123/mcp",
                 bearer_token_environment_variable="CERA_REQUEST_EVIDENCE_TOKEN",
                 bearer_token="fake-secret",

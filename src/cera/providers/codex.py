@@ -32,6 +32,7 @@ from .codex_exec_contract import (
 )
 from .codex_observability import CodexOperationTelemetryV1
 from .codex_runtime_policy import (
+    CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES,
     COMPLETED_RESULT_ITEM_TYPE_EVIDENCE,
     validate_codex_prompt_markers,
 )
@@ -132,6 +133,11 @@ class CodexMcpRuntimeBinding:
     ) = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.server_name, str)
+            or self.server_name not in CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES
+        ):
+            raise ContractValidationError("Codex MCP binding server name is not approved")
         parsed = urlparse(self.url)
         if (
             parsed.scheme != "http"
@@ -140,7 +146,7 @@ class CodexMcpRuntimeBinding:
             or parsed.path != "/mcp"
         ):
             raise ContractValidationError("Codex MCP binding must use loopback HTTP /mcp")
-        if not self.server_name.strip() or not self.bearer_token.strip():
+        if not isinstance(self.bearer_token, str) or not self.bearer_token.strip():
             raise ContractValidationError("Codex MCP binding requires server identity and token")
         if self.bearer_token_environment_variable != "CERA_REQUEST_EVIDENCE_TOKEN":
             raise ContractValidationError("Codex MCP token environment variable is not approved")

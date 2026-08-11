@@ -15,15 +15,19 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from zipfile import ZipFile
 
+from cera.continuous.world_mcp import WORLD_MCP_SERVER_NAME, WORLD_MCP_TOOLS
 from cera.errors import ContractValidationError
 from cera.providers.codex_runtime_policy import (
+    CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES,
     CODEX_AUTO_COMPACT_TOKEN_LIMIT,
     CODEX_CHATGPT_BASE_URL,
+    CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME,
     CODEX_DISABLED_MULTI_AGENT_NAMESPACE,
     CODEX_MODEL_CATALOG_SHA256,
     CODEX_MODEL_INSTRUCTIONS_SHA256,
     CODEX_REMOTE_CONTROL_DISABLED_ENVIRONMENT_VARIABLE,
     CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+    CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID,
     QUALIFIED_CODEX_MODELS,
     codex_app_server_config_overrides,
     codex_app_server_environment,
@@ -36,6 +40,11 @@ from cera.providers.codex_runtime_policy import (
     validate_codex_mcp_server_status,
     validate_codex_prelaunch_config_sources,
     validate_codex_prompt_markers,
+)
+from cera.providers.codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    CODEX_SDK_COMPATIBILITY_SOURCE_SHA256,
+    EXPECTED_ROUTE_NOTIFICATION_SHA256,
 )
 from cera.providers.codex_session_worker import _config as persistent_runtime_config
 from cera.reasoner_session.codex_stored import _stored_runtime_config
@@ -73,13 +82,19 @@ def _canonical_entry_sha256(entry: dict[str, object]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def _binding(token: str, port: int) -> dict[str, object]:
+def _binding(
+    token: str,
+    port: int,
+    *,
+    server_name: str = CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+    enabled_tools: tuple[str, ...] = ("cera_get_turn_snapshot",),
+) -> dict[str, object]:
     return {
-        "server_name": CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+        "server_name": server_name,
         "url": f"http://127.0.0.1:{port}/mcp",
         "bearer_token_environment_variable": "CERA_REQUEST_EVIDENCE_TOKEN",
         "bearer_token": token,
-        "enabled_tools": ["cera_get_turn_snapshot"],
+        "enabled_tools": list(enabled_tools),
         "binding_sha256": HASH_A,
         "required": True,
         "startup_timeout_seconds": 10,
@@ -283,6 +298,63 @@ class CodexRuntimePolicyTests(unittest.TestCase):
         self.assertNotIn("mcp_servers", second_config)
         self.assertNotEqual(first_config[mcp_key], second_config[mcp_key])
 
+        world_config, world_env = runtime_config_and_environment(
+            _binding(
+                "world-secret",
+                41003,
+                server_name=WORLD_MCP_SERVER_NAME,
+                enabled_tools=WORLD_MCP_TOOLS,
+            )
+        )
+        world_mcp_key = f"mcp_servers.{WORLD_MCP_SERVER_NAME}"
+        self.assertEqual(world_env, {"CERA_REQUEST_EVIDENCE_TOKEN": "world-secret"})
+        self.assertIn(world_mcp_key, world_config)
+        self.assertNotIn(mcp_key, world_config)
+        world_definition = world_config[world_mcp_key]
+        self.assertIsInstance(world_definition, dict)
+        assert isinstance(world_definition, dict)
+        self.assertEqual(world_definition["enabled_tools"], list(WORLD_MCP_TOOLS))
+
+        with self.assertRaisesRegex(ValueError, "server name is not approved"):
+            runtime_config_and_environment(
+                _binding("unknown-secret", 41004, server_name="unknown_request_server")
+            )
+        malformed_binding = _binding("malformed-secret", 41005)
+        malformed_binding["server_name"] = []
+        with self.assertRaisesRegex(ValueError, "server name is not approved"):
+            runtime_config_and_environment(malformed_binding)
+
+    def test_request_server_allowlist_is_policy_and_sdk_compatibility_bound(self) -> None:
+        self.assertEqual(
+            CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES,
+            frozenset(
+                {
+                    CODEX_REQUEST_BOUND_MCP_SERVER_NAME,
+                    CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME,
+                }
+            ),
+        )
+        self.assertEqual(CODEX_CONTINUOUS_WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME)
+        self.assertIn("cera.codex_runtime_tool_surface.v3", CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID)
+        self.assertIn(CODEX_MODEL_CATALOG_SHA256, CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID)
+        self.assertIn(CODEX_MODEL_INSTRUCTIONS_SHA256, CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID)
+        self.assertIn(CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID, CODEX_SDK_COMPATIBILITY_ID)
+        expected_source_sha256 = hashlib.sha256(
+            (
+                EXPECTED_ROUTE_NOTIFICATION_SHA256 + "+" + CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID
+            ).encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256, expected_source_sha256)
+        prior_policy_id = CODEX_RUNTIME_TOOL_SURFACE_POLICY_ID.replace(
+            "cera.codex_runtime_tool_surface.v3",
+            "cera.codex_runtime_tool_surface.v2",
+            1,
+        )
+        prior_source_sha256 = hashlib.sha256(
+            (EXPECTED_ROUTE_NOTIFICATION_SHA256 + "+" + prior_policy_id).encode("utf-8")
+        ).hexdigest()
+        self.assertNotEqual(CODEX_SDK_COMPATIBILITY_SOURCE_SHA256, prior_source_sha256)
+
     def test_all_runtime_paths_share_the_hardened_tool_surface(self) -> None:
         baseline, environment = runtime_config_and_environment(None)
         persistent = persistent_runtime_config()
@@ -472,12 +544,50 @@ class CodexRuntimePolicyTests(unittest.TestCase):
         self.assertEqual(client.calls[-1][1]["threadId"], "thread-safe-id")
         self.assertTrue(client.calls[0][1]["includeLayers"])
 
+        client.statuses[-1] = client.status(
+            WORLD_MCP_SERVER_NAME,
+            WORLD_MCP_TOOLS,
+        )
+        validate_codex_mcp_server_status(
+            codex,
+            thread_id="thread-world-id",
+            request_server_name=WORLD_MCP_SERVER_NAME,
+            request_tool_names=WORLD_MCP_TOOLS,
+        )
+        with self.assertRaisesRegex(RuntimeError, "not closed"):
+            validate_codex_mcp_server_status(codex)
+        with self.assertRaisesRegex(ValueError, "expectation is invalid"):
+            validate_codex_mcp_server_status(
+                codex,
+                request_server_name="unknown_request_server",
+                request_tool_names=("unknown_tool",),
+            )
+        with self.assertRaisesRegex(ValueError, "expectation is invalid"):
+            validate_codex_mcp_server_status(
+                codex,
+                request_server_name=[],  # type: ignore[arg-type]
+                request_tool_names=("unknown_tool",),
+            )
+
         client.statuses[0] = client.status("node_repl", ("js",))
         with self.assertRaisesRegex(RuntimeError, "not closed"):
             validate_codex_mcp_server_status(codex)
         client.statuses[0] = client.status("node_repl", resources=[object()])
         with self.assertRaisesRegex(RuntimeError, "metadata"):
             validate_codex_mcp_server_status(codex)
+
+    def test_effective_config_rejects_each_reserved_request_server_collision(self) -> None:
+        for server_name in CODEX_APPROVED_REQUEST_BOUND_MCP_SERVER_NAMES:
+            with self.subTest(server_name=server_name):
+                client = _ConfigAndStatusClient()
+                servers = client.config_extra["mcp_servers"]
+                assert isinstance(servers, dict)
+                servers[server_name] = {"enabled": False}
+                with self.assertRaisesRegex(RuntimeError, "collides"):
+                    validate_codex_app_server_configuration(
+                        SimpleNamespace(_client=client),
+                        cwd=ROOT,
+                    )
 
     def test_effective_provider_authority_tampering_fails_closed(self) -> None:
         mutations = (
