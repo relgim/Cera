@@ -63,6 +63,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_MANIFEST_SCHEMA_V5,
     QUALIFICATION_MANIFEST_SCHEMA_V6,
+    QUALIFICATION_MANIFEST_SCHEMA_V7,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
@@ -70,7 +71,7 @@ from cera.pi_scene.qualification import (
     FullModelQualificationRunner,
     ManualActionRequiredError,
     QualificationFixtureV1,
-    QualificationFixtureV4,
+    QualificationFixtureV5,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
@@ -104,7 +105,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LEGACY_FIXTURES_V1 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v1.json"
 LEGACY_FIXTURES_V2 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v2.json"
 LEGACY_FIXTURES_V3 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v3.json"
-DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v4.json"
+LEGACY_FIXTURES_V4 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v4.json"
+DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v5.json"
 PI_PACKAGE_ROOT = Path(
     r"C:\Users\Ted\AppData\Roaming\npm\node_modules\@earendil-works\pi-coding-agent"
 )
@@ -441,6 +443,7 @@ def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
                 LEGACY_FIXTURES_V1.relative_to(ROOT),
                 LEGACY_FIXTURES_V2.relative_to(ROOT),
                 LEGACY_FIXTURES_V3.relative_to(ROOT),
+                LEGACY_FIXTURES_V4.relative_to(ROOT),
             )
         )
     )
@@ -1169,8 +1172,8 @@ def freeze(
     if root.exists():
         raise StateConflictError("qualification output root already exists")
     fixtures = load_qualification_fixtures(fixture_path)
-    if not fixtures or not all(type(value) is QualificationFixtureV4 for value in fixtures):
-        raise StateConflictError("live qualification requires novel stress fixtures v4")
+    if not fixtures or not all(type(value) is QualificationFixtureV5 for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v5")
     spent_manifests = _load_spent_qualification_manifests(
         output_root=root,
         explicit_paths=spent_manifest_paths,
@@ -1208,7 +1211,7 @@ def _load_spent_qualification_manifests(
     output_root: Path,
     explicit_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], ...]:
-    """Load cumulative V5/V6/V7 fixture authority from this root family.
+    """Load cumulative V5/V6/V7/V8 fixture authority from this root family.
 
     V5 remains exact historical authority for the retired V2 suite. Every V5
     or later sibling is included automatically so a caller cannot accidentally
@@ -1234,6 +1237,7 @@ def _load_spent_qualification_manifests(
             if isinstance(raw, Mapping) and raw.get("schema_version") in {
                 QUALIFICATION_MANIFEST_SCHEMA_V5,
                 QUALIFICATION_MANIFEST_SCHEMA_V6,
+                QUALIFICATION_MANIFEST_SCHEMA_V7,
                 QUALIFICATION_MANIFEST_SCHEMA,
             }:
                 candidates[candidate.resolve()] = None
@@ -2335,8 +2339,8 @@ def live(
     _assert_frozen_python_interpreter(manifest)
     verify_qualification_artifacts(manifest, repository_root=ROOT)
     fixtures = load_qualification_fixtures(fixture_path)
-    if not fixtures or not all(type(value) is QualificationFixtureV4 for value in fixtures):
-        raise StateConflictError("live qualification requires novel stress fixtures v4")
+    if not fixtures or not all(type(value) is QualificationFixtureV5 for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v5")
     if manifest["fixture_set_sha256"] != __import__(
         "cera.serialization", fromlist=["bytes_sha256"]
     ).bytes_sha256(fixture_path.read_bytes()):
