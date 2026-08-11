@@ -9,7 +9,7 @@ from cera.errors import ContractValidationError, ErrorCode, StateConflictError
 from cera.evaluation import EvaluationRole
 from cera.ids import IdKind, TypedId
 from cera.pi_scene.contracts import PiWriterReceiptV1, SceneRoute
-from cera.pi_scene.pi_adapter import PiSceneInvocationResultV1
+from cera.pi_scene.pi_adapter import PiOutputLimitError, PiSceneInvocationResultV1
 from cera.pi_scene.provider_stage_retry import (
     ProviderStage,
     ProviderStageFailureClass,
@@ -26,6 +26,7 @@ from cera.pi_scene.provider_stage_retry_adapters import (
     codex_provider_result_receipt_metrics,
     pi_provider_result_receipt_metrics,
 )
+from cera.pi_scene.provider_stage_retry_assembly import _classify_pi_non_retryable_failure
 from cera.pi_scene.provider_stage_retry_blob import TrustedLocalProtectedStageBlobStore
 from cera.pi_scene.provider_stage_retry_executor import (
     ProviderStageAttemptOutcomeV1,
@@ -297,6 +298,61 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
                 self.assertEqual(outcome.metrics.provider_operations_observed, 1)
                 self.assertEqual(boundary.provider_calls, 1)
 
+    def test_closed_pi_multi_operation_failure_preserves_exact_count(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> object:
+            boundary.provider_calls += 1
+            boundary.advance(2)
+            raise ProviderTransportError(
+                ErrorCode.PROVIDER_TRANSPORT_FAILED,
+                "closed Pi completion did not produce accepted output",
+                external_provider_calls_observed=1,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE
+                ),
+            )
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                maximum_provider_operations=6,
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageClosedFailureV1)
+        assert isinstance(outcome, ProviderStageClosedFailureV1)
+        self.assertIs(
+            outcome.failure_class,
+            ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
+        )
+        self.assertEqual(outcome.metrics.provider_operations_observed, 2)
+        self.assertEqual(outcome.metrics.provider_operations_conservative, 2)
+        self.assertEqual(boundary.provider_calls, 1)
+
+    def test_untyped_pi_multi_operation_failure_remains_ambiguous(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> object:
+            boundary.provider_calls += 1
+            boundary.advance(2)
+            raise RuntimeError("provider disposition unavailable")
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                maximum_provider_operations=6,
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageDispatchAmbiguousV1)
+        assert isinstance(outcome, ProviderStageDispatchAmbiguousV1)
+        self.assertEqual(outcome.metrics.provider_operations_observed, 2)
+        self.assertEqual(outcome.metrics.provider_operations_conservative, 6)
+        self.assertEqual(boundary.provider_calls, 1)
+
     def test_exact_non_retryable_conditions_and_generic_fallback_never_retry(self) -> None:
         classes = (
             ProviderStageFailureClass.AUTHENTICATION_FAILED,
@@ -351,6 +407,36 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             generic.failure_class,
             ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
         )
+
+    def test_ordinary_pi_output_limit_has_exact_non_retryable_class(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> object:
+            boundary.provider_calls += 1
+            boundary.advance(1)
+            raise PiOutputLimitError(
+                ErrorCode.PROVIDER_TRANSPORT_FAILED,
+                "closed output-limit completion",
+                external_provider_calls_observed=1,
+            )
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                classify_non_retryable=_classify_pi_non_retryable_failure,
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageNonRetryableFailureV1)
+        assert isinstance(outcome, ProviderStageNonRetryableFailureV1)
+        self.assertIs(
+            outcome.failure_class,
+            ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED,
+        )
+        self.assertEqual(outcome.metrics.provider_operations_observed, 1)
+        self.assertEqual(outcome.metrics.provider_operations_conservative, 1)
+        self.assertEqual(boundary.provider_calls, 1)
 
     def test_post_operation_retry_classes_require_one_observed_operation(self) -> None:
         for category in (

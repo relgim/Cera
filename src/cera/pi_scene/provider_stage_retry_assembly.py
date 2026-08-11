@@ -22,6 +22,7 @@ from cera.adult_pipeline.pipeline import AdultPipelineInputV1
 from cera.continuous.call_ledger import ContinuousProviderCallLedger, ProviderCallState
 from cera.continuous.provider import ContinuousProviderResultV1
 from cera.errors import ContractValidationError, StateConflictError
+from cera.providers.models import ProviderTransportError
 from cera.reader_validation import BoundReaderValidationV1
 from cera.semantic_validation import BoundSemanticValidationV1
 from cera.serialization import (
@@ -51,7 +52,7 @@ from .adult_stage_retry_integration import (
 from .full_model_controller import FullModelSceneController
 from .http import PiSceneHttpAdapter
 from .operation_ledger import PiProviderOperationLedger
-from .pi_adapter import PiSceneAdapter, PiSceneInvocationResultV1
+from .pi_adapter import PiOutputLimitError, PiSceneAdapter, PiSceneInvocationResultV1
 from .provider_stage_retry import (
     NON_RETRYABLE_PROVIDER_STAGE_FAILURES,
     RETRYABLE_PROVIDER_STAGE_FAILURES,
@@ -66,6 +67,7 @@ from .provider_stage_retry_adapters import (
     ProviderStageAttemptOwnerBindingV1,
     ProviderStageBoundaryKind,
     ProviderStageLedgerSnapshotV1,
+    ProviderStageNonRetryableClassifierPort,
     ProviderStageOwnerRetirementV1,
     ProviderStagePreparedCallableDispatchV1,
     ProviderStageReceiptMetricsV1,
@@ -360,6 +362,7 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
         result_receipt_metrics: Callable[[object], ProviderStageReceiptMetricsV1],
         semantic_disposition: Callable[[object], ProviderStageSemanticDisposition],
         retire_failed_owner: Callable[[ProviderStageOwnerRetirementV1, Path], str],
+        classify_non_retryable: ProviderStageNonRetryableClassifierPort | None = None,
     ) -> None:
         if stage not in _ORDINARY_STAGES:
             raise ContractValidationError("ordinary owner factory changed stage")
@@ -376,6 +379,7 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
         self._result_receipt_metrics = result_receipt_metrics
         self._semantic_disposition = semantic_disposition
         self._retire_failed_owner = retire_failed_owner
+        self._classify_non_retryable = classify_non_retryable
 
     def create_initial_owner(
         self,
@@ -541,6 +545,7 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
             result_receipt_metrics=self._result_receipt_metrics,
             semantic_disposition=self._semantic_disposition,
             retire_owner=lambda retirement: self._retire_failed_owner(retirement, attempt_root),
+            classify_non_retryable=self._classify_non_retryable,
         )
         return _OutcomeRecordingOwnerV1(
             owner,
@@ -1850,7 +1855,16 @@ def _pi_ordinary_factory(
         retire_failed_owner=lambda retirement, attempt_root: _retire_one_shot_owner(
             retirement, attempt_root, "pi_process_has_no_live_handle"
         ),
+        classify_non_retryable=_classify_pi_non_retryable_failure,
     )
+
+
+def _classify_pi_non_retryable_failure(
+    failure: ProviderTransportError,
+) -> ProviderStageFailureClass:
+    if isinstance(failure, PiOutputLimitError):
+        return ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED
+    return ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE
 
 
 def _invoke_planner(

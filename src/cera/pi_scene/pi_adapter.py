@@ -58,6 +58,7 @@ ADULT_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept adult continuity Re
 
 MAX_TOOL_CALLS_PER_INVOCATION = 1
 SUCCESSFUL_FINISH_STATUSES = frozenset({"stop"})
+OUTPUT_LIMIT_FINISH_STATUSES = frozenset({"length", "max_tokens", "token_limit"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +96,10 @@ class _ProcessResult:
     returncode: int
     stdout: str
     stderr: str
+
+
+class PiOutputLimitError(ProviderTransportError):
+    """A completed Pi response ended at its configured output ceiling."""
 
 
 ProcessRunner = Callable[
@@ -199,30 +204,52 @@ class PiSceneAdapter:
                 invocation_id,
                 status="failed",
                 failure_type=type(exc).__name__,
+                duration_ms=_elapsed_ms(started),
+                failure_category=_retryable_failure_category_value(exc),
             )
             raise
-        duration_ms = max(0, round((time.perf_counter() - started) * 1000))
+        duration_ms = _elapsed_ms(started)
         if process.returncode != 0:
+            failure = _pi_process_exit_error(process)
             self.operation_ledger.finish(
                 invocation_id,
                 status="failed",
                 failure_type=f"process_exit_{process.returncode}",
+                duration_ms=duration_ms,
+                failure_category=_retryable_failure_category_value(failure),
             )
-            raise _pi_process_exit_error(process)
+            raise failure
         try:
-            parsed = _parse_pi_json_stream(process.stdout)
-            _validate_pi_completion(parsed)
+            try:
+                parsed = _parse_pi_json_stream(process.stdout)
+            except (ContractValidationError, StateConflictError) as exc:
+                if not _pi_invocation_operations_are_closed(
+                    self.operation_ledger,
+                    invocation_id,
+                ):
+                    raise
+                raise _closed_pi_provider_failure(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                    diagnostic=f"provider_envelope:{type(exc).__name__}",
+                ) from None
             self.operation_ledger.assert_completed(
                 invocation_id,
                 parsed_operations=parsed.provider_operations,
             )
-            output_text = (
-                _parse_writer_output(parsed.output_text)
-                if request.purpose == "writer"
-                else parsed.output_text.strip()
-            )
-            if not output_text:
-                raise StateConflictError("Pi Scene returned no final assistant text")
+            _validate_pi_completion(parsed)
+            try:
+                output_text = (
+                    _parse_writer_output(parsed.output_text)
+                    if request.purpose == "writer"
+                    else parsed.output_text.strip()
+                )
+                if not output_text:
+                    raise StateConflictError("Pi Scene returned no final assistant text")
+            except (ContractValidationError, StateConflictError) as exc:
+                raise _closed_pi_provider_failure(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                    diagnostic=f"provider_output:{type(exc).__name__}",
+                ) from None
             parent_hash = (
                 None
                 if request.accepted_parent_session is None or request.force_rehydrate
@@ -254,12 +281,15 @@ class PiSceneAdapter:
                 invocation_id,
                 status="failed",
                 failure_type=type(exc).__name__,
+                duration_ms=duration_ms,
+                failure_category=_retryable_failure_category_value(exc),
             )
             raise
         self.operation_ledger.finish(
             invocation_id,
             status="completed",
             output_sha256=receipt.output_sha256,
+            duration_ms=duration_ms,
         )
         if self.readable_debug is not None and self.readable_debug.enabled:
             self.readable_debug.write(
@@ -354,21 +384,82 @@ def _validate_pi_completion(parsed: _ParsedPiStream) -> None:
     """Fail closed unless Pi proved the exact bounded context protocol."""
 
     if parsed.tool_call_count != MAX_TOOL_CALLS_PER_INVOCATION:
-        raise StateConflictError(
-            "Pi Scene must load the approved context exactly once "
-            f"(observed={parsed.tool_call_count})"
+        raise _closed_pi_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            diagnostic="provider_protocol:context_contract_invalid",
         )
     if parsed.failed_tool_call_count:
-        raise StateConflictError("Pi Scene context loading failed")
+        raise _closed_pi_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            diagnostic="provider_protocol:context_contract_invalid",
+        )
     if (
         parsed.completed_context_tool_calls != MAX_TOOL_CALLS_PER_INVOCATION
         or parsed.tool_protocol_error_count
     ):
-        raise StateConflictError("Pi Scene did not prove one matched successful context completion")
-    if parsed.finish_status.casefold() not in SUCCESSFUL_FINISH_STATUSES:
-        raise StateConflictError(
-            f"Pi Scene did not reach a normal terminal stop (finish_status={parsed.finish_status})"
+        raise _closed_pi_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            diagnostic="provider_protocol:context_contract_invalid",
         )
+    finish_status = parsed.finish_status.casefold()
+    if finish_status in OUTPUT_LIMIT_FINISH_STATUSES:
+        raise PiOutputLimitError(
+            ErrorCode.PROVIDER_TRANSPORT_FAILED,
+            "Pi Scene completion reached its configured output limit",
+            safe_diagnostics=("provider_completion:output_limit",),
+            external_provider_calls_observed=1,
+        )
+    if finish_status not in SUCCESSFUL_FINISH_STATUSES:
+        raise _closed_pi_provider_failure(
+            ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE,
+            diagnostic="provider_completion:non_stop",
+        )
+
+
+def _closed_pi_provider_failure(
+    category: ProviderRetryableFailureCategory | None,
+    *,
+    diagnostic: str,
+) -> ProviderTransportError:
+    """Return one privacy-safe failure after the Pi process has closed."""
+
+    return ProviderTransportError(
+        ErrorCode.COMPOSER_UNAVAILABLE,
+        "Pi Scene did not return an accepted provider envelope",
+        safe_diagnostics=(diagnostic,),
+        external_provider_calls_observed=1,
+        retryable_failure_category=category,
+    )
+
+
+def _retryable_failure_category_value(failure: BaseException) -> str | None:
+    if not isinstance(failure, ProviderTransportError):
+        return None
+    category = failure.retryable_failure_category
+    return None if category is None else category.value
+
+
+def _pi_invocation_operations_are_closed(
+    ledger: PiProviderOperationLedger,
+    invocation_id: str,
+) -> bool:
+    started = ledger.started_for(invocation_id)
+    return (
+        started >= 1
+        and ledger.completed_for(invocation_id) == started
+        and not any(
+            event.get("invocation_id") == invocation_id
+            and event.get("event") == "forbidden_automatic_operation_observed"
+            for event in ledger.events
+        )
+    )
+
+
+def _elapsed_ms(started: float) -> int:
+    try:
+        return max(0, round((time.perf_counter() - started) * 1000))
+    except Exception:
+        return 0
 
 
 def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
