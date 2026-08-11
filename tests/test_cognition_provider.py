@@ -130,22 +130,30 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v5")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v6")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
             "cera.cognition.codex_planner_adapter.v4",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
-            "cera.cognition.codex_planner_prompt.v4",
+            "cera.cognition.codex_planner_prompt.v5",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v4")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v5")
         self.assertIn(
-            "character dossiers are complete for this request",
+            "Call get_turn_context first with character_ids omitted",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
         self.assertIn(
-            "never call get_character_context for a character ID it already returned",
+            "one explicit selection may name only one distinct authorized character",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Every dossier returned by get_turn_context or get_character_context is complete",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Never call get_character_context, get_relationship_context, or get_memory_context",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
         self.assertIn(

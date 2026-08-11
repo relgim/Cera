@@ -29,7 +29,6 @@ from .retrieval import (
     DOSSIER_INDEX_SCHEMA,
     MAX_RETRIEVAL_CALLS,
     MAX_SEARCH_RESULTS,
-    MAX_TURN_CHARACTERS,
     BranchRetrievalService,
 )
 
@@ -46,7 +45,7 @@ NAMED_RETRIEVAL_TOOLS = (
 )
 MAX_NAMED_RETRIEVAL_RETURNED_BYTES = 1_048_576
 NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID = (
-    "cera.pi_scene.named_retrieval_provider_request_failures.v3"
+    "cera.pi_scene.named_retrieval_provider_request_failures.v4"
 )
 
 
@@ -173,7 +172,7 @@ class BoundNamedRetrievalTools:
         self.binding = binding
         self.evidence_registry = evidence_registry
         self._returned_bytes = 0
-        self._turn_context_character_ids: set[str] = set()
+        self._complete_dossier_character_ids: set[str] = set()
         self._advertised_exact_record_ids: set[str] = set()
 
     @property
@@ -193,10 +192,13 @@ class BoundNamedRetrievalTools:
         # Private scope authorization happens before any character-private
         # bytes are searched or fetched.  This prevents yes/no term probing.
         self._authorize_private_arguments(tool_name, arguments)
-        if (
-            tool_name == "get_character_context"
-            and isinstance(arguments.get("character_id"), str)
-            and arguments["character_id"] in self._turn_context_character_ids
+        if tool_name in {
+            "get_character_context",
+            "get_relationship_context",
+            "get_memory_context",
+        } and (
+            isinstance(arguments.get("character_id"), str)
+            and arguments["character_id"] in self._complete_dossier_character_ids
         ):
             raise ProviderToolRequestError(
                 "named retrieval rejected a redundant complete-dossier request"
@@ -230,12 +232,14 @@ class BoundNamedRetrievalTools:
         if tool_name == "get_turn_context" and isinstance(raw, Mapping):
             dossiers = raw.get("character_dossiers", ())
             if isinstance(dossiers, list | tuple):
-                self._turn_context_character_ids.update(
+                self._complete_dossier_character_ids.update(
                     str(value["character_id"])
                     for value in dossiers
                     if isinstance(value, Mapping)
                     and isinstance(value.get("character_id"), str)
                 )
+        elif tool_name == "get_character_context":
+            self._complete_dossier_character_ids.add(_character_argument(arguments))
         elif tool_name == "search_evidence" and isinstance(raw, Mapping):
             self._advertised_exact_record_ids.update(
                 str(value["record_id"])
@@ -252,9 +256,11 @@ class BoundNamedRetrievalTools:
                 character_ids = ()
             if not isinstance(character_ids, list | tuple):
                 raise ContractValidationError("turn-context character IDs are invalid")
-            selected = tuple(character_ids)
-            if len(selected) > MAX_TURN_CHARACTERS:
-                raise ProviderToolRequestError("turn-context character budget exceeded")
+            selected = tuple(dict.fromkeys(character_ids))
+            if len(selected) > 1:
+                raise ProviderToolRequestError(
+                    "turn-context explicit selection exceeds one distinct character"
+                )
             return self.service.get_turn_context(selected)
         if tool_name == "get_character_context":
             return self.service.get_character_context(_character_argument(arguments))

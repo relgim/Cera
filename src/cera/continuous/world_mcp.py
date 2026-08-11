@@ -28,6 +28,28 @@ from .sessions import ContinuousSessionRole, WorldPathAccessPolicyV1
 WORLD_MCP_SDK_VERSION = "1.29.0"
 WORLD_MCP_SERVER_NAME = "cera_continuous_world"
 WORLD_MCP_TOKEN_ENV = "CERA_REQUEST_EVIDENCE_TOKEN"
+GET_TURN_CONTEXT_TOOL_DESCRIPTION = (
+    "Call first with character_ids omitted; never select multiple explicit IDs. "
+    "Returned dossiers are complete, including relationship and memory context."
+)
+GET_CHARACTER_CONTEXT_TOOL_DESCRIPTION = (
+    "Fetch one omitted actor only. The returned dossier is complete, including "
+    "relationship and memory context; do not refetch its subsets."
+)
+GET_RELATIONSHIP_CONTEXT_TOOL_DESCRIPTION = (
+    "Fetch this narrow subset only for an actor whose complete dossier has not "
+    "returned; a complete dossier already includes relationship and memory context."
+)
+GET_MEMORY_CONTEXT_TOOL_DESCRIPTION = (
+    "Fetch this narrow subset only for an actor whose complete dossier has not "
+    "returned; a complete dossier already includes relationship and memory context."
+)
+NAMED_WORLD_MCP_INSTRUCTIONS = (
+    "Read-only request-bound CERA world lookup. Call get_turn_context first with "
+    "character_ids omitted and never select multiple explicit IDs. A returned "
+    "dossier is complete, including relationship and memory context; fetch one "
+    "omitted actor or one narrow subset only while that actor has no complete dossier."
+)
 WORLD_MCP_TOOLS = (
     "cera_world_list",
     "cera_world_search",
@@ -701,8 +723,13 @@ class ContinuousWorldMcpBridge:
         mcp = AuditedFastMCP(
             WORLD_MCP_SERVER_NAME,
             instructions=(
-                "Read-only current-branch CERA world lookup. Search/list locate records; "
-                "read returns exact content. Reaching 32 calls is a terminal failure."
+                NAMED_WORLD_MCP_INSTRUCTIONS
+                if "get_turn_context" in dispatcher.tool_names
+                else (
+                    "Read-only current-branch CERA world lookup. Search/list locate "
+                    "records; read returns exact content. Reaching 32 calls is a "
+                    "terminal failure."
+                )
             ),
             host="127.0.0.1",
             port=port,
@@ -748,7 +775,11 @@ class ContinuousWorldMcpBridge:
 
         if "get_turn_context" in self.dispatcher.tool_names:
 
-            @mcp.tool(name="get_turn_context", structured_output=True)
+            @mcp.tool(
+                name="get_turn_context",
+                description=GET_TURN_CONTEXT_TOOL_DESCRIPTION,
+                structured_output=True,
+            )
             def get_turn_context(
                 character_ids: list[str] | None = None,
             ) -> dict[str, Any]:
@@ -756,7 +787,11 @@ class ContinuousWorldMcpBridge:
                     "get_turn_context", {"character_ids": character_ids}
                 )
 
-            @mcp.tool(name="get_character_context", structured_output=True)
+            @mcp.tool(
+                name="get_character_context",
+                description=GET_CHARACTER_CONTEXT_TOOL_DESCRIPTION,
+                structured_output=True,
+            )
             def get_character_context(character_id: str) -> dict[str, Any]:
                 return self.dispatcher.invoke(
                     "get_character_context", {"character_id": character_id}
@@ -785,13 +820,21 @@ class ContinuousWorldMcpBridge:
                     "get_exact_record", {"record_id": record_id}
                 )
 
-            @mcp.tool(name="get_relationship_context", structured_output=True)
+            @mcp.tool(
+                name="get_relationship_context",
+                description=GET_RELATIONSHIP_CONTEXT_TOOL_DESCRIPTION,
+                structured_output=True,
+            )
             def get_relationship_context(character_id: str) -> dict[str, Any]:
                 return self.dispatcher.invoke(
                     "get_relationship_context", {"character_id": character_id}
                 )
 
-            @mcp.tool(name="get_memory_context", structured_output=True)
+            @mcp.tool(
+                name="get_memory_context",
+                description=GET_MEMORY_CONTEXT_TOOL_DESCRIPTION,
+                structured_output=True,
+            )
             def get_memory_context(character_id: str) -> dict[str, Any]:
                 return self.dispatcher.invoke(
                     "get_memory_context", {"character_id": character_id}

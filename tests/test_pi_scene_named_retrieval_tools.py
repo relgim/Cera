@@ -27,6 +27,11 @@ from cera.cognition import (
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.sessions import ContinuousSessionRole
 from cera.continuous.world_mcp import (
+    GET_CHARACTER_CONTEXT_TOOL_DESCRIPTION,
+    GET_MEMORY_CONTEXT_TOOL_DESCRIPTION,
+    GET_RELATIONSHIP_CONTEXT_TOOL_DESCRIPTION,
+    GET_TURN_CONTEXT_TOOL_DESCRIPTION,
+    NAMED_WORLD_MCP_INSTRUCTIONS,
     WORLD_MCP_SERVER_NAME,
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
@@ -41,6 +46,7 @@ from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
 from cera.pi_scene.retrieval import BranchRetrievalService
 from cera.pi_scene.retrieval_tools import (
+    NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID,
     NAMED_RETRIEVAL_TOOLS,
     BoundNamedRetrievalTools,
     NamedRetrievalRequestBindingV1,
@@ -215,9 +221,60 @@ class NamedRetrievalToolTests(unittest.TestCase):
             maximum_calls=16,
         )
 
+    def _byte_limited_dispatcher(
+        self,
+        request_id: str,
+        *,
+        character_id: str = SAKURA,
+        maximum_returned_bytes: int = 4_096,
+    ) -> tuple[ContinuousWorldToolDispatcher, BoundNamedRetrievalTools]:
+        registry = RequestEvidenceBindingRegistry(
+            world_id=self.workspace.world_id,
+            branch_id=self.workspace.branch_id,
+            turn_id=request_id,
+        )
+        service = BranchRetrievalService(self.workspace, maximum_calls=4)
+        handler = BoundNamedRetrievalTools(
+            service,
+            binding=NamedRetrievalRequestBindingV1(
+                schema_version=NamedRetrievalRequestBindingV1.SCHEMA_VERSION,
+                request_id=request_id,
+                world_id=self.workspace.world_id,
+                branch_id=self.workspace.branch_id,
+                accepted_head_sha256=current_dossier_accepted_head(service),
+                role=RetrievalProviderRole.PLANNER,
+                private_character_ids=(character_id,),
+                maximum_calls=4,
+                maximum_returned_bytes=maximum_returned_bytes,
+            ),
+            evidence_registry=registry,
+        )
+        return (
+            ContinuousWorldToolDispatcher(
+                self.workspace.branch_root,
+                ContinuousSessionRole.PLANNER,
+                world_id=self.workspace.world_id,
+                branch_id=self.workspace.branch_id,
+                current_turn_id=request_id,
+                maximum_calls=4,
+                evidence_registry=registry,
+                allowed_private_character_ids=(character_id,),
+                additional_tool_handler=handler,
+            ),
+            handler,
+        )
+
     def test_named_surface_is_bounded_semantic_and_keeps_generic_tools(self) -> None:
         dispatcher = self._dispatcher("request:named-surface", SAKURA)
         self.assertEqual(dispatcher.tool_names, NAMED_RETRIEVAL_TOOLS)
+        self.assertEqual(
+            dispatcher.additional_tool_handler.provider_request_failure_policy_id,
+            "cera.pi_scene.named_retrieval_provider_request_failures.v4",
+        )
+        self.assertEqual(
+            NAMED_RETRIEVAL_PROVIDER_REQUEST_FAILURE_POLICY_ID,
+            "cera.pi_scene.named_retrieval_provider_request_failures.v4",
+        )
 
         turn = dispatcher.invoke("get_turn_context", {"character_ids": [SAKURA]})
         self.assertEqual(
@@ -426,7 +483,7 @@ class NamedRetrievalToolTests(unittest.TestCase):
             8,
         )
 
-    def test_explicit_turn_character_over_budget_is_provider_request_failure(self) -> None:
+    def test_explicit_multi_character_turn_is_provider_request_failure(self) -> None:
         index = json.loads(
             (
                 self.workspace.branch_root / "DERIVED" / "CurrentCharacterDossiers" / "INDEX.json"
@@ -434,31 +491,121 @@ class NamedRetrievalToolTests(unittest.TestCase):
         )
         private_character_ids = tuple(index["characters"])
         self.assertEqual(len(private_character_ids), 9)
+        for role in RetrievalProviderRole:
+            with self.subTest(role=role.value):
+                dispatcher = self._dispatcher(
+                    f"request:multi-character-turn-context-{role.value}",
+                    *private_character_ids,
+                    role=role,
+                )
+                handler = dispatcher.additional_tool_handler
+                self.assertIsInstance(handler, BoundNamedRetrievalTools)
+                assert isinstance(handler, BoundNamedRetrievalTools)
+
+                with self.assertRaisesRegex(
+                    ProviderToolRequestError,
+                    "one distinct character",
+                ):
+                    dispatcher.invoke(
+                        "get_turn_context",
+                        {"character_ids": list(private_character_ids)},
+                    )
+
+                self.assertEqual(handler.service.call_count, 0)
+                self.assertFalse(dispatcher.calls[-1].success)
+                self.assertTrue(dispatcher.calls[-1].provider_request_failure)
+                self.assertTrue(
+                    dispatcher.failed_tool_calls_are_provider_request_failures(
+                        (WORLD_MCP_SERVER_NAME,),
+                        ("get_turn_context",),
+                        1,
+                        1,
+                    )
+                )
+
+    def test_synthetic_root_k_shaped_recovery_is_provider_owned(self) -> None:
+        """Exercise the safe status shape without attributing historical Root K."""
+
         dispatcher = self._dispatcher(
-            "request:over-budget-turn-context",
-            *private_character_ids,
+            "request:synthetic-root-k-shaped-recovery",
+            SAKURA,
+            HANA,
         )
         handler = dispatcher.additional_tool_handler
         self.assertIsInstance(handler, BoundNamedRetrievalTools)
         assert isinstance(handler, BoundNamedRetrievalTools)
 
-        with self.assertRaisesRegex(ProviderToolRequestError, "budget exceeded"):
+        with self.assertRaisesRegex(ProviderToolRequestError, "one distinct character"):
             dispatcher.invoke(
                 "get_turn_context",
-                {"character_ids": list(private_character_ids)},
+                {"character_ids": [SAKURA, HANA]},
             )
-
         self.assertEqual(handler.service.call_count, 0)
-        self.assertFalse(dispatcher.calls[-1].success)
-        self.assertTrue(dispatcher.calls[-1].provider_request_failure)
+        self.assertEqual(handler.returned_bytes, 0)
+        self.assertEqual(len(dispatcher.evidence_registry.bindings), 0)
+
+        dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+        service_calls = handler.service.call_count
+        returned_bytes = handler.returned_bytes
+        binding_count = len(dispatcher.evidence_registry.bindings)
+
+        with self.assertRaisesRegex(ProviderToolRequestError, "redundant"):
+            dispatcher.invoke("get_relationship_context", {"character_id": SAKURA})
+        self.assertEqual(handler.service.call_count, service_calls)
+        self.assertEqual(handler.returned_bytes, returned_bytes)
+        self.assertEqual(len(dispatcher.evidence_registry.bindings), binding_count)
+
+        dispatcher.invoke(
+            "search_evidence",
+            {
+                "terms": [self.public_record["record_id"]],
+                "character_id": None,
+                "limit": 5,
+            },
+        )
+        self.assertEqual(
+            [value.success for value in dispatcher.calls],
+            [False, True, False, True],
+        )
+        self.assertEqual(
+            [value.provider_request_failure for value in dispatcher.calls],
+            [True, False, True, False],
+        )
         self.assertTrue(
             dispatcher.failed_tool_calls_are_provider_request_failures(
-                (WORLD_MCP_SERVER_NAME,),
-                ("get_turn_context",),
-                1,
-                1,
+                (WORLD_MCP_SERVER_NAME,) * 4,
+                (
+                    "get_turn_context",
+                    "get_character_context",
+                    "get_relationship_context",
+                    "search_evidence",
+                ),
+                4,
+                2,
             )
         )
+
+    def test_default_and_one_distinct_explicit_turn_character_are_accepted(self) -> None:
+        selections = (None, [], [SAKURA], [SAKURA, SAKURA])
+        for index, character_ids in enumerate(selections, start=1):
+            with self.subTest(character_ids=character_ids):
+                dispatcher = self._dispatcher(
+                    f"request:accepted-turn-selection-{index}",
+                    SAKURA,
+                )
+                handler = dispatcher.additional_tool_handler
+                self.assertIsInstance(handler, BoundNamedRetrievalTools)
+                assert isinstance(handler, BoundNamedRetrievalTools)
+
+                result = dispatcher.invoke(
+                    "get_turn_context",
+                    {"character_ids": character_ids},
+                )
+
+                self.assertEqual(result["tool"], "get_turn_context")
+                self.assertTrue(dispatcher.calls[-1].success)
+                self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+                self.assertEqual(handler.service.call_count, 1)
 
     @unittest.skipUnless(importlib.util.find_spec("mcp"), "optional MCP SDK not installed")
     def test_loopback_classifies_fastmcp_named_argument_rejection(self) -> None:
@@ -480,8 +627,32 @@ class NamedRetrievalToolTests(unittest.TestCase):
                         http_client=client,
                     ) as (read, write, _):
                         async with ClientSession(read, write) as session:
-                            await session.initialize()
+                            initialized = await session.initialize()
+                            self.assertEqual(
+                                initialized.instructions,
+                                NAMED_WORLD_MCP_INSTRUCTIONS,
+                            )
                             advertised = await session.list_tools()
+                            turn_tool = next(
+                                value
+                                for value in advertised.tools
+                                if value.name == "get_turn_context"
+                            )
+                            character_tool = next(
+                                value
+                                for value in advertised.tools
+                                if value.name == "get_character_context"
+                            )
+                            relationship_tool = next(
+                                value
+                                for value in advertised.tools
+                                if value.name == "get_relationship_context"
+                            )
+                            memory_tool = next(
+                                value
+                                for value in advertised.tools
+                                if value.name == "get_memory_context"
+                            )
                             exact_tool = next(
                                 value
                                 for value in advertised.tools
@@ -494,6 +665,22 @@ class NamedRetrievalToolTests(unittest.TestCase):
                             )
                             self.assertEqual(
                                 exact_tool.description, expected_exact_description
+                            )
+                            self.assertEqual(
+                                turn_tool.description,
+                                GET_TURN_CONTEXT_TOOL_DESCRIPTION,
+                            )
+                            self.assertEqual(
+                                character_tool.description,
+                                GET_CHARACTER_CONTEXT_TOOL_DESCRIPTION,
+                            )
+                            self.assertEqual(
+                                relationship_tool.description,
+                                GET_RELATIONSHIP_CONTEXT_TOOL_DESCRIPTION,
+                            )
+                            self.assertEqual(
+                                memory_tool.description,
+                                GET_MEMORY_CONTEXT_TOOL_DESCRIPTION,
                             )
                             invalid = await session.call_tool(
                                 "get_turn_context",
@@ -548,50 +735,138 @@ class NamedRetrievalToolTests(unittest.TestCase):
             )
         )
 
-    def test_complete_turn_context_rejects_redundant_character_refetch(self) -> None:
-        dispatcher = self._dispatcher("request:duplicate-context", SAKURA)
-        dispatcher.invoke("get_turn_context", {"character_ids": [SAKURA]})
-        handler = dispatcher.additional_tool_handler
-        self.assertIsInstance(handler, BoundNamedRetrievalTools)
-        assert isinstance(handler, BoundNamedRetrievalTools)
-        service_call_count = handler.service.call_count
-        returned_bytes = handler.returned_bytes
-        binding_count = len(dispatcher.evidence_registry.bindings)
+    def test_complete_turn_context_rejects_all_redundant_subsets_for_every_role(
+        self,
+    ) -> None:
+        for role in RetrievalProviderRole:
+            for tool_name in (
+                "get_character_context",
+                "get_relationship_context",
+                "get_memory_context",
+            ):
+                with self.subTest(role=role.value, tool_name=tool_name):
+                    dispatcher = self._dispatcher(
+                        f"request:complete-turn-{role.value}-{tool_name}",
+                        SAKURA,
+                        role=role,
+                    )
+                    dispatcher.invoke(
+                        "get_turn_context",
+                        {"character_ids": [SAKURA]},
+                    )
+                    handler = dispatcher.additional_tool_handler
+                    self.assertIsInstance(handler, BoundNamedRetrievalTools)
+                    assert isinstance(handler, BoundNamedRetrievalTools)
+                    service_calls = handler.service.call_count
+                    returned_bytes = handler.returned_bytes
+                    binding_count = len(dispatcher.evidence_registry.bindings)
 
-        with self.assertRaisesRegex(ProviderToolRequestError, "redundant"):
-            dispatcher.invoke("get_character_context", {"character_id": SAKURA})
+                    with self.assertRaisesRegex(ProviderToolRequestError, "redundant"):
+                        dispatcher.invoke(tool_name, {"character_id": SAKURA})
 
-        self.assertEqual(handler.service.call_count, service_call_count)
-        self.assertEqual(handler.returned_bytes, returned_bytes)
-        self.assertEqual(len(dispatcher.evidence_registry.bindings), binding_count)
-        self.assertEqual(len(dispatcher.calls), 2)
-        self.assertTrue(dispatcher.calls[0].success)
-        self.assertFalse(dispatcher.calls[1].success)
-        self.assertTrue(dispatcher.calls[1].provider_request_failure)
-        self.assertTrue(
-            dispatcher.failed_tool_calls_are_provider_request_failures(
-                (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
-                ("get_turn_context", "get_character_context"),
-                2,
-                1,
-            )
-        )
+                    self.assertEqual(handler.service.call_count, service_calls)
+                    self.assertEqual(handler.returned_bytes, returned_bytes)
+                    self.assertEqual(
+                        len(dispatcher.evidence_registry.bindings),
+                        binding_count,
+                    )
+                    self.assertEqual(len(dispatcher.calls), 2)
+                    self.assertTrue(dispatcher.calls[0].success)
+                    self.assertFalse(dispatcher.calls[1].success)
+                    self.assertTrue(dispatcher.calls[1].provider_request_failure)
+                    self.assertTrue(
+                        dispatcher.failed_tool_calls_are_provider_request_failures(
+                            (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
+                            ("get_turn_context", tool_name),
+                            2,
+                            1,
+                        )
+                    )
 
-        with ContinuousWorldMcpBridge(dispatcher) as bridge:
-            binding = bridge.runtime_binding
-            classifier = binding.failed_tool_call_provider_request_classifier
-            self.assertNotIn("classifier", repr(binding))
-            self.assertNotIn("classifier", json.dumps(binding.public_descriptor))
-            self.assertIsNotNone(classifier)
-            assert classifier is not None
-            self.assertTrue(
-                classifier(
-                    (WORLD_MCP_SERVER_NAME, WORLD_MCP_SERVER_NAME),
-                    ("get_turn_context", "get_character_context"),
-                    2,
-                    1,
+    def test_complete_character_dossier_rejects_all_subsets_for_every_role(self) -> None:
+        for role in RetrievalProviderRole:
+            for tool_name in (
+                "get_character_context",
+                "get_relationship_context",
+                "get_memory_context",
+            ):
+                with self.subTest(role=role.value, tool_name=tool_name):
+                    dispatcher = self._dispatcher(
+                        f"request:complete-character-{role.value}-{tool_name}",
+                        SAKURA,
+                        role=role,
+                    )
+                    handler = dispatcher.additional_tool_handler
+                    self.assertIsInstance(handler, BoundNamedRetrievalTools)
+                    assert isinstance(handler, BoundNamedRetrievalTools)
+                    dispatcher.invoke(
+                        "get_character_context",
+                        {"character_id": SAKURA},
+                    )
+                    service_calls = handler.service.call_count
+                    returned_bytes = handler.returned_bytes
+                    binding_count = len(dispatcher.evidence_registry.bindings)
+
+                    with self.assertRaisesRegex(ProviderToolRequestError, "redundant"):
+                        dispatcher.invoke(tool_name, {"character_id": SAKURA})
+
+                    self.assertEqual(handler.service.call_count, service_calls)
+                    self.assertEqual(handler.returned_bytes, returned_bytes)
+                    self.assertEqual(
+                        len(dispatcher.evidence_registry.bindings),
+                        binding_count,
+                    )
+                    self.assertTrue(dispatcher.calls[-1].provider_request_failure)
+
+    def test_default_and_single_turn_service_failures_remain_service_owned(self) -> None:
+        for index, character_ids in enumerate((None, [SAKURA]), start=1):
+            with self.subTest(character_ids=character_ids):
+                dispatcher = self._dispatcher(
+                    f"request:turn-service-failure-{index}",
+                    SAKURA,
                 )
-            )
+                handler = dispatcher.additional_tool_handler
+                self.assertIsInstance(handler, BoundNamedRetrievalTools)
+                assert isinstance(handler, BoundNamedRetrievalTools)
+                with patch.object(
+                    handler.service,
+                    "get_turn_context",
+                    side_effect=StateConflictError("injected turn service failure"),
+                ):
+                    with self.assertRaisesRegex(StateConflictError, "service failure"):
+                        dispatcher.invoke(
+                            "get_turn_context",
+                            {"character_ids": character_ids},
+                        )
+                self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+                service_calls = handler.service.call_count
+                dispatcher.invoke(
+                    "get_character_context",
+                    {"character_id": SAKURA},
+                )
+                self.assertEqual(handler.service.call_count, service_calls + 1)
+                self.assertTrue(dispatcher.calls[-1].success)
+
+    def test_default_and_single_turn_byte_ceiling_remain_service_owned(self) -> None:
+        for index, character_ids in enumerate((None, [SAKURA]), start=1):
+            with self.subTest(character_ids=character_ids):
+                dispatcher, handler = self._byte_limited_dispatcher(
+                    f"request:turn-byte-ceiling-{index}",
+                    maximum_returned_bytes=800_000,
+                )
+                with self.assertRaisesRegex(StateConflictError, "returned-byte ceiling"):
+                    dispatcher.invoke(
+                        "get_turn_context",
+                        {"character_ids": character_ids},
+                    )
+                self.assertEqual(handler.service.call_count, 1)
+                self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+                dispatcher.invoke(
+                    "get_relationship_context",
+                    {"character_id": SAKURA},
+                )
+                self.assertEqual(handler.service.call_count, 2)
+                self.assertTrue(dispatcher.calls[-1].success)
 
     def test_turn_context_only_blocks_dossiers_it_already_returned(self) -> None:
         dispatcher = self._dispatcher("request:omitted-context", SAKURA, HANA)
@@ -671,6 +946,7 @@ class NamedRetrievalToolTests(unittest.TestCase):
                     {"terms": ["secret"], "character_id": HANA, "limit": 5},
                 )
         searched.assert_not_called()
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
 
         recorder = self._dispatcher(
             "request:recorder-role",
@@ -689,6 +965,7 @@ class NamedRetrievalToolTests(unittest.TestCase):
                     {"terms": ["secret"], "character_id": SAKURA, "limit": 5},
                 )
         recorder_search.assert_not_called()
+        self.assertFalse(recorder.calls[-1].provider_request_failure)
 
         with self.assertRaisesRegex(ContractValidationError, "request is invalid"):
             dispatcher.invoke(
@@ -738,6 +1015,7 @@ class NamedRetrievalToolTests(unittest.TestCase):
             other_owner.invoke(
                 "get_character_context", {"character_id": SAKURA}
             )
+        self.assertFalse(other_owner.calls[-1].provider_request_failure)
 
     def test_stale_accepted_checkpoint_fails_before_a_second_result(self) -> None:
         dispatcher = self._dispatcher("request:stale-head", SAKURA)
@@ -766,39 +1044,8 @@ class NamedRetrievalToolTests(unittest.TestCase):
         )
 
     def test_failed_tool_result_cannot_allocate_a_citable_evidence_key(self) -> None:
-        request_id = "request:failed-result"
-        registry = RequestEvidenceBindingRegistry(
-            world_id=self.workspace.world_id,
-            branch_id=self.workspace.branch_id,
-            turn_id=request_id,
-        )
-        service = BranchRetrievalService(self.workspace, maximum_calls=4)
-        handler = BoundNamedRetrievalTools(
-            service,
-            binding=NamedRetrievalRequestBindingV1(
-                schema_version=NamedRetrievalRequestBindingV1.SCHEMA_VERSION,
-                request_id=request_id,
-                world_id=self.workspace.world_id,
-                branch_id=self.workspace.branch_id,
-                accepted_head_sha256=current_dossier_accepted_head(service),
-                role=RetrievalProviderRole.PLANNER,
-                private_character_ids=(SAKURA,),
-                maximum_calls=4,
-                maximum_returned_bytes=4_096,
-            ),
-            evidence_registry=registry,
-        )
-        dispatcher = ContinuousWorldToolDispatcher(
-            self.workspace.branch_root,
-            ContinuousSessionRole.PLANNER,
-            world_id=self.workspace.world_id,
-            branch_id=self.workspace.branch_id,
-            current_turn_id=request_id,
-            maximum_calls=4,
-            evidence_registry=registry,
-            allowed_private_character_ids=(SAKURA,),
-            additional_tool_handler=handler,
-        )
+        dispatcher, handler = self._byte_limited_dispatcher("request:failed-result")
+        registry = dispatcher.evidence_registry
         with self.assertRaisesRegex(StateConflictError, "returned-byte ceiling"):
             dispatcher.invoke("get_character_context", {"character_id": SAKURA})
         self.assertFalse(dispatcher.calls[-1].provider_request_failure)

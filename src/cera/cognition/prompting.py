@@ -7,16 +7,21 @@ from cera.serialization import canonical_json
 
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v5"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v6"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
     + " "
-    + "Use get_turn_context as the default bounded retrieval call. Its returned "
-    "character dossiers are complete for this request: never call "
-    "get_character_context for a character ID it already returned. Expand only "
-    "for a specific unresolved gap with narrow search_evidence, get_exact_record, "
-    "relationship, memory, thread, voice, or craft context. A hard factual "
+    + "Call get_turn_context first with character_ids omitted. Never pass multiple "
+    "explicit character IDs; one explicit selection may name only one distinct "
+    "authorized character. Every dossier returned by get_turn_context or "
+    "get_character_context is complete, including relationship and memory context. "
+    "Never call get_character_context, get_relationship_context, or "
+    "get_memory_context for a character whose complete dossier already returned. "
+    "For one omitted actor, fetch that actor with get_character_context or use one "
+    "narrow relationship or memory subset only while no complete dossier for that "
+    "actor has returned. Expand only for a specific unresolved gap with narrow "
+    "search_evidence, get_exact_record, thread, voice, or craft context. A hard factual "
     "decision should fetch its exact record when available. Call get_exact_record "
     "only with an exact record_id returned by a prior successful search_evidence "
     "call in this operation. Cite only evidence "

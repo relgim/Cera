@@ -41,7 +41,8 @@ CognitionSessionFactory = Callable[
     PersistentCognitionPlannerSession,
 ]
 
-COGNITION_THREAD_COMPATIBILITY_SCHEMA = "cera.pi_scene.cognition_thread_compatibility.v3"
+COGNITION_THREAD_COMPATIBILITY_SCHEMA = "cera.pi_scene.cognition_thread_compatibility.v4"
+COGNITION_WORLD_TOOLS_COMPATIBILITY = "cera.branch_bound_named_retrieval_mcp.v3"
 
 
 class CognitionPlannerAdapterPort(Protocol):
@@ -62,7 +63,7 @@ def cognition_thread_compatibility_sha256() -> str:
             "model": route.model_name,
             "adapter": COGNITION_PLANNER_ADAPTER,
             "prompt": COGNITION_PLANNER_PROMPT,
-            "world_tools": "cera.branch_bound_named_retrieval_mcp.v2",
+            "world_tools": COGNITION_WORLD_TOOLS_COMPATIBILITY,
         }
     )
 
