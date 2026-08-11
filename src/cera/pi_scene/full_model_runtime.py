@@ -41,6 +41,8 @@ CognitionSessionFactory = Callable[
     PersistentCognitionPlannerSession,
 ]
 
+COGNITION_THREAD_COMPATIBILITY_SCHEMA = "cera.pi_scene.cognition_thread_compatibility.v3"
+
 
 class CognitionPlannerAdapterPort(Protocol):
     def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1: ...
@@ -52,7 +54,7 @@ def cognition_thread_compatibility_sha256() -> str:
     route = cognition_planner_route()
     return canonical_sha256(
         {
-            "schema_version": "cera.pi_scene.cognition_thread_compatibility.v2",
+            "schema_version": COGNITION_THREAD_COMPATIBILITY_SCHEMA,
             "profile": COGNITION_PLANNER_PROFILE,
             "base_instructions_sha256": text_sha256(COGNITION_PLANNER_BASE_INSTRUCTIONS),
             "cognition_plan_schema": CognitionPlanV1.SCHEMA_VERSION,

@@ -19,7 +19,12 @@ from cera.cognition.prompting import (
     COGNITION_PLANNER_BASE_INSTRUCTIONS,
     COGNITION_PLANNER_PROFILE,
 )
-from cera.cognition.provider import CodexCognitionPlannerBackend, cognition_planner_route
+from cera.cognition.provider import (
+    COGNITION_PLANNER_ADAPTER,
+    COGNITION_PLANNER_PROMPT,
+    CodexCognitionPlannerBackend,
+    cognition_planner_route,
+)
 from cera.cognition.provider_schema import cognition_plan_json_schema
 from cera.continuous.call_ledger import (
     ContinuousProviderCallLedger,
@@ -29,6 +34,7 @@ from cera.errors import ErrorCode, StateConflictError
 from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
 from cera.pi_scene.runtime import PlannerTurnInputV1
+from cera.providers import ProviderSchemaDialect, project_provider_output_schema
 from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
@@ -118,13 +124,26 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v3")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v4")
+        self.assertEqual(
+            COGNITION_PLANNER_ADAPTER,
+            "cera.cognition.codex_planner_adapter.v2",
+        )
+        self.assertEqual(
+            COGNITION_PLANNER_PROMPT,
+            "cera.cognition.codex_planner_prompt.v3",
+        )
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v2")
         self.assertIn(
             "character dossiers are complete for this request",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
         self.assertIn(
             "never call get_character_context for a character ID it already returned",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "same source_ref may support multiple rows",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
 
@@ -197,6 +216,24 @@ class CognitionProviderContractTests(unittest.TestCase):
         rendered = repr(schema)
         for forbidden in ("world_id", "branch_id", "candidate_id", "transaction_id"):
             self.assertNotIn(forbidden, rendered)
+        directly_perceived = decision["observer_frame"]["properties"]["directly_perceived"]
+        self.assertIn(
+            "same source_ref may support multiple rows",
+            directly_perceived["description"],
+        )
+        self.assertNotIn("uniqueItems", directly_perceived)
+        projected = project_provider_output_schema(
+            schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        projected_directly_perceived = projected["properties"]["decision_records"]["items"][
+            "properties"
+        ]["observer_frame"]["properties"]["directly_perceived"]
+        self.assertEqual(
+            projected_directly_perceived["description"],
+            directly_perceived["description"],
+        )
+        self.assertNotIn("uniqueItems", repr(projected))
 
     def test_persistent_session_installs_stable_prompt_once(self) -> None:
         backend = _FakeBackend(_plan())

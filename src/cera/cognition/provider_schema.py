@@ -77,7 +77,16 @@ def cognition_plan_json_schema(
     )
     observer_frame = _strict(
         {
-            "directly_perceived": {"type": "array", "items": perceived_fact},
+            "directly_perceived": {
+                "type": "array",
+                "items": perceived_fact,
+                "description": (
+                    "One row per distinct perceived fact. The same source_ref may "
+                    "support multiple rows when concise_perception or certainty "
+                    "differs; never repeat an exact source_ref, concise_perception, "
+                    "and certainty row."
+                ),
+            },
             "inferred_meanings": _string_array(),
             "unavailable_or_ambiguous": _string_array(),
             "draft_local_predecessor_item_keys": _string_array(pattern=LOCAL_KEY_JSON_PATTERN),

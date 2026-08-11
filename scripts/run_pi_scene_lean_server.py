@@ -534,7 +534,7 @@ def build_live_runtime(
             if backend.route.reasoning_effort != effort:
                 backend.route = replace(
                     backend.route,
-                    route_id=(f"cera_pi_scene_cognition_{backend.route.model_name}_{effort}_v1"),
+                    route_id=(f"cera_pi_scene_cognition_{backend.route.model_name}_{effort}_v2"),
                     reasoning_effort=effort,
                 )
             planner_backends[(session_id, effort)] = backend

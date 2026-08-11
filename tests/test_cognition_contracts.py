@@ -177,6 +177,40 @@ class CognitionContractTests(unittest.TestCase):
     def test_valid_material_decision_bundle(self) -> None:
         validate_cognition_plan(_plan(), turn=_turn(), context=_context())
 
+    def test_observer_frame_allows_distinct_facts_from_one_source(self) -> None:
+        decision = _decision(CharacterAutonomyMode.BOTH)
+        first = decision.observer_frame.directly_perceived[0]
+        second = replace(
+            first,
+            concise_perception="Ted's request concerns the closed door.",
+            certainty=KnowledgeCertainty.HIGH,
+        )
+        frame = replace(
+            decision.observer_frame,
+            directly_perceived=(first, second),
+        )
+        plan = replace(
+            _plan(),
+            decision_records=(replace(decision, observer_frame=frame),),
+        )
+        payload = to_primitive(plan)
+        self.assertEqual(
+            len(payload["decision_records"][0]["observer_frame"]["directly_perceived"]),
+            2,
+        )
+        decoded = from_mapping(CognitionPlanV1, payload)
+        self.assertEqual(decoded, plan)
+        validate_cognition_plan(decoded, turn=_turn(), context=_context())
+
+    def test_observer_frame_rejects_only_an_exact_duplicate_fact(self) -> None:
+        decision = _decision(CharacterAutonomyMode.BOTH)
+        fact = decision.observer_frame.directly_perceived[0]
+        with self.assertRaisesRegex(ContractValidationError, "duplicate facts"):
+            replace(
+                decision.observer_frame,
+                directly_perceived=(fact, fact),
+            )
+
     def test_material_item_requires_exactly_one_decision_link(self) -> None:
         plan = replace(_plan(), decision_item_links=())
         with self.assertRaisesRegex(ContractValidationError, "lack decision links"):

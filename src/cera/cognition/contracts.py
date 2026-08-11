@@ -126,8 +126,18 @@ class ObserverFrameV1:
     draft_local_predecessor_item_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        refs = tuple(value.source_ref for value in self.directly_perceived)
-        _unique(refs, "observer_frame.directly_perceived")
+        fact_keys = tuple(
+            (
+                value.source_ref,
+                value.concise_perception,
+                value.certainty.value,
+            )
+            for value in self.directly_perceived
+        )
+        if len(fact_keys) != len(set(fact_keys)):
+            raise ContractValidationError(
+                "observer_frame.directly_perceived contains duplicate facts"
+            )
         for field in ("inferred_meanings", "unavailable_or_ambiguous"):
             values = getattr(self, field)
             _unique(values, f"observer_frame.{field}")

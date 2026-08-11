@@ -23,6 +23,7 @@ from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.pi_scene.context import initial_hanezawa_doorway_seed
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.full_model_runtime import (
+    COGNITION_THREAD_COMPATIBILITY_SCHEMA,
     BranchBoundCognitionPlannerBackend,
     cognition_thread_compatibility_sha256,
 )
@@ -426,6 +427,10 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 (backends[1].route.reasoning_effort, backends[1].route.timeout_seconds),
                 ("xhigh", 600),
             )
+            self.assertEqual(
+                backends[1].route.route_id,
+                "cera_pi_scene_cognition_gpt-5.6-sol_xhigh_v2",
+            )
             self.assertNotEqual(
                 backends[0].world_mcp_factory.workspace.world_id,
                 backends[1].world_mcp_factory.workspace.world_id,
@@ -458,6 +463,10 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                     branch_id=separate.branch_id,
                 ).generation,
                 1,
+            )
+            self.assertEqual(
+                COGNITION_THREAD_COMPATIBILITY_SCHEMA,
+                "cera.pi_scene.cognition_thread_compatibility.v3",
             )
             self.assertEqual(len(cognition_thread_compatibility_sha256()), 64)
 

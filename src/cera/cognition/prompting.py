@@ -7,7 +7,7 @@ from cera.serialization import canonical_json
 
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v3"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v4"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
@@ -29,6 +29,10 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     "involuntary body response from conscious interpretation and subconscious "
     "pressure, apply the supplied global autonomy mode, compare only genuinely "
     "plausible alternatives, select intent, then advance candidate-local state. "
+    "In observer_frame.directly_perceived, author one row per distinct perceived "
+    "fact. The same source_ref may support multiple rows when concise_perception "
+    "or certainty differs, but never repeat the exact same source_ref, "
+    "concise_perception, and certainty row. "
     "Reevaluate remaining actors after every material action. Qualitative "
     "pressure levels are exactly none, low, moderate, high, or overwhelming; "
     "never invent decimal psychology. A decision record is required for each "
