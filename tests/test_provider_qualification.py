@@ -38,6 +38,7 @@ from cera.providers import (
 )
 from cera.providers.codex import (
     CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+    CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
     _codex_transport_json,
     _SubprocessCodexRunner,
 )
@@ -1178,6 +1179,64 @@ class ProviderQualificationTests(unittest.TestCase):
                     runner=StaticCodexRunner(),
                     mcp_observation_policy="cera.codex_mcp_observation.unknown.v1",
                 )
+
+    def test_codex_mcp_observation_policy_rejects_post_construction_tamper(
+        self,
+    ) -> None:
+        observations = (
+            ("node_repl", "js"),
+            ("cera_request_evidence", "cera_get_turn_snapshot"),
+        )
+
+        def transport_at(path: Path) -> CodexSDKTransport:
+            return CodexSDKTransport(
+                codex_route(),
+                workspace=path,
+                runner=StaticCodexRunner(
+                    mcp_server_names=tuple(value[0] for value in observations),
+                    mcp_tool_names=tuple(value[1] for value in observations),
+                    operation_telemetry=codex_operation_telemetry(
+                        observations,
+                        ("completed", "completed"),
+                    ),
+                ),
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = transport_at(Path(temporary))
+            self.assertEqual(
+                transport.mcp_observation_policy,
+                CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
+            )
+            with self.assertRaises(AttributeError):
+                transport.mcp_observation_policy = "arbitrary"  # type: ignore[misc]
+            with self.assertRaises(ProviderTransportError) as still_strict:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=codex_mcp_binding(maximum_tool_calls=2),
+                )
+        self.assertEqual(still_strict.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertIsNone(still_strict.exception.retryable_failure_category)
+        self.assertIsNotNone(still_strict.exception.provider_call_receipt)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = transport_at(Path(temporary))
+            transport._mcp_observation_policy = "arbitrary"
+            with self.assertRaises(ProviderTransportError) as private_tamper:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=codex_mcp_binding(maximum_tool_calls=2),
+                )
+        failure = private_tamper.exception
+        self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertEqual(failure.safe_diagnostics, ("mcp:observation_policy_invalid",))
+        self.assertIsNone(failure.retryable_failure_category)
+        self.assertEqual(failure.external_provider_calls_observed, 1)
+        self.assertIsNotNone(failure.provider_call_receipt)
+        self.assertEqual(failure.mcp_tool_call_count, 2)
+        self.assertEqual(failure.mcp_failed_tool_call_count, 0)
 
     def test_codex_mcp_binding_is_loopback_allow_listed_and_secret_safe(self) -> None:
         binding = codex_mcp_binding()

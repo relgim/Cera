@@ -304,6 +304,8 @@ class CodexTransportRunner(Protocol):
 
 
 class CodexSDKTransport:
+    __slots__ = ("route", "workspace", "runner", "_mcp_observation_policy")
+
     def __init__(
         self,
         route: LiveProviderRoute,
@@ -323,7 +325,11 @@ class CodexSDKTransport:
         self.route = route
         self.workspace = workspace
         self.runner = runner or _SubprocessCodexRunner()
-        self.mcp_observation_policy = mcp_observation_policy
+        self._mcp_observation_policy = mcp_observation_policy
+
+    @property
+    def mcp_observation_policy(self) -> str:
+        return self._mcp_observation_policy
 
     def external_provider_boundary_active(self) -> bool:
         """Return whether the bound runner owns a concrete provider process."""
@@ -599,6 +605,19 @@ class CodexSDKTransport:
         result: CodexWorkerResult,
         binding: CodexMcpRuntimeBinding | None,
     ) -> _CodexMcpObservationProjection:
+        if self._mcp_observation_policy == CODEX_MCP_OBSERVATION_POLICY_STRICT_V1:
+            validation_policy = self._validate_strict_mcp_observations
+        elif (
+            self._mcp_observation_policy
+            == CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
+        ):
+            validation_policy = self._validate_code_mode_mcp_observations
+        else:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "Codex MCP observation policy changed after construction",
+                safe_diagnostics=("mcp:observation_policy_invalid",),
+            )
         if binding is None:
             if result.mcp_tool_call_count:
                 raise ProviderTransportError(
@@ -606,9 +625,7 @@ class CodexSDKTransport:
                     "Codex used an MCP tool without a request-bound bridge",
                 )
             return _CodexMcpObservationProjection((), (), 0, 0)
-        if self.mcp_observation_policy == CODEX_MCP_OBSERVATION_POLICY_STRICT_V1:
-            return self._validate_strict_mcp_observations(result, binding)
-        return self._validate_code_mode_mcp_observations(result, binding)
+        return validation_policy(result, binding)
 
     @staticmethod
     def _validate_strict_mcp_observations(
