@@ -1815,6 +1815,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             return OfflineSubprocessCodexRunner(
                 worker_module="tests.fixtures.codex_stage_matrix_worker",
                 provider_thread_id="fixture-thread",
+                base_instructions=PLANNER_STABLE_INSTRUCTIONS,
             ).run(
                 route=route,
                 prompt=json.dumps(control, sort_keys=True),
@@ -1874,6 +1875,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             runner = OfflineSubprocessCodexRunner(
                 worker_module="tests.fixtures.codex_stage_matrix_worker",
                 provider_thread_id="fixture-thread",
+                base_instructions=PLANNER_STABLE_INSTRUCTIONS,
             )
             with self.assertRaises(ProviderTransportError):
                 ledger.execute(
