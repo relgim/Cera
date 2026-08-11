@@ -605,6 +605,16 @@ class _RecorderBindingCrashPort:
         raise OSError("simulated crash before Recorder continuation receipt")
 
 
+class _UninvokedReaderValidator:
+    def validate(
+        self,
+        request: ReaderValidationRequestV1,
+        custody: ReaderValidationCustodyV1,
+    ) -> BoundReaderValidationV1:
+        del request, custody
+        raise AssertionError("prepared Reader lane must remain uninvoked")
+
+
 class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = TemporaryDirectory()
@@ -2768,6 +2778,160 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(retired.disposition, "completed")
         self.assertEqual(declined.review.state, "declined")
+
+    def test_writer_frozen_review_binds_prepared_uninvoked_sibling_lanes(self) -> None:
+        typed_plan = _plan()
+        character_ids = typed_plan.sequence.responding_character_ids or tuple(
+            dict.fromkeys(decision.owner_id for decision in typed_plan.decision_records)
+        )
+        base_context = _context()
+        context = _context(
+            turn_input=replace(
+                base_context.turn_input,
+                characters={
+                    character_id: {"name": character_id.partition(":")[2]}
+                    for character_id in character_ids
+                },
+            )
+        )
+        plan = to_primitive(typed_plan)
+        planner_result = PlannerTurnOutputV1(
+            sequence=plan["sequence"],
+            decision_bundle=plan,
+            provider_operations=1,
+        )
+        self.factories[ProviderStage.PLANNER].initial_outcome_from_input = lambda _exact_input: (
+            _success(
+                "prepared-lanes-planner",
+                serialize_planner_result(planner_result),
+            )
+        )
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "prepared-lanes-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "prepared-lanes-writer",
+                    )
+                ),
+            )
+        )
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "prepared-lanes-world")
+        review_root = self.root / "prepared-lanes-reviews"
+        views = WriterViewMaterializer(self.root / "prepared-lanes-views")
+        reader_validator = _UninvokedReaderValidator()
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            reader_validator=reader_validator,
+            ordinary_stage_retry=self.integration,
+        )
+
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            review_identity = self.integration.bind_review_request(review)
+
+        self.assertEqual(review.review_phase.value, "writer_frozen")
+        binding = review.validation_input_binding
+        self.assertIsNotNone(binding)
+        assert binding is not None
+        self.assertIsNotNone(binding.luna_chain_id)
+        self.assertIsNotNone(binding.reader_chain_id)
+        assert binding.luna_chain_id is not None
+        assert binding.reader_chain_id is not None
+        self.assertEqual(review_identity.request_id, context.binding.request_id)
+        _, recovered_context, counts = self.integration.pending_request_for_review(review.review_id)
+        self.assertEqual(recovered_context.binding.request_id, context.binding.request_id)
+        self.assertEqual(
+            counts,
+            {
+                ProviderStage.PLANNER: 1,
+                ProviderStage.WRITER: 1,
+                ProviderStage.SEMANTIC_VALIDATOR: 1,
+                ProviderStage.READER: 1,
+                ProviderStage.RECORDER: 0,
+            },
+        )
+        self.assertEqual(self.counts.by_stage[ProviderStage.PLANNER], 1)
+        self.assertEqual(self.counts.by_stage[ProviderStage.WRITER], 1)
+        self.assertEqual(self.counts.by_stage[ProviderStage.SEMANTIC_VALIDATOR], 0)
+        self.assertEqual(self.counts.by_stage[ProviderStage.READER], 0)
+        cursor_path = (
+            self.custody.latest_chains_root
+            / f"{context.binding.request_id.removeprefix('request-')}.json"
+        )
+        cursor = json.loads(cursor_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            [entry["stage"] for entry in cursor["entries"]],
+            [ProviderStage.PLANNER.value, ProviderStage.WRITER.value],
+        )
+        planner_chain_id = cursor["entries"][0]["chain_id"]
+        writer_chain_id = cursor["entries"][1]["chain_id"]
+        self.assertNotIn(
+            binding.luna_chain_id,
+            {entry["chain_id"] for entry in cursor["entries"]},
+        )
+        self.assertNotIn(
+            binding.reader_chain_id,
+            {entry["chain_id"] for entry in cursor["entries"]},
+        )
+        latest = self.custody.latest_chain_for_chain(planner_chain_id)
+        self.assertEqual(latest.chain_id, writer_chain_id)
+        for chain_id in (binding.luna_chain_id, binding.reader_chain_id):
+            envelope = self.integration.status(chain_id)
+            self.assertEqual(envelope["status"]["state"], "in_progress")
+            self.assertEqual(
+                envelope["status"]["available_actions"],
+                ["resume_prepared"],
+            )
+            self.assertEqual(envelope["status"]["stage_attempts_total"], 1)
+            self.assertEqual(
+                envelope["status"]["provider_operations_observed_total"],
+                0,
+            )
+            self.assertEqual(
+                envelope["status"]["provider_operations_conservative_total"],
+                0,
+            )
+
+        calls_before_restart = dict(self.counts.by_stage)
+        self._restart_runtime()
+        restarted = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            reader_validator=reader_validator,
+            ordinary_stage_retry=self.integration,
+        )
+        recovered_review = restarted.get_review(review.review_id, reconcile=False)
+        self.assertEqual(recovered_review.validation_input_binding, binding)
+        self.assertEqual(recovered_review.review_phase.value, "writer_frozen")
+        _, restarted_context, restarted_counts = self.integration.pending_request_for_review(
+            review.review_id
+        )
+        self.assertEqual(restarted_context.binding.request_id, context.binding.request_id)
+        self.assertEqual(restarted_counts, counts)
+        self.assertEqual(self.counts.by_stage, calls_before_restart)
+        restarted_latest = self.custody.latest_chain_for_chain(planner_chain_id)
+        self.assertEqual(restarted_latest.chain_id, latest.chain_id)
+        for chain_id in (binding.luna_chain_id, binding.reader_chain_id):
+            envelope = self.integration.status(chain_id)
+            self.assertEqual(envelope["status"]["state"], "in_progress")
+            self.assertEqual(
+                envelope["status"]["available_actions"],
+                ["resume_prepared"],
+            )
+            self.assertEqual(
+                envelope["status"]["provider_operations_observed_total"],
+                0,
+            )
 
     def test_pi_result_codec_preserves_path_and_receipt(self) -> None:
         invocation = _writer_invocation(self.root, "candidate-codec")

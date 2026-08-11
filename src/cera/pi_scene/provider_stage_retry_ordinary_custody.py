@@ -60,6 +60,53 @@ _LEGACY_ORDINARY_STAGE_VALUES = (
 )
 
 
+def _ordinary_stage_retry_identity_hashes(
+    *,
+    world_id: str,
+    branch_id: str,
+    request_id: str,
+    generation_id: str,
+    stage: str,
+    stage_ordinal: int,
+) -> tuple[str, str, str]:
+    """Rebuild the canonical scope hashes needed to verify custody indexes.
+
+    These domains intentionally mirror ``ProviderStageRetryOccurrenceScopeV1``
+    and ``ProviderStageRetryIdentityV1.logical_key_sha256``.  The protected
+    occurrence index does not retain the full scope, so readback must derive
+    the same identities from its pending request custody.
+    """
+
+    request_sha256 = domain_sha256(
+        "cera.provider_stage_retry_request_identity.v1",
+        {
+            "world_id": world_id,
+            "branch_id": branch_id,
+            "request_id": request_id,
+            "generation_id": generation_id,
+        },
+    )
+    request_occurrence_sha256 = domain_sha256(
+        "cera.provider_stage_retry_occurrence.v1",
+        {
+            "world_id": world_id,
+            "branch_id": branch_id,
+            "request_id": request_id,
+            "generation_id": generation_id,
+            "stage": stage,
+            "stage_ordinal": stage_ordinal,
+        },
+    )
+    chain_id = "stage-retry-" + domain_sha256(
+        "cera.provider_stage_retry_logical_key.v1",
+        {
+            "stage": stage,
+            "request_occurrence_sha256": request_occurrence_sha256,
+        },
+    )
+    return request_sha256, request_occurrence_sha256, chain_id
+
+
 def _require_sha256(value: str, field_name: str) -> None:
     if not isinstance(value, str) or not re_is_sha256(value):
         raise ContractValidationError(f"ordinary protected custody {field_name} is invalid")
@@ -1469,17 +1516,155 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
     def stage_occurrence_counts(self, request_id: str) -> dict[str, int]:
         """Return durable per-stage occurrence maxima for one request."""
 
-        receipt = self.request_receipt(request_id)
-        payload = self._read_json(self._latest_chain_path(request_id))
-        entries = self._verify_latest_chain_payload(
-            payload,
+        pending = self.load_request(request_id)
+        cursor_payload = self._read_json(self._latest_chain_path(request_id))
+        cursor_entries = self._verify_latest_chain_payload(
+            cursor_payload,
             request_id=request_id,
-            context_sha256=receipt.context_sha256,
+            context_sha256=pending.context_sha256,
         )
+        expected_generation_id = f"generation-{pending.generation:08d}"
+        occurrences: dict[tuple[str, int], dict[str, Any]] = {}
+        occurrence_request_hashes: dict[tuple[str, int], tuple[str, str]] = {}
+        for path in self.occurrences_root.glob("*.json"):
+            occurrence = self._verify_occurrence_binding(path)
+            identity = occurrence["identity"]
+            if identity["request_id"] != request_id:
+                # A shared custody root may contain several exact requests.
+                # Verify foreign record/hash/key/stage/chain-context integrity
+                # above, but do not mix its ordinal into this request's
+                # immutable accounting. Request-specific derivation below is
+                # possible only for the pending request being counted.
+                continue
+            request_sha256, request_occurrence_sha256, expected_chain_id = (
+                _ordinary_stage_retry_identity_hashes(
+                    world_id=pending.binding.world_id,
+                    branch_id=pending.binding.branch_id,
+                    request_id=request_id,
+                    generation_id=identity["generation_id"],
+                    stage=identity["stage"],
+                    stage_ordinal=identity["stage_ordinal"],
+                )
+            )
+            if (
+                identity["generation_id"] != expected_generation_id
+                or occurrence["context_sha256"] != pending.context_sha256
+                or occurrence["chain_id"] != expected_chain_id
+            ):
+                raise StateConflictError(
+                    "ordinary stage occurrence changed request generation, context, or identity"
+                )
+            key = (identity["stage"], identity["stage_ordinal"])
+            if key in occurrences:
+                raise StateConflictError("ordinary stage occurrence identity was duplicated")
+            occurrences[key] = occurrence
+            occurrence_request_hashes[key] = (
+                request_sha256,
+                request_occurrence_sha256,
+            )
+
+        # The latest-chain file remains the linear semantic cursor. Luna and
+        # Reader review lanes are concurrent siblings and intentionally never
+        # enter it, but every cursor entry must still be backed by the same
+        # verified occurrence binding.
+        for entry in cursor_entries:
+            key = (entry["stage"], entry["stage_ordinal"])
+            cursor_occurrence = occurrences.get(key)
+            hashes = occurrence_request_hashes.get(key)
+            if (
+                cursor_occurrence is None
+                or hashes is None
+                or cursor_occurrence["chain_id"] != entry["chain_id"]
+                or entry["request_sha256"] != hashes[0]
+                or entry["request_occurrence_sha256"] != hashes[1]
+            ):
+                raise StateConflictError("ordinary latest chain lost its stage occurrence binding")
+
         counts = {stage: 0 for stage in _ORDINARY_STAGE_VALUES}
-        for entry in entries:
-            counts[entry["stage"]] = entry["stage_ordinal"]
+        for stage in _ORDINARY_STAGE_VALUES:
+            ordinals = sorted(
+                ordinal for (bound_stage, ordinal) in occurrences if bound_stage == stage
+            )
+            if ordinals and ordinals != list(range(1, ordinals[-1] + 1)):
+                raise StateConflictError("ordinary stage occurrence ordinals are not contiguous")
+            counts[stage] = 0 if not ordinals else ordinals[-1]
         return counts
+
+    def _verify_occurrence_binding(self, path: Path) -> dict[str, Any]:
+        """Verify one content-free stage-occurrence index record."""
+
+        payload = self._read_json(path)
+        expected = {
+            "schema_version",
+            "occurrence_key",
+            "identity",
+            "chain_id",
+            "scope_sha256",
+            "context_sha256",
+            "occurrence_binding_sha256",
+        }
+        if set(payload) != expected or payload.get("schema_version") != (
+            self.OCCURRENCE_SCHEMA_VERSION
+        ):
+            raise StateConflictError("ordinary stage occurrence binding shape changed")
+        unsigned = {
+            key: value for key, value in payload.items() if key != "occurrence_binding_sha256"
+        }
+        binding_sha256 = payload.get("occurrence_binding_sha256")
+        if not isinstance(binding_sha256, str) or (
+            not re_is_sha256(binding_sha256) or canonical_sha256(unsigned) != binding_sha256
+        ):
+            raise StateConflictError("ordinary stage occurrence binding hash changed")
+
+        identity = payload.get("identity")
+        if not isinstance(identity, dict) or set(identity) != {
+            "request_id",
+            "generation_id",
+            "stage",
+            "stage_ordinal",
+        }:
+            raise StateConflictError("ordinary stage occurrence identity changed")
+        request_id = identity.get("request_id")
+        generation_id = identity.get("generation_id")
+        stage = identity.get("stage")
+        stage_ordinal = identity.get("stage_ordinal")
+        chain_id = payload.get("chain_id")
+        scope_sha256 = payload.get("scope_sha256")
+        context_sha256 = payload.get("context_sha256")
+        if (
+            not isinstance(request_id, str)
+            or not isinstance(generation_id, str)
+            or not isinstance(stage, str)
+            or not isinstance(chain_id, str)
+            or not isinstance(scope_sha256, str)
+            or not isinstance(context_sha256, str)
+        ):
+            raise StateConflictError("ordinary stage occurrence identity changed")
+        try:
+            _require_request_id(request_id)
+            _require_identifier(generation_id, "occurrence generation ID")
+            _require_chain_id(chain_id)
+            _require_sha256(scope_sha256, "occurrence scope hash")
+            _require_sha256(context_sha256, "occurrence context hash")
+        except ContractValidationError as exc:
+            raise StateConflictError("ordinary stage occurrence identity changed") from exc
+        if (
+            stage not in _ORDINARY_STAGE_VALUES
+            or type(stage_ordinal) is not int
+            or stage_ordinal < 1
+        ):
+            raise StateConflictError("ordinary stage occurrence identity changed")
+
+        occurrence_key = domain_sha256(
+            "cera.ordinary_stage_retry_occurrence_key.v1",
+            identity,
+        )
+        if payload.get("occurrence_key") != occurrence_key or path.name != f"{occurrence_key}.json":
+            raise StateConflictError("ordinary stage occurrence key changed")
+        chain = self.chain_context(chain_id)
+        if chain.request_id != request_id or chain.context_sha256 != context_sha256:
+            raise StateConflictError("ordinary stage occurrence changed its chain link")
+        return payload
 
     def require_review_stage_occurrences(
         self,

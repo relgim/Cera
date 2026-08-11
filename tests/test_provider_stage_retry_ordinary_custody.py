@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 from cera.errors import StateConflictError
 from cera.pi_scene.provider_stage_retry import ProviderStage
@@ -17,7 +19,13 @@ from cera.pi_scene.provider_stage_retry_ordinary_custody import (
 from cera.pi_scene.provider_stage_retry_scope import (
     ProviderStageRetryOccurrenceScopeV1,
 )
-from cera.serialization import canonical_sha256, text_sha256, to_primitive
+from cera.serialization import (
+    canonical_bytes,
+    canonical_sha256,
+    domain_sha256,
+    text_sha256,
+    to_primitive,
+)
 
 from .test_provider_stage_retry_ordinary import _context, _payload
 
@@ -42,15 +50,106 @@ class ProtectedOrdinaryStageRetryCustodyTests(unittest.TestCase):
         ProtectedOrdinaryCustodyReceiptV1,
     ]:
         context = _context()
-        receipt = self.store.freeze_request(
-            normalized_request=_payload(),
+        return context, self._freeze_in(self.store, context)
+
+    @staticmethod
+    def _freeze_in(
+        store: ProtectedOrdinaryStageRetryCustodyStoreV1,
+        context: OrdinaryStageRetryRequestContextV1,
+        *,
+        payload: dict[str, object] | None = None,
+    ) -> ProtectedOrdinaryCustodyReceiptV1:
+        return store.freeze_request(
+            normalized_request=_payload() if payload is None else payload,
             binding=context.binding,
             generation=context.generation,
             turn_input=context.turn_input,
             retrieval_snapshot=context.planner_retrieval.retrieval_snapshot,
             tool_result_bundle=context.planner_retrieval.tool_result_bundle,
         )
-        return context, receipt
+
+    @staticmethod
+    def _scope(
+        context: OrdinaryStageRetryRequestContextV1,
+        stage: ProviderStage,
+        ordinal: int,
+    ) -> ProviderStageRetryOccurrenceScopeV1:
+        return ProviderStageRetryOccurrenceScopeV1.create(
+            world_id=context.binding.world_id,
+            branch_id=context.binding.branch_id,
+            request_id=context.binding.request_id,
+            generation_id=context.generation_id,
+            stage=stage,
+            stage_ordinal=ordinal,
+            accepted_state_sha256=text_sha256(f"accepted-state:{stage.value}:{ordinal}"),
+            exact_input=f"frozen-packet:{stage.value}:{ordinal}".encode(),
+            authority_binding={"stage": stage.value, "ordinal": ordinal},
+        )
+
+    @staticmethod
+    def _bind_scope(
+        store: ProtectedOrdinaryStageRetryCustodyStoreV1,
+        scope: ProviderStageRetryOccurrenceScopeV1,
+        *,
+        context_sha256: str,
+        advance_cursor: bool,
+    ) -> None:
+        store.bind_occurrence(scope=scope, context_sha256=context_sha256)
+        store.bind_chain(
+            chain_id=scope.identity.chain_id,
+            request_id=scope.request_id,
+            context_sha256=context_sha256,
+        )
+        if advance_cursor:
+            store.advance_latest_chain(scope=scope, context_sha256=context_sha256)
+
+    @staticmethod
+    def _occurrence_path(
+        store: ProtectedOrdinaryStageRetryCustodyStoreV1,
+        scope: ProviderStageRetryOccurrenceScopeV1,
+    ) -> Path:
+        occurrence_key = domain_sha256(
+            "cera.ordinary_stage_retry_occurrence_key.v1",
+            {
+                "request_id": scope.request_id,
+                "generation_id": scope.generation_id,
+                "stage": scope.stage.value,
+                "stage_ordinal": scope.stage_ordinal,
+            },
+        )
+        return store.occurrences_root / f"{occurrence_key}.json"
+
+    @staticmethod
+    def _read_payload(path: Path) -> dict[str, Any]:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)
+        return payload
+
+    @staticmethod
+    def _write_payload(path: Path, payload: dict[str, Any]) -> None:
+        path.write_bytes(canonical_bytes(payload))
+
+    @classmethod
+    def _rehash_occurrence(
+        cls,
+        path: Path,
+        payload: dict[str, Any],
+    ) -> Path:
+        identity = payload["identity"]
+        occurrence_key = domain_sha256(
+            "cera.ordinary_stage_retry_occurrence_key.v1",
+            identity,
+        )
+        payload["occurrence_key"] = occurrence_key
+        unsigned = {
+            key: value for key, value in payload.items() if key != "occurrence_binding_sha256"
+        }
+        payload["occurrence_binding_sha256"] = canonical_sha256(unsigned)
+        rewritten = path.parent / f"{occurrence_key}.json"
+        cls._write_payload(rewritten, payload)
+        if rewritten != path:
+            path.unlink()
+        return rewritten
 
     def test_restart_recovers_exact_request_turn_and_chain_context(self) -> None:
         context, receipt = self._freeze()
@@ -258,6 +357,224 @@ class ProtectedOrdinaryStageRetryCustodyTests(unittest.TestCase):
             context_sha256=receipt.context_sha256,
         )
         self.assertEqual(replay.chain_id, scopes[-1].identity.chain_id)
+
+    def test_occurrence_counts_add_sibling_lanes_without_advancing_linear_cursor(
+        self,
+    ) -> None:
+        context, receipt = self._freeze()
+        planner = self._scope(context, ProviderStage.PLANNER, 1)
+        writer = self._scope(context, ProviderStage.WRITER, 1)
+        semantic = self._scope(context, ProviderStage.SEMANTIC_VALIDATOR, 1)
+        reader = self._scope(context, ProviderStage.READER, 1)
+        for stage_scope in (planner, writer):
+            self._bind_scope(
+                self.store,
+                stage_scope,
+                context_sha256=receipt.context_sha256,
+                advance_cursor=True,
+            )
+        for stage_scope in (semantic, reader):
+            self._bind_scope(
+                self.store,
+                stage_scope,
+                context_sha256=receipt.context_sha256,
+                advance_cursor=False,
+            )
+
+        foreign_context = _context(
+            world_id="world-foreign-custody",
+            branch_id="branch-foreign-custody",
+        )
+        foreign_receipt = self._freeze_in(self.store, foreign_context)
+        foreign_planner = self._scope(foreign_context, ProviderStage.PLANNER, 1)
+        self._bind_scope(
+            self.store,
+            foreign_planner,
+            context_sha256=foreign_receipt.context_sha256,
+            advance_cursor=True,
+        )
+
+        expected = {
+            ProviderStage.PLANNER.value: 1,
+            ProviderStage.WRITER.value: 1,
+            ProviderStage.SEMANTIC_VALIDATOR.value: 1,
+            ProviderStage.READER.value: 1,
+            ProviderStage.RECORDER.value: 0,
+        }
+        self.assertEqual(
+            self.store.stage_occurrence_counts(context.binding.request_id),
+            expected,
+        )
+        self.assertEqual(
+            self.store.latest_chain_for_chain(planner.identity.chain_id).chain_id,
+            writer.identity.chain_id,
+        )
+
+        restarted = ProtectedOrdinaryStageRetryCustodyStoreV1(self.root)
+        self.assertEqual(
+            restarted.stage_occurrence_counts(context.binding.request_id),
+            expected,
+        )
+        self.assertEqual(
+            restarted.latest_chain_for_chain(planner.identity.chain_id).chain_id,
+            writer.identity.chain_id,
+        )
+
+    def test_occurrence_counts_fail_closed_when_cursor_occurrence_is_missing(self) -> None:
+        context, receipt = self._freeze()
+        planner = self._scope(context, ProviderStage.PLANNER, 1)
+        writer = self._scope(context, ProviderStage.WRITER, 1)
+        for stage_scope in (planner, writer):
+            self._bind_scope(
+                self.store,
+                stage_scope,
+                context_sha256=receipt.context_sha256,
+                advance_cursor=True,
+            )
+        self._occurrence_path(self.store, writer).unlink()
+
+        with self.assertRaisesRegex(StateConflictError, "lost its stage occurrence"):
+            self.store.stage_occurrence_counts(context.binding.request_id)
+
+    def test_occurrence_counts_require_positive_contiguous_sibling_ordinals(self) -> None:
+        context, receipt = self._freeze()
+        planner = self._scope(context, ProviderStage.PLANNER, 1)
+        reader_two = self._scope(context, ProviderStage.READER, 2)
+        self._bind_scope(
+            self.store,
+            planner,
+            context_sha256=receipt.context_sha256,
+            advance_cursor=True,
+        )
+        self._bind_scope(
+            self.store,
+            reader_two,
+            context_sha256=receipt.context_sha256,
+            advance_cursor=False,
+        )
+
+        with self.assertRaisesRegex(StateConflictError, "ordinals are not contiguous"):
+            self.store.stage_occurrence_counts(context.binding.request_id)
+
+    def test_occurrence_verification_rejects_rehashed_identity_relabels(self) -> None:
+        cases: tuple[tuple[str, str, object], ...] = (
+            ("request", "request_id", f"request-{text_sha256('foreign-request')}"),
+            ("generation", "generation_id", "generation-00000002"),
+            ("stage", "stage", ProviderStage.WRITER.value),
+            ("ordinal", "stage_ordinal", 2),
+            ("invalid-stage", "stage", "not-a-provider-stage"),
+            ("nonpositive-ordinal", "stage_ordinal", 0),
+        )
+        for label, field_name, replacement in cases:
+            with self.subTest(label=label):
+                store = ProtectedOrdinaryStageRetryCustodyStoreV1(self.root / label)
+                context = _context()
+                receipt = self._freeze_in(store, context)
+                planner = self._scope(context, ProviderStage.PLANNER, 1)
+                self._bind_scope(
+                    store,
+                    planner,
+                    context_sha256=receipt.context_sha256,
+                    advance_cursor=True,
+                )
+                path = self._occurrence_path(store, planner)
+                payload = self._read_payload(path)
+                payload["identity"][field_name] = replacement
+                self._rehash_occurrence(path, payload)
+
+                with self.assertRaises(StateConflictError):
+                    store.stage_occurrence_counts(context.binding.request_id)
+
+    def test_occurrence_verification_rejects_key_hash_context_and_chain_tampering(
+        self,
+    ) -> None:
+        for label in ("filename", "key", "binding-hash", "context", "chain"):
+            with self.subTest(label=label):
+                store = ProtectedOrdinaryStageRetryCustodyStoreV1(self.root / label)
+                context = _context()
+                receipt = self._freeze_in(store, context)
+                planner = self._scope(context, ProviderStage.PLANNER, 1)
+                self._bind_scope(
+                    store,
+                    planner,
+                    context_sha256=receipt.context_sha256,
+                    advance_cursor=True,
+                )
+                path = self._occurrence_path(store, planner)
+                payload = self._read_payload(path)
+                if label == "filename":
+                    path.rename(path.parent / f"{text_sha256('wrong-filename')}.json")
+                elif label == "key":
+                    payload["occurrence_key"] = text_sha256("wrong-occurrence-key")
+                    unsigned = {
+                        key: value
+                        for key, value in payload.items()
+                        if key != "occurrence_binding_sha256"
+                    }
+                    payload["occurrence_binding_sha256"] = canonical_sha256(unsigned)
+                    self._write_payload(path, payload)
+                elif label == "binding-hash":
+                    payload["scope_sha256"] = text_sha256("changed-scope")
+                    self._write_payload(path, payload)
+                elif label == "context":
+                    payload["context_sha256"] = text_sha256("changed-context")
+                    self._rehash_occurrence(path, payload)
+                else:
+                    other_chain_id = _chain_id("other-bound-chain")
+                    store.bind_chain(
+                        chain_id=other_chain_id,
+                        request_id=context.binding.request_id,
+                        context_sha256=receipt.context_sha256,
+                    )
+                    payload["chain_id"] = other_chain_id
+                    self._rehash_occurrence(path, payload)
+
+                with self.assertRaises(StateConflictError):
+                    store.stage_occurrence_counts(context.binding.request_id)
+
+    def test_occurrence_counts_cross_check_cursor_request_hashes_and_chain(self) -> None:
+        for field_name in (
+            "request_sha256",
+            "request_occurrence_sha256",
+            "chain_id",
+        ):
+            with self.subTest(field_name=field_name):
+                store = ProtectedOrdinaryStageRetryCustodyStoreV1(
+                    self.root / f"cursor-{field_name}"
+                )
+                context = _context()
+                receipt = self._freeze_in(store, context)
+                planner = self._scope(context, ProviderStage.PLANNER, 1)
+                self._bind_scope(
+                    store,
+                    planner,
+                    context_sha256=receipt.context_sha256,
+                    advance_cursor=True,
+                )
+                cursor_path = (
+                    store.latest_chains_root
+                    / f"{context.binding.request_id.removeprefix('request-')}.json"
+                )
+                payload = self._read_payload(cursor_path)
+                if field_name == "chain_id":
+                    replacement = _chain_id("other-cursor-chain")
+                    store.bind_chain(
+                        chain_id=replacement,
+                        request_id=context.binding.request_id,
+                        context_sha256=receipt.context_sha256,
+                    )
+                    payload["latest_chain_id"] = replacement
+                else:
+                    replacement = text_sha256(f"changed-{field_name}")
+                payload["entries"][0][field_name] = replacement
+                unsigned = {
+                    key: value for key, value in payload.items() if key != "latest_chain_sha256"
+                }
+                payload["latest_chain_sha256"] = canonical_sha256(unsigned)
+                self._write_payload(cursor_path, payload)
+
+                with self.assertRaisesRegex(StateConflictError, "lost its stage occurrence"):
+                    store.stage_occurrence_counts(context.binding.request_id)
 
 
 if __name__ == "__main__":
