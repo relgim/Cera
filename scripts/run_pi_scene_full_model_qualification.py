@@ -60,6 +60,7 @@ from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+    QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
@@ -67,12 +68,14 @@ from cera.pi_scene.qualification import (
     FullModelQualificationRunner,
     ManualActionRequiredError,
     QualificationFixtureV1,
+    QualificationFixtureV2,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
     build_qualification_manifest,
     load_qualification_fixtures,
     load_qualification_manifest,
+    qualification_fixture_manifest_metadata,
     verify_qualification_artifacts,
     write_qualification_manifest,
 )
@@ -96,7 +99,8 @@ from scripts.run_pi_scene_lean_server import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v1.json"
+LEGACY_FIXTURES_V1 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v1.json"
+DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v2.json"
 PI_PACKAGE_ROOT = Path(
     r"C:\Users\Ted\AppData\Roaming\npm\node_modules\@earendil-works\pi-coding-agent"
 )
@@ -452,7 +456,10 @@ def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
             Path("pyproject.toml"),
             Path("integrations/sillytavern/pi_scene_lean_v1_profile.json"),
         ),
-        "fixtures": (relative_fixture,),
+        "fixtures": (
+            relative_fixture,
+            Path("evaluation/fixtures/pi_scene_full_model_qualification_v1.json"),
+        ),
         "genesis": (Path("genesis/packages"),),
         "adult_craft": (Path("adult/catalog/adult_craft_v1"),),
     }
@@ -1144,11 +1151,19 @@ def freeze(
     fixture_path: Path,
     qualification_id: str,
     sillytavern_source: Path,
+    spent_manifest_paths: tuple[Path, ...] = (),
 ) -> dict[str, Any]:
     root = output_root.resolve()
     _preflight_runtime_path_budget(root)
     if root.exists():
         raise StateConflictError("qualification output root already exists")
+    fixtures = load_qualification_fixtures(fixture_path)
+    if not fixtures or not all(isinstance(value, QualificationFixtureV2) for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v2")
+    spent_manifests = _load_spent_qualification_manifests(
+        output_root=root,
+        explicit_paths=spent_manifest_paths,
+    )
     _assert_clean_exact_repository(ROOT)
     commit = _git("rev-parse", "HEAD")
     tree = _git("rev-parse", "HEAD^{tree}")
@@ -1170,10 +1185,60 @@ def freeze(
         fixture_path=fixture_path,
         repository_artifacts=_repository_artifacts(fixture_path),
         external_artifacts=_external_artifacts(isolated_root),
+        spent_manifests=spent_manifests,
     )
     write_qualification_manifest(root / "QUALIFICATION_MANIFEST.json", manifest)
     verify_qualification_artifacts(manifest, repository_root=ROOT)
     return manifest
+
+
+def _load_spent_qualification_manifests(
+    *,
+    output_root: Path,
+    explicit_paths: tuple[Path, ...],
+) -> tuple[dict[str, Any], ...]:
+    """Load the cumulative v5 fixture authority from this root family.
+
+    Older manifests used the retired v1 fixture suite, which the v2 fixture
+    envelope already binds as its baseline. Every v5 sibling is included
+    automatically so a caller cannot accidentally omit an earlier novel suite.
+    Explicit paths extend the authority to campaigns outside the output-root
+    parent.
+    """
+
+    candidates: dict[Path, None] = {}
+    parent = output_root.resolve().parent
+    if parent.is_dir():
+        for child in parent.iterdir():
+            if child.is_symlink() or not child.is_dir():
+                continue
+            candidate = child / "QUALIFICATION_MANIFEST.json"
+            if not candidate.exists():
+                continue
+            if candidate.is_symlink() or not candidate.is_file():
+                raise StateConflictError("qualification spent manifest is unavailable or linked")
+            try:
+                raw = json.loads(candidate.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ContractValidationError("qualification spent manifest is unreadable") from exc
+            if (
+                isinstance(raw, Mapping)
+                and raw.get("schema_version") == QUALIFICATION_MANIFEST_SCHEMA
+            ):
+                candidates[candidate.resolve()] = None
+    for path in explicit_paths:
+        if path.is_symlink():
+            raise StateConflictError("qualification explicit spent manifest is linked")
+        resolved = path.resolve()
+        if not resolved.is_file():
+            raise StateConflictError(
+                "qualification explicit spent manifest is unavailable or linked"
+            )
+        candidates[resolved] = None
+    return tuple(
+        load_qualification_manifest(path)
+        for path in sorted(candidates, key=lambda value: str(value).casefold())
+    )
 
 
 def provider_free_check(
@@ -1182,11 +1247,15 @@ def provider_free_check(
     manifest_path: Path | None = None,
 ) -> dict[str, Any]:
     fixtures = load_qualification_fixtures(fixture_path)
+    fixture_metadata = qualification_fixture_manifest_metadata(fixtures)
     result: dict[str, Any] = {
         "status": "provider_free_ready",
         "fixtures": len(fixtures),
         "backend": sum(value.phase is QualificationPhase.BACKEND for value in fixtures),
         "sillytavern": sum(value.phase is QualificationPhase.SILLYTAVERN for value in fixtures),
+        "fixture_schema_version": fixture_metadata["fixture_schema_version"],
+        "novelty_set_sha256": fixture_metadata["novelty_set_sha256"],
+        "stress_coverage": fixture_metadata["stress_coverage"],
         "sol_ceiling": SOL_FAMILY_CEILING,
         "deepseek_http_operation_ceiling": DEEPSEEK_HTTP_OPERATION_CEILING,
         "deepseek_per_invocation_ceiling": DEEPSEEK_PER_INVOCATION_CEILING,
@@ -1216,6 +1285,13 @@ def provider_free_check(
     }
     if manifest_path is not None:
         manifest = load_qualification_manifest(manifest_path)
+        if manifest["fixture_set_sha256"] != __import__(
+            "cera.serialization", fromlist=["bytes_sha256"]
+        ).bytes_sha256(fixture_path.read_bytes()):
+            raise StateConflictError("qualification fixture binding changed")
+        for key, expected in fixture_metadata.items():
+            if manifest[key] != expected:
+                raise StateConflictError("qualification fixture novelty binding changed")
         verify_qualification_artifacts(manifest, repository_root=ROOT)
         isolated = verify_qualification_sillytavern(
             manifest_path.resolve().parent / "isolated_sillytavern"
@@ -2248,10 +2324,16 @@ def live(
     _assert_frozen_python_interpreter(manifest)
     verify_qualification_artifacts(manifest, repository_root=ROOT)
     fixtures = load_qualification_fixtures(fixture_path)
+    if not fixtures or not all(isinstance(value, QualificationFixtureV2) for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v2")
     if manifest["fixture_set_sha256"] != __import__(
         "cera.serialization", fromlist=["bytes_sha256"]
     ).bytes_sha256(fixture_path.read_bytes()):
         raise StateConflictError("qualification fixture binding changed")
+    fixture_metadata = qualification_fixture_manifest_metadata(fixtures)
+    for key, expected in fixture_metadata.items():
+        if manifest[key] != expected:
+            raise StateConflictError("qualification fixture novelty binding changed")
     runtime_root_a = root / "runtime-a"
     runtime_root_b = root / "runtime-b"
     evidence_root = root / "evidence"
@@ -2670,6 +2752,12 @@ def main(argv: list[str] | None = None) -> int:
     freeze_parser.add_argument("--qualification-id", required=True)
     freeze_parser.add_argument("--fixture-set", type=Path, default=DEFAULT_FIXTURES)
     freeze_parser.add_argument(
+        "--spent-manifest",
+        action="append",
+        default=[],
+        type=Path,
+    )
+    freeze_parser.add_argument(
         "--sillytavern-source",
         type=Path,
         default=DEFAULT_SILLYTAVERN,
@@ -2699,6 +2787,7 @@ def main(argv: list[str] | None = None) -> int:
             fixture_path=args.fixture_set,
             qualification_id=args.qualification_id,
             sillytavern_source=args.sillytavern_source,
+            spent_manifest_paths=tuple(args.spent_manifest),
         )
     elif args.mode == "provider-free-check":
         result = provider_free_check(
