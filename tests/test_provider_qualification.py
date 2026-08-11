@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-from dataclasses import fields
 import json
-from pathlib import Path
 import subprocess
 import tempfile
-from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
 import urllib.error
+from dataclasses import fields
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from cera.errors import ContractValidationError, ErrorCode
 from cera.evaluation import EvaluationRole
 from cera.providers import (
     CodexMcpRuntimeBinding,
+    CodexOperationTelemetryV1,
     CodexSDKTransport,
+    CodexToolTimingV1,
+    CodexUsageStepV1,
     CodexWorkerResult,
-    DeepSeekChatTransport,
     DeepSeekMessage,
     LiveProviderCallReceipt,
     LiveProviderRoute,
@@ -29,34 +31,34 @@ from cera.providers import (
     ProviderResponseFailureKind,
     ProviderRetryableFailureCategory,
     ProviderTransportError,
-    PersistentNoMcpCodexRunner,
-    StoredCodexThreadRunner,
     codex_realization_verifier_candidate,
     codex_reasoner_candidate,
     codex_transport_probe_output_schema,
     deepseek_composer_candidate,
 )
-
-
-ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
-ACTIVE_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
-ACTIVE_VERIFIER_PROMPT_VERSION = (
-    "cera.codex_scene_realization_verifier_prompt.v8"
+from cera.providers.codex import (
+    CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+    _codex_transport_json,
+    _SubprocessCodexRunner,
 )
-
+from cera.providers.codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+)
 from cera.registry import build_schema_registry
 from cera.runtime.failure import PrivacySafeReceiptPayload
-from cera.serialization import canonical_json, canonical_sha256, to_primitive
+from cera.serialization import canonical_json, canonical_sha256, text_sha256, to_primitive
 from tests.provider_fakes import (
     OfflineDeepSeekChatTransport,
     OfflinePersistentNoMcpCodexRunner,
     OfflineStoredCodexThreadRunner,
     OfflineSubprocessCodexRunner,
 )
-from cera.providers.codex import _SubprocessCodexRunner, _codex_transport_json
-from cera.providers.codex_sdk_compat import (
-    CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+
+ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
+ACTIVE_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
+ACTIVE_VERIFIER_PROMPT_VERSION = (
+    "cera.codex_scene_realization_verifier_prompt.v8"
 )
 
 
@@ -170,12 +172,14 @@ class StaticCodexRunner:
         mcp_server_names: tuple[str, ...] = (),
         mcp_tool_names: tuple[str, ...] = (),
         mcp_failed_tool_call_count: int = 0,
+        operation_telemetry: CodexOperationTelemetryV1 | None = None,
     ) -> None:
         self.returned_model = returned_model
         self.output_tokens = output_tokens
         self.mcp_server_names = mcp_server_names
         self.mcp_tool_names = mcp_tool_names
         self.mcp_failed_tool_call_count = mcp_failed_tool_call_count
+        self.operation_telemetry = operation_telemetry
         self.calls = 0
         self.last_schema: dict | None = None
 
@@ -196,22 +200,113 @@ class StaticCodexRunner:
             mcp_tool_names=self.mcp_tool_names,
             mcp_tool_call_count=len(self.mcp_tool_names),
             mcp_failed_tool_call_count=self.mcp_failed_tool_call_count,
+            operation_telemetry=self.operation_telemetry,
             pre_registered_turn_count=1,
         )
 
 
 def codex_mcp_binding(
-    *, minimum_tool_calls: int = 1, maximum_tool_calls: int = 12
+    *,
+    server_name: str = "cera_request_evidence",
+    enabled_tools: tuple[str, ...] = ("cera_get_turn_snapshot",),
+    minimum_tool_calls: int = 1,
+    maximum_tool_calls: int = 12,
 ) -> CodexMcpRuntimeBinding:
     return CodexMcpRuntimeBinding(
-        server_name="cera_request_evidence",
+        server_name=server_name,
         url="http://127.0.0.1:43123/mcp",
         bearer_token_environment_variable="CERA_REQUEST_EVIDENCE_TOKEN",
         bearer_token="qualification-secret",
-        enabled_tools=("cera_get_turn_snapshot",),
+        enabled_tools=enabled_tools,
         binding_sha256=canonical_sha256({"fixture": "request-bound-evidence"}),
         minimum_tool_calls=minimum_tool_calls,
         maximum_tool_calls=maximum_tool_calls,
+    )
+
+
+def codex_operation_telemetry(
+    observations: tuple[tuple[str, str], ...],
+    statuses: tuple[str, ...],
+    *,
+    sequences: tuple[int, ...] | None = None,
+) -> CodexOperationTelemetryV1:
+    if sequences is None:
+        sequences = tuple(range(1, len(observations) + 1))
+    step = CodexUsageStepV1(
+        sequence=1,
+        observed_at_unix_us=20,
+        input_tokens=100,
+        cached_input_tokens=40,
+        uncached_input_tokens=60,
+        output_tokens=12,
+        reasoning_tokens=8,
+        thread_total_input_tokens=100,
+        thread_total_cached_input_tokens=40,
+        thread_total_output_tokens=12,
+        thread_total_reasoning_tokens=8,
+    )
+    return CodexOperationTelemetryV1(
+        schema_version=CodexOperationTelemetryV1.SCHEMA_VERSION,
+        request_sha256=None,
+        provider_operation_id_sha256=text_sha256("operation"),
+        provider_thread_id_sha256=text_sha256("thread"),
+        provider_root_thread_id_sha256=None,
+        accepted_parent_checkpoint_id_sha256=None,
+        candidate_checkpoint_id_sha256=None,
+        model="gpt-5.6-sol",
+        reasoning_effort="medium",
+        fast_mode_enabled=False,
+        packet_ready_unix_us=None,
+        request_start_unix_us=10,
+        first_reasoning_item_unix_us=12,
+        first_structured_output_item_unix_us=18,
+        final_evidence_result_unix_us=16,
+        provider_completion_unix_us=25,
+        python_parse_start_unix_us=None,
+        python_parse_completion_unix_us=None,
+        python_validation_start_unix_us=None,
+        python_validation_completion_unix_us=None,
+        usage_steps=(step,),
+        cumulative_input_tokens=100,
+        cumulative_cached_input_tokens=40,
+        cumulative_uncached_input_tokens=60,
+        cumulative_output_tokens=12,
+        cumulative_reasoning_tokens=8,
+        tool_timings=tuple(
+            CodexToolTimingV1(
+                sequence=sequence,
+                server_name=server_name,
+                tool_name=tool_name,
+                started_at_unix_us=None,
+                completed_at_unix_us=None,
+                status=status,
+            )
+            for sequence, (server_name, tool_name), status in zip(
+                sequences,
+                observations,
+                statuses,
+                strict=True,
+            )
+        ),
+        tool_call_count=len(observations),
+        provider_attempt_count=1,
+        finish_status="completed",
+        transport_error=None,
+        unsupported_fields=(
+            "request_sha256",
+            "packet_ready_unix_us",
+            "provider_root_thread_id_sha256",
+            "accepted_parent_checkpoint_id_sha256",
+            "candidate_checkpoint_id_sha256",
+            "python_parse_start_unix_us",
+            "python_parse_completion_unix_us",
+            "python_validation_start_unix_us",
+            "python_validation_completion_unix_us",
+        ),
+        retains_prompt=False,
+        retains_output=False,
+        retains_reasoning=False,
+        retains_tool_arguments=False,
     )
 
 
@@ -1071,6 +1166,19 @@ class ProviderQualificationTests(unittest.TestCase):
             with self.assertRaises(ContractValidationError):
                 CodexSDKTransport(codex_route(), workspace=path, runner=StaticCodexRunner())
 
+    def test_codex_mcp_observation_policy_is_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "MCP observation policy is unqualified",
+            ):
+                CodexSDKTransport(
+                    codex_route(),
+                    workspace=Path(temporary),
+                    runner=StaticCodexRunner(),
+                    mcp_observation_policy="cera.codex_mcp_observation.unknown.v1",
+                )
+
     def test_codex_mcp_binding_is_loopback_allow_listed_and_secret_safe(self) -> None:
         binding = codex_mcp_binding()
         self.assertNotIn("qualification-secret", repr(binding))
@@ -1158,6 +1266,9 @@ class ProviderQualificationTests(unittest.TestCase):
                         )
                 self.assertEqual(caught.exception.code, expected)
                 self.assertEqual(runner.calls, 1)
+                if expected is ErrorCode.REASONER_CONTRACT_INVALID:
+                    self.assertIsNone(caught.exception.retryable_failure_category)
+                    self.assertIsNotNone(caught.exception.provider_call_receipt)
                 if expected is ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE:
                     self.assertEqual(
                         caught.exception.mcp_tool_names,
@@ -1167,8 +1278,8 @@ class ProviderQualificationTests(unittest.TestCase):
                     self.assertEqual(caught.exception.mcp_failed_tool_call_count, 1)
 
         unbound_runner = StaticCodexRunner(
-            mcp_server_names=("cera_request_evidence",),
-            mcp_tool_names=("cera_get_turn_snapshot",),
+            mcp_server_names=("node_repl",),
+            mcp_tool_names=("js",),
         )
         with tempfile.TemporaryDirectory() as temporary:
             transport = CodexSDKTransport(
@@ -1179,6 +1290,260 @@ class ProviderQualificationTests(unittest.TestCase):
                     "Probe.", output_schema=codex_transport_probe_output_schema()
                 )
         self.assertEqual(caught.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertIsNone(caught.exception.retryable_failure_category)
+
+    def test_codex_code_mode_auxiliary_calls_project_to_cera_observations(self) -> None:
+        observations = (
+            ("node_repl", "js"),
+            ("node_repl", "js"),
+            ("cera_continuous_world", "get_turn_context"),
+            ("cera_continuous_world", "search_evidence"),
+            ("cera_continuous_world", "search_evidence"),
+        )
+        telemetry = codex_operation_telemetry(
+            observations,
+            ("completed",) * len(observations),
+        )
+        runner = StaticCodexRunner(
+            mcp_server_names=tuple(value[0] for value in observations),
+            mcp_tool_names=tuple(value[1] for value in observations),
+            operation_telemetry=telemetry,
+        )
+        binding = codex_mcp_binding(
+            server_name="cera_continuous_world",
+            enabled_tools=("get_turn_context", "search_evidence"),
+            minimum_tool_calls=3,
+            maximum_tool_calls=5,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            result = CodexSDKTransport(
+                codex_route(),
+                workspace=Path(temporary),
+                runner=runner,
+                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+            ).invoke(
+                "Probe.",
+                output_schema=codex_transport_probe_output_schema(),
+                mcp_binding=binding,
+            )
+
+        self.assertEqual(
+            result.tool_server_names,
+            ("cera_continuous_world",) * 3,
+        )
+        self.assertEqual(
+            result.tool_names,
+            ("get_turn_context", "search_evidence", "search_evidence"),
+        )
+        self.assertEqual(result.tool_call_count, 3)
+        self.assertEqual(result.failed_tool_call_count, 0)
+        self.assertIsNotNone(result.operation_telemetry)
+        self.assertEqual(result.operation_telemetry.tool_call_count, 5)
+        self.assertEqual(
+            tuple(
+                (value.server_name, value.tool_name)
+                for value in result.operation_telemetry.tool_timings
+            ),
+            observations,
+        )
+        self.assertEqual(result.receipt.external_provider_calls, 1)
+        self.assertFalse(result.receipt.retains_raw_source)
+        self.assertFalse(result.receipt.retains_private_evidence)
+
+    def test_codex_code_mode_auxiliary_failure_is_retryable_and_not_overwritten(
+        self,
+    ) -> None:
+        observations = (
+            ("node_repl", "js"),
+            ("node_repl", "js"),
+            ("cera_request_evidence", "cera_get_turn_snapshot"),
+        )
+        runner = StaticCodexRunner(
+            mcp_server_names=tuple(value[0] for value in observations),
+            mcp_tool_names=tuple(value[1] for value in observations),
+            mcp_failed_tool_call_count=1,
+            operation_telemetry=codex_operation_telemetry(
+                observations,
+                ("failed", "completed", "completed"),
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = CodexSDKTransport(
+                codex_route(),
+                workspace=Path(temporary),
+                runner=runner,
+                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+            )
+            with self.assertRaises(ProviderTransportError) as caught:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=codex_mcp_binding(maximum_tool_calls=3),
+                )
+
+        failure = caught.exception
+        self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertEqual(
+            failure.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(failure.safe_diagnostics, ("mcp:auxiliary_execution_failed",))
+        self.assertEqual(failure.external_provider_calls_observed, 1)
+        self.assertIsNotNone(failure.provider_call_receipt)
+        self.assertEqual(failure.mcp_tool_call_count, 3)
+        self.assertEqual(failure.mcp_failed_tool_call_count, 1)
+        self.assertIsNotNone(failure.operation_telemetry)
+        self.assertEqual(failure.operation_telemetry.tool_call_count, 3)
+
+    def test_codex_code_mode_auxiliary_requires_aligned_terminal_telemetry(
+        self,
+    ) -> None:
+        observations = (
+            ("node_repl", "js"),
+            ("cera_request_evidence", "cera_get_turn_snapshot"),
+        )
+        aligned_statuses = ("completed", "completed")
+        mismatches = (
+            ("missing", None, 0),
+            (
+                "sequence",
+                codex_operation_telemetry(
+                    observations,
+                    aligned_statuses,
+                    sequences=(2, 2),
+                ),
+                0,
+            ),
+            (
+                "identity",
+                codex_operation_telemetry(
+                    (
+                        ("node_repl", "js"),
+                        ("cera_request_evidence", "other_tool"),
+                    ),
+                    aligned_statuses,
+                ),
+                0,
+            ),
+            (
+                "status",
+                codex_operation_telemetry(
+                    observations,
+                    ("completed", "inProgress"),
+                ),
+                0,
+            ),
+            (
+                "failed_count",
+                codex_operation_telemetry(
+                    observations,
+                    ("failed", "completed"),
+                ),
+                0,
+            ),
+        )
+        for label, telemetry, failed_count in mismatches:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                runner = StaticCodexRunner(
+                    mcp_server_names=tuple(value[0] for value in observations),
+                    mcp_tool_names=tuple(value[1] for value in observations),
+                    mcp_failed_tool_call_count=failed_count,
+                    operation_telemetry=telemetry,
+                )
+                transport = CodexSDKTransport(
+                    codex_route(),
+                    workspace=Path(temporary),
+                    runner=runner,
+                    mcp_observation_policy=(
+                        CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
+                    ),
+                )
+                with self.assertRaises(ProviderTransportError) as caught:
+                    transport.invoke(
+                        "Probe.",
+                        output_schema=codex_transport_probe_output_schema(),
+                        mcp_binding=codex_mcp_binding(maximum_tool_calls=2),
+                    )
+
+            failure = caught.exception
+            self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+            self.assertEqual(
+                failure.retryable_failure_category,
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            )
+            self.assertEqual(
+                failure.safe_diagnostics,
+                ("mcp:auxiliary_observation_invalid",),
+            )
+            self.assertEqual(failure.external_provider_calls_observed, 1)
+            self.assertIsNotNone(failure.provider_call_receipt)
+            self.assertEqual(failure.mcp_tool_call_count, 2)
+
+    def test_codex_code_mode_auxiliary_does_not_satisfy_or_expand_call_budget(
+        self,
+    ) -> None:
+        auxiliary_only = (("node_repl", "js"),)
+        runner = StaticCodexRunner(
+            mcp_server_names=("node_repl",),
+            mcp_tool_names=("js",),
+            operation_telemetry=codex_operation_telemetry(
+                auxiliary_only,
+                ("completed",),
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = CodexSDKTransport(
+                codex_route(),
+                workspace=Path(temporary),
+                runner=runner,
+                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+            )
+            with self.assertRaises(ProviderTransportError) as omitted:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=codex_mcp_binding(maximum_tool_calls=1),
+                )
+        self.assertEqual(omitted.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertEqual(
+            omitted.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(
+            omitted.exception.safe_diagnostics,
+            ("mcp:required_evidence_lookup_omitted",),
+        )
+
+        observations = (
+            ("node_repl", "js"),
+            ("cera_request_evidence", "cera_get_turn_snapshot"),
+        )
+        over_budget = StaticCodexRunner(
+            mcp_server_names=tuple(value[0] for value in observations),
+            mcp_tool_names=tuple(value[1] for value in observations),
+            operation_telemetry=codex_operation_telemetry(
+                observations,
+                ("completed", "completed"),
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = CodexSDKTransport(
+                codex_route(),
+                workspace=Path(temporary),
+                runner=over_budget,
+                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+            )
+            with self.assertRaises(ProviderTransportError) as exceeded:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                    mcp_binding=codex_mcp_binding(
+                        minimum_tool_calls=0,
+                        maximum_tool_calls=1,
+                    ),
+                )
+        self.assertEqual(exceeded.exception.code, ErrorCode.EVIDENCE_LIMIT_EXCEEDED)
+        self.assertIsNone(exceeded.exception.retryable_failure_category)
 
     def test_codex_mcp_provider_request_failure_is_narrow_and_retryable(self) -> None:
         observations: list[
@@ -1196,10 +1561,18 @@ class ProviderQualificationTests(unittest.TestCase):
             )
             return True
 
+        classified_observations = (
+            ("node_repl", "js"),
+            ("cera_request_evidence", "cera_get_turn_snapshot"),
+        )
         runner = StaticCodexRunner(
-            mcp_server_names=("cera_request_evidence",),
-            mcp_tool_names=("cera_get_turn_snapshot",),
+            mcp_server_names=tuple(value[0] for value in classified_observations),
+            mcp_tool_names=tuple(value[1] for value in classified_observations),
             mcp_failed_tool_call_count=1,
+            operation_telemetry=codex_operation_telemetry(
+                classified_observations,
+                ("completed", "failed"),
+            ),
         )
         base_binding = codex_mcp_binding()
 
@@ -1228,7 +1601,10 @@ class ProviderQualificationTests(unittest.TestCase):
         self.assertEqual(hash(binding), hash(binding_without_classifier))
         with tempfile.TemporaryDirectory() as temporary:
             transport = CodexSDKTransport(
-                codex_route(), workspace=Path(temporary), runner=runner
+                codex_route(),
+                workspace=Path(temporary),
+                runner=runner,
+                mcp_observation_policy=CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
             )
             with self.assertRaises(ProviderTransportError) as caught:
                 transport.invoke(
@@ -1246,7 +1622,7 @@ class ProviderQualificationTests(unittest.TestCase):
         self.assertEqual(failure.safe_diagnostics, ("mcp:provider_request_invalid",))
         self.assertEqual(failure.external_provider_calls_observed, 1)
         self.assertIsNotNone(failure.provider_call_receipt)
-        self.assertEqual(failure.mcp_tool_call_count, 1)
+        self.assertEqual(failure.mcp_tool_call_count, 2)
         self.assertEqual(failure.mcp_failed_tool_call_count, 1)
         self.assertEqual(
             observations,
@@ -1275,7 +1651,12 @@ class ProviderQualificationTests(unittest.TestCase):
             with self.subTest(invalid_runner=invalid_runner):
                 with tempfile.TemporaryDirectory() as temporary:
                     transport = CodexSDKTransport(
-                        codex_route(), workspace=Path(temporary), runner=invalid_runner
+                        codex_route(),
+                        workspace=Path(temporary),
+                        runner=invalid_runner,
+                        mcp_observation_policy=(
+                            CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
+                        ),
                     )
                     with self.assertRaises(ProviderTransportError) as invalid:
                         transport.invoke(
@@ -1286,7 +1667,10 @@ class ProviderQualificationTests(unittest.TestCase):
                 self.assertEqual(
                     invalid.exception.code, ErrorCode.REASONER_CONTRACT_INVALID
                 )
-                self.assertIsNone(invalid.exception.retryable_failure_category)
+                self.assertEqual(
+                    invalid.exception.retryable_failure_category,
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+                )
                 self.assertEqual(len(observations), 1)
 
         def classifier_error(
@@ -1305,7 +1689,12 @@ class ProviderQualificationTests(unittest.TestCase):
             with self.subTest(classifier=classifier):
                 with tempfile.TemporaryDirectory() as temporary:
                     transport = CodexSDKTransport(
-                        codex_route(), workspace=Path(temporary), runner=runner
+                        codex_route(),
+                        workspace=Path(temporary),
+                        runner=runner,
+                        mcp_observation_policy=(
+                            CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1
+                        ),
                     )
                     with self.assertRaises(ProviderTransportError) as fallback:
                         transport.invoke(

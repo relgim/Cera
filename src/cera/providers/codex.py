@@ -55,6 +55,30 @@ def _runner_external_provider_boundary(runner: object) -> bool:
     return is_external_provider_boundary(runner)
 
 
+CODEX_MCP_OBSERVATION_POLICY_STRICT_V1 = "cera.codex_mcp_observation.strict.v1"
+CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1 = (
+    "cera.codex_mcp_observation.code_mode_projection.v1"
+)
+_CODEX_MCP_OBSERVATION_POLICIES = frozenset(
+    {
+        CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
+        CODEX_MCP_OBSERVATION_POLICY_CODE_MODE_V1,
+    }
+)
+_CODEX_MCP_AUXILIARY_TOOL = ("node_repl", "js")
+_CODEX_MCP_TERMINAL_STATUSES = frozenset({"completed", "failed"})
+
+
+@dataclass(frozen=True, slots=True)
+class _CodexMcpObservationProjection:
+    """Request-bound CERA observations projected from raw Codex telemetry."""
+
+    server_names: tuple[str, ...]
+    tool_names: tuple[str, ...]
+    tool_call_count: int
+    failed_tool_call_count: int
+
+
 def decode_completed_codex_output[T](
     result: ProviderCallResult,
     *,
@@ -286,6 +310,7 @@ class CodexSDKTransport:
         *,
         workspace: Path,
         runner: CodexTransportRunner | None = None,
+        mcp_observation_policy: str = CODEX_MCP_OBSERVATION_POLICY_STRICT_V1,
     ) -> None:
         if route.provider is not ProviderName.OPENAI_CODEX:
             raise ContractValidationError("Codex transport requires an OpenAI Codex route")
@@ -293,9 +318,12 @@ class CodexSDKTransport:
             raise ContractValidationError("Codex qualification workspace must already exist")
         if any(workspace.iterdir()):
             raise ContractValidationError("Codex qualification workspace must be empty")
+        if mcp_observation_policy not in _CODEX_MCP_OBSERVATION_POLICIES:
+            raise ContractValidationError("Codex MCP observation policy is unqualified")
         self.route = route
         self.workspace = workspace
         self.runner = runner or _SubprocessCodexRunner()
+        self.mcp_observation_policy = mcp_observation_policy
 
     def external_provider_boundary_active(self) -> bool:
         """Return whether the bound runner owns a concrete provider process."""
@@ -481,7 +509,7 @@ class CodexSDKTransport:
             retains_secret=False,
         )
         try:
-            self._validate_mcp_observations(result, mcp_binding)
+            mcp_observations = self._validate_mcp_observations(result, mcp_binding)
         except ProviderTransportError as failure:
             failure.external_provider_calls_observed = 1
             failure.provider_call_receipt = receipt
@@ -559,25 +587,34 @@ class CodexSDKTransport:
             result.output_text,
             parsed,
             receipt,
-            tool_server_names=result.mcp_server_names,
-            tool_names=result.mcp_tool_names,
-            tool_call_count=result.mcp_tool_call_count,
-            failed_tool_call_count=result.mcp_failed_tool_call_count,
+            tool_server_names=mcp_observations.server_names,
+            tool_names=mcp_observations.tool_names,
+            tool_call_count=mcp_observations.tool_call_count,
+            failed_tool_call_count=mcp_observations.failed_tool_call_count,
             operation_telemetry=operation_telemetry,
         )
 
-    @staticmethod
     def _validate_mcp_observations(
+        self,
         result: CodexWorkerResult,
         binding: CodexMcpRuntimeBinding | None,
-    ) -> None:
+    ) -> _CodexMcpObservationProjection:
         if binding is None:
             if result.mcp_tool_call_count:
                 raise ProviderTransportError(
                     ErrorCode.REASONER_CONTRACT_INVALID,
                     "Codex used an MCP tool without a request-bound bridge",
                 )
-            return
+            return _CodexMcpObservationProjection((), (), 0, 0)
+        if self.mcp_observation_policy == CODEX_MCP_OBSERVATION_POLICY_STRICT_V1:
+            return self._validate_strict_mcp_observations(result, binding)
+        return self._validate_code_mode_mcp_observations(result, binding)
+
+    @staticmethod
+    def _validate_strict_mcp_observations(
+        result: CodexWorkerResult,
+        binding: CodexMcpRuntimeBinding,
+    ) -> _CodexMcpObservationProjection:
         if result.mcp_tool_call_count < binding.minimum_tool_calls:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
@@ -599,35 +636,165 @@ class CodexSDKTransport:
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex used an MCP tool outside the request allow-list",
             )
-        if result.mcp_failed_tool_call_count:
-            provider_request_failure = False
-            classifier = binding.failed_tool_call_provider_request_classifier
-            if classifier is not None:
-                try:
-                    provider_request_failure = (
-                        classifier(
-                            result.mcp_server_names,
-                            result.mcp_tool_names,
-                            result.mcp_tool_call_count,
-                            result.mcp_failed_tool_call_count,
-                        )
-                        is True
+        projection = _CodexMcpObservationProjection(
+            result.mcp_server_names,
+            result.mcp_tool_names,
+            result.mcp_tool_call_count,
+            result.mcp_failed_tool_call_count,
+        )
+        CodexSDKTransport._raise_for_failed_mcp_observations(projection, binding)
+        return projection
+
+    @staticmethod
+    def _validate_code_mode_mcp_observations(
+        result: CodexWorkerResult,
+        binding: CodexMcpRuntimeBinding,
+    ) -> _CodexMcpObservationProjection:
+        if result.mcp_tool_call_count > binding.maximum_tool_calls:
+            raise ProviderTransportError(
+                ErrorCode.EVIDENCE_LIMIT_EXCEEDED,
+                "Codex exceeded the request-bound MCP tool-call budget",
+            )
+
+        raw_observations = tuple(
+            zip(result.mcp_server_names, result.mcp_tool_names, strict=True)
+        )
+        has_auxiliary = _CODEX_MCP_AUXILIARY_TOOL in raw_observations
+        statuses: tuple[str, ...] | None = None
+        if has_auxiliary:
+            telemetry = result.operation_telemetry
+            if telemetry is not None:
+                timings = telemetry.tool_timings
+                identities_align = all(
+                    timing.sequence == sequence
+                    and (timing.server_name, timing.tool_name) == observation
+                    for sequence, (timing, observation) in enumerate(
+                        zip(timings, raw_observations, strict=True),
+                        start=1,
                     )
-                except Exception:
-                    provider_request_failure = False
-            if provider_request_failure:
+                )
+                candidate_statuses = tuple(timing.status for timing in timings)
+                failed_count = sum(
+                    status == "failed" for status in candidate_statuses
+                )
+                if (
+                    identities_align
+                    and all(
+                        status in _CODEX_MCP_TERMINAL_STATUSES
+                        for status in candidate_statuses
+                    )
+                    and failed_count == result.mcp_failed_tool_call_count
+                ):
+                    statuses = candidate_statuses
+            if statuses is None:
                 raise ProviderTransportError(
                     ErrorCode.REASONER_CONTRACT_INVALID,
-                    "Codex MCP request violated the bounded evidence protocol",
-                    safe_diagnostics=("mcp:provider_request_invalid",),
+                    "Codex MCP wrapper observations did not align with telemetry",
+                    safe_diagnostics=("mcp:auxiliary_observation_invalid",),
                     retryable_failure_category=(
                         ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
                     ),
                 )
+
+        allowed = set(binding.enabled_tools)
+        projected_servers: list[str] = []
+        projected_tools: list[str] = []
+        projected_failed_count = 0
+        auxiliary_failed = False
+        unknown_observation = False
+        for index, (server_name, tool_name) in enumerate(raw_observations):
+            if (server_name, tool_name) == _CODEX_MCP_AUXILIARY_TOOL:
+                auxiliary_failed = auxiliary_failed or (
+                    statuses is not None and statuses[index] == "failed"
+                )
+                continue
+            if server_name != binding.server_name or tool_name not in allowed:
+                unknown_observation = True
+                continue
+            projected_servers.append(server_name)
+            projected_tools.append(tool_name)
+            if statuses is not None and statuses[index] == "failed":
+                projected_failed_count += 1
+
+        if auxiliary_failed:
             raise ProviderTransportError(
-                ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE,
-                "Codex MCP evidence lookup failed",
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "Codex MCP wrapper execution failed",
+                safe_diagnostics=("mcp:auxiliary_execution_failed",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             )
+        if unknown_observation:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "Codex used an MCP capability outside the request-bound bridge",
+                safe_diagnostics=("mcp:outside_request_binding",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
+            )
+        projected_count = len(projected_tools)
+        if projected_count < binding.minimum_tool_calls:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "Codex omitted a required MCP evidence lookup",
+                safe_diagnostics=("mcp:required_evidence_lookup_omitted",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
+            )
+        if projected_count > binding.maximum_tool_calls:
+            raise ProviderTransportError(
+                ErrorCode.EVIDENCE_LIMIT_EXCEEDED,
+                "Codex exceeded the request-bound MCP evidence-call budget",
+            )
+        if statuses is None:
+            projected_failed_count = result.mcp_failed_tool_call_count
+        projection = _CodexMcpObservationProjection(
+            tuple(projected_servers),
+            tuple(projected_tools),
+            projected_count,
+            projected_failed_count,
+        )
+        CodexSDKTransport._raise_for_failed_mcp_observations(projection, binding)
+        return projection
+
+    @staticmethod
+    def _raise_for_failed_mcp_observations(
+        projection: _CodexMcpObservationProjection,
+        binding: CodexMcpRuntimeBinding,
+    ) -> None:
+        if not projection.failed_tool_call_count:
+            return
+        provider_request_failure = False
+        classifier = binding.failed_tool_call_provider_request_classifier
+        if classifier is not None:
+            try:
+                provider_request_failure = (
+                    classifier(
+                        projection.server_names,
+                        projection.tool_names,
+                        projection.tool_call_count,
+                        projection.failed_tool_call_count,
+                    )
+                    is True
+                )
+            except Exception:
+                provider_request_failure = False
+        if provider_request_failure:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "Codex MCP request violated the bounded evidence protocol",
+                safe_diagnostics=("mcp:provider_request_invalid",),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
+            )
+        raise ProviderTransportError(
+            ErrorCode.EVIDENCE_SERVICE_UNAVAILABLE,
+            "Codex MCP evidence lookup failed",
+        )
 
 
 # Provider-neutral name for callers that use either qualified Codex runner.
