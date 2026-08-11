@@ -18,6 +18,10 @@ const MAX_READ_BYTES = 64 * 1024;
 const MAX_CONTEXT_BYTES = 64 * 1024;
 const MAX_WRITER_GENESIS_FILE_BYTES = 128 * 1024;
 const MAX_WRITER_CONTEXT_BYTES = 384 * 1024;
+const DEEPSEEK_MAXIMUM_REQUEST_BYTES = 512 * 1024;
+const WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES = 128 * 1024;
+const MAX_WRITER_SERIALIZED_CONTEXT_BYTES =
+	DEEPSEEK_MAXIMUM_REQUEST_BYTES - WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES;
 const MAX_RESULTS = 80;
 const ROOT_ENV = "CERA_PI_VIEW_ROOT";
 const MAX_TOOL_CALLS_ENV = "CERA_PI_MAX_TOOL_CALLS";
@@ -28,6 +32,55 @@ const WRITER_GENESIS_PATH_PREFIXES = [
 	"relationships/",
 	"relevant_memories/",
 ] as const;
+const WRITER_GENESIS_BUNDLE_V2_FIELDS = new Set([
+	"schema_version",
+	"character_id",
+	"source_bundle_sha256",
+	"source_record_count",
+	"claims",
+	"omitted_record_count",
+	"omitted_source_record_sha256s",
+	"source_accepted_branch_change_count",
+	"accepted_branch_changes",
+	"omitted_branch_change_count",
+]);
+const WRITER_GENESIS_CLAIM_FIELDS = new Set([
+	"source_schema_version",
+	"source_record_sha256",
+	"record_id",
+	"record_version",
+	"record_type",
+	"claim",
+	"authority",
+	"epistemic_layer",
+	"truth_status",
+	"certainty",
+	"owner_id",
+	"subject_ids",
+	"knowledge_owner_ids",
+	"visibility",
+	"knowledge_route",
+	"content_class",
+	"adult_eligibility",
+	"story_start_presence",
+	"relationship_from_id",
+	"relationship_to_id",
+	"source_refs",
+	"valid_from",
+	"valid_to",
+	"supersedes",
+]);
+const WRITER_BRANCH_CHANGE_FIELDS = new Set([
+	"accepted_turn_id",
+	"change_key",
+	"kind",
+	"subject_ids",
+	"concise_change",
+	"target_key",
+	"visibility",
+	"knowledge_owner_id",
+	"source_kind",
+]);
 
 function isWriterExcluded(path: string): boolean {
 	return (
@@ -36,11 +89,154 @@ function isWriterExcluded(path: string): boolean {
 	);
 }
 
-function writerSemanticFileBound(path: string): number {
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactFields(value: Record<string, unknown>, fields: ReadonlySet<string>): boolean {
+	const keys = Object.keys(value);
+	return keys.length === fields.size && keys.every((key) => fields.has(key));
+}
+
+function isSha256(value: unknown): value is string {
+	return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function isStringArray(value: unknown): value is string[] {
+	return Array.isArray(value) && value.every(isNonEmptyString);
+}
+
+function isNullableString(value: unknown): value is string | null {
+	return value === null || isNonEmptyString(value);
+}
+
+function isWriterGenesisClaim(value: unknown): boolean {
+	return (
+		isObject(value) &&
+		hasExactFields(value, WRITER_GENESIS_CLAIM_FIELDS) &&
+		value.source_schema_version === "cera.genesis_record.v1" &&
+		isSha256(value.source_record_sha256) &&
+		isNonEmptyString(value.record_id) &&
+		isNonNegativeSafeInteger(value.record_version) &&
+		value.record_version > 0 &&
+		isNonEmptyString(value.record_type) &&
+		isNonEmptyString(value.claim) &&
+		isNonEmptyString(value.authority) &&
+		isNonEmptyString(value.epistemic_layer) &&
+		isNonEmptyString(value.truth_status) &&
+		isNonEmptyString(value.certainty) &&
+		isNullableString(value.owner_id) &&
+		isStringArray(value.subject_ids) &&
+		isStringArray(value.knowledge_owner_ids) &&
+		isNonEmptyString(value.visibility) &&
+		isNonEmptyString(value.knowledge_route) &&
+		isNonEmptyString(value.content_class) &&
+		isNonEmptyString(value.adult_eligibility) &&
+		isNonEmptyString(value.story_start_presence) &&
+		isNullableString(value.relationship_from_id) &&
+		isNullableString(value.relationship_to_id) &&
+		isStringArray(value.source_refs) &&
+		isNullableString(value.valid_from) &&
+		isNullableString(value.valid_to) &&
+		isStringArray(value.supersedes)
+	);
+}
+
+function isWriterBranchChange(value: unknown): boolean {
+	return (
+		isObject(value) &&
+		hasExactFields(value, WRITER_BRANCH_CHANGE_FIELDS) &&
+		isNonEmptyString(value.accepted_turn_id) &&
+		isNonEmptyString(value.change_key) &&
+		typeof value.kind === "string" &&
+		["character_development", "relationship", "knowledge"].includes(value.kind) &&
+		isStringArray(value.subject_ids) &&
+		isNonEmptyString(value.concise_change) &&
+		isNonEmptyString(value.target_key) &&
+		typeof value.visibility === "string" &&
+		["public", "character_private", "branch_internal_unspecified"].includes(
+			value.visibility,
+		) &&
+		isNullableString(value.knowledge_owner_id) &&
+		isNonEmptyString(value.source_kind)
+	);
+}
+
+function isWriterGenesisClaimBundle(value: unknown): boolean {
+	if (!isObject(value) || !isNonEmptyString(value.character_id)) return false;
+	if (!isSha256(value.source_bundle_sha256) || !Array.isArray(value.claims)) return false;
+	if (!value.claims.every(isWriterGenesisClaim)) return false;
+	if (
+		value.schema_version !== "cera.pi_scene.writer_genesis_claim_bundle.v2" ||
+		!hasExactFields(value, WRITER_GENESIS_BUNDLE_V2_FIELDS) ||
+		!isNonNegativeSafeInteger(value.source_record_count) ||
+		!isNonNegativeSafeInteger(value.omitted_record_count) ||
+		!Array.isArray(value.omitted_source_record_sha256s) ||
+		!value.omitted_source_record_sha256s.every(isSha256) ||
+		!isNonNegativeSafeInteger(value.source_accepted_branch_change_count) ||
+		!Array.isArray(value.accepted_branch_changes) ||
+		!value.accepted_branch_changes.every(isWriterBranchChange) ||
+		!isNonNegativeSafeInteger(value.omitted_branch_change_count)
+	) {
+		return false;
+	}
+	return (
+		value.source_record_count > 0 &&
+		value.source_record_count === value.claims.length + value.omitted_record_count &&
+		value.omitted_record_count === value.omitted_source_record_sha256s.length &&
+		value.source_accepted_branch_change_count ===
+			value.accepted_branch_changes.length + value.omitted_branch_change_count
+	);
+}
+
+function assertCurrentWriterProjection(controlData: Buffer): void {
+	let control: unknown;
+	try {
+		control = JSON.parse(controlData.toString("utf8"));
+	} catch {
+		throw new Error("Writer context projection authority is unreadable");
+	}
+	if (
+		!isObject(control) ||
+		control.schema_version !== "cera.pi_scene.writer_authority_order.v13" ||
+		!isObject(control.context_projection) ||
+		control.context_projection.schema_version !==
+			"cera.pi_scene.writer_context_projection.v2"
+	) {
+		throw new Error("Writer context projection authority is stale");
+	}
+}
+
+function writerSemanticFileBound(path: string, data: Buffer): number {
 	const normalized = path.replaceAll("\\", "/");
-	return WRITER_GENESIS_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix))
-		? MAX_WRITER_GENESIS_FILE_BYTES
-		: MAX_READ_BYTES;
+	if (!WRITER_GENESIS_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+		return MAX_READ_BYTES;
+	}
+	let value: unknown;
+	try {
+		value = JSON.parse(data.toString("utf8"));
+	} catch {
+		return MAX_READ_BYTES;
+	}
+	if (
+		isObject(value) &&
+		typeof value.schema_version === "string" &&
+		value.schema_version.startsWith("cera.pi_scene.writer_genesis_claim_bundle.")
+	) {
+		if (!isWriterGenesisClaimBundle(value)) {
+			throw new Error("Writer Genesis projection is stale or invalid");
+		}
+		return MAX_WRITER_GENESIS_FILE_BYTES;
+	}
+	return MAX_READ_BYTES;
 }
 
 function configuredRoot(): string {
@@ -109,7 +305,9 @@ async function allFiles(root: string): Promise<string[]> {
 	return output.sort();
 }
 
-async function writerContextPacket(root: string): Promise<{ text: string; files: number }> {
+async function writerContextPacket(
+	root: string,
+): Promise<{ text: string; files: number; serializedContextBytes: number }> {
 	const controlPath = "zz_CURRENT_TURN_AUTHORITY.json";
 	const sourcePath = "USER_PROMPT.txt";
 	const availablePaths = await allFiles(root);
@@ -118,6 +316,7 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 	if (controlData.byteLength > MAX_READ_BYTES) {
 		throw new Error("context file exceeds the read bound");
 	}
+	assertCurrentWriterProjection(controlData);
 	const plan = writerContextPlan(controlData.toString("utf8"), availablePaths);
 	const sections: string[] = [];
 	const add = async (label: string, path: string) => {
@@ -134,7 +333,7 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 	for (const path of plan.semanticPaths) {
 		const target = (await confinedPath(path)).target;
 		const data = await readFile(target);
-		if (data.byteLength > writerSemanticFileBound(path)) {
+		if (data.byteLength > writerSemanticFileBound(path, data)) {
 			throw new Error("context file exceeds the read bound");
 		}
 		sections.push(`===== SUPPORTING ACCEPTED CONTEXT | ${path} =====\n${data.toString("utf8")}`);
@@ -147,7 +346,11 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 	if (Buffer.byteLength(text, "utf8") > MAX_WRITER_CONTEXT_BYTES) {
 		throw new Error("Writer view exceeds the context bound");
 	}
-	return { text, files: plan.semanticPaths.length + 3 };
+	const serializedContextBytes = Buffer.byteLength(JSON.stringify(text), "utf8");
+	if (serializedContextBytes > MAX_WRITER_SERIALIZED_CONTEXT_BYTES) {
+		throw new Error("Writer view exceeds the serialized request bound");
+	}
+	return { text, files: plan.semanticPaths.length + 3, serializedContextBytes };
 }
 
 const toolGuidelines = [
@@ -188,8 +391,12 @@ export default function (pi: ExtensionAPI) {
 					content: [{ type: "text", text: packet.text }] as TextContent[],
 					details: {
 						bytes: Buffer.byteLength(packet.text, "utf8"),
+						serializedContextBytes: packet.serializedContextBytes,
+						serializedContextLimitBytes: MAX_WRITER_SERIALIZED_CONTEXT_BYTES,
+						nonContextRequestReserveBytes: WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES,
+						maximumRequestBytes: DEEPSEEK_MAXIMUM_REQUEST_BYTES,
 						files: packet.files,
-						packet: "cera.writer_context_packet.v7",
+						packet: "cera.writer_context_packet.v8",
 					},
 				};
 			}

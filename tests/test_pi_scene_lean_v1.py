@@ -64,6 +64,7 @@ from cera.pi_scene.writer_view import (
     resolve_confined_path,
     verify_writer_view,
 )
+from cera.providers import deepseek_composer_candidate
 from cera.sequence_first.contracts import (
     ItemKind,
     SequenceDraftV1,
@@ -102,6 +103,38 @@ def adult_handoff(label: str = "adult_choice") -> dict[str, object]:
         "all_participants_adults": True,
         "consent_boundary": "The supplied scene remains consensual and capacity-valid.",
         "causal_direction": "The adults make one mutual choice and stop at the next user floor.",
+    }
+
+
+def branch_change(
+    *,
+    label: str,
+    subject_ids: list[str],
+    visibility: str = "public",
+    knowledge_owner_id: str | None = None,
+) -> dict[str, object]:
+    return {
+        "accepted_turn_id": "turn:accepted:0001",
+        "change_key": label,
+        "kind": "character_development",
+        "subject_ids": subject_ids,
+        "concise_change": f"Accepted branch change {label}.",
+        "target_key": subject_ids[0],
+        "visibility": visibility,
+        "knowledge_owner_id": knowledge_owner_id,
+        "source_kind": "ordinary_primary_authority",
+    }
+
+
+def no_genesis_character(
+    character_id: str,
+    *,
+    accepted_branch_changes: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return {
+        "character_id": character_id,
+        "genesis_record_available": False,
+        "accepted_branch_changes": accepted_branch_changes or [],
     }
 
 
@@ -175,6 +208,7 @@ def run_pi_context_extension(
     *,
     root: Path,
     view_root: Path,
+    purpose: str = "writer",
 ) -> subprocess.CompletedProcess[str]:
     harness = root / "node-harness"
     if not harness.exists():
@@ -222,23 +256,65 @@ module.default(pi);
 try {
   const result = await tools.get('context').execute();
   const text = result.content[0].text;
-  const requestEstimate = JSON.stringify({
+  const toolCallId = `call_${'c'.repeat(96)}`;
+  const requestBody = (systemPrompt, invocationPrompt) => ({
     model: 'deepseek-v4-flash',
     messages: [
-      { role: 'system', content: process.env.CERA_TEST_SYSTEM_PROMPT },
-      { role: 'user', content: process.env.CERA_TEST_INVOCATION_PROMPT },
-      { role: 'assistant', content: [{ type: 'toolCall', name: 'context', arguments: {} }] },
-      { role: 'tool', content: text },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: invocationPrompt },
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: toolCallId,
+          type: 'function',
+          function: { name: 'context', arguments: '{}' },
+        }],
+        reasoning_content: '',
+      },
+      { role: 'tool', content: text, tool_call_id: toolCallId },
     ],
-    max_tokens: 4096,
+    stream: true,
+    stream_options: { include_usage: true },
+    max_completion_tokens: Number(process.env.CERA_TEST_MAX_OUTPUT_TOKENS),
+    tools: [{
+      type: 'function',
+      function: {
+        name: 'context',
+        description: 'Load the complete bounded Python-materialized CERA scene view in one call.',
+        parameters: { type: 'object', properties: {} },
+        strict: false,
+      },
+    }],
+    thinking: { type: 'disabled' },
   });
+  const requestEstimate = JSON.stringify(requestBody(
+    process.env.CERA_TEST_SYSTEM_PROMPT,
+    process.env.CERA_TEST_INVOCATION_PROMPT,
+  ));
+  const reserveProofRequest = JSON.stringify(requestBody(
+    process.env.CERA_TEST_MAX_SYSTEM_PROMPT,
+    process.env.CERA_TEST_MAX_INVOCATION_PROMPT,
+  ));
+  const serializedContextBytes = Buffer.byteLength(JSON.stringify(text), 'utf8');
   console.log(JSON.stringify({
     bytes: Buffer.byteLength(text, 'utf8'),
+    serializedContextBytes,
+    serializedContextLimitBytes: result.details.serializedContextLimitBytes,
+    nonContextRequestReserveBytes: result.details.nonContextRequestReserveBytes,
+    maximumRequestBytes: result.details.maximumRequestBytes,
     files: result.details.files,
     packet: result.details.packet,
-    serializedRequestEstimateBytes: Buffer.byteLength(requestEstimate, 'utf8'),
+    freshSessionRequestEstimateBytes: Buffer.byteLength(requestEstimate, 'utf8'),
+    freshSessionNonContextBytes:
+      Buffer.byteLength(requestEstimate, 'utf8') - serializedContextBytes,
+    maximumEnvelopeNonContextBytes:
+      Buffer.byteLength(reserveProofRequest, 'utf8') - serializedContextBytes,
     hasSakuraClaim: text.includes('CERA-SAKURA-CLAIM-120'),
     hasHanaClaim: text.includes('CERA-HANA-CLAIM-120'),
+    hasSakuraOwnerPrivateClaim: text.includes('CERA-SAKURA-OWNER-PRIVATE-CLAIM'),
+    hasHanaOwnerPrivateClaim: text.includes('CERA-HANA-OWNER-PRIVATE-CLAIM'),
+    hasForeignOwnerPrivateClaim: text.includes('CERA-FOREIGN-OWNER-PRIVATE-CLAIM'),
     hasOmittedPayload: text.includes('CERA-OMITTED-PAYLOAD'),
     hasSixthTurn: text.includes('CERA-RECENT-TURN-6'),
   }));
@@ -251,11 +327,29 @@ try {
     environment.update(
         {
             "CERA_PI_VIEW_ROOT": str(view_root),
-            "CERA_PI_PURPOSE": "writer",
+            "CERA_PI_PURPOSE": purpose,
             "CERA_PI_MAX_TOOL_CALLS": "1",
             "CERA_TEST_SYSTEM_PROMPT": ADULT_WRITER_SYSTEM_PROMPT,
             "CERA_TEST_INVOCATION_PROMPT": (
                 "Call context exactly once and render the complete authorized scene."
+            ),
+            "CERA_TEST_MAX_SYSTEM_PROMPT": max(
+                (ORDINARY_WRITER_SYSTEM_PROMPT, ADULT_WRITER_SYSTEM_PROMPT),
+                key=lambda value: len(json.dumps(value, ensure_ascii=False).encode("utf-8")),
+            ),
+            "CERA_TEST_MAX_INVOCATION_PROMPT": (
+                "Call context exactly once, use its complete confined Writer view, "
+                "then produce the complete scene now without another tool call. This is "
+                "the only complete repair attempt. The prior candidate was rejected for "
+                "current_data_conflict at the exact candidate phrase "
+                + json.dumps("\\" * 1_000)
+                + ": "
+                + ("\\" * 2_000)
+                + " Produce a fresh complete scene from the unchanged Writer view; do "
+                "not quote, patch, or continue the rejected prose."
+            ),
+            "CERA_TEST_MAX_OUTPUT_TOKENS": str(
+                deepseek_composer_candidate().maximum_output_tokens
             ),
         }
     )
@@ -397,7 +491,7 @@ class FakePi:
                 )
         parent_hash = (
             None
-            if request.accepted_parent_session is None or request.force_rehydrate
+            if request.accepted_parent_session is None
             else request.accepted_parent_session.session_id_sha256
         )
         receipt = PiWriterReceiptV1(
@@ -414,7 +508,12 @@ class FakePi:
             tool_call_count=2,
             failed_tool_call_count=0,
             input_tokens=100,
-            cached_input_tokens=(40 if parent_hash else 0),
+            cached_input_tokens=(
+                40
+                if request.accepted_parent_session is not None
+                and not request.force_rehydrate
+                else 0
+            ),
             output_tokens=30,
             reasoning_tokens=0,
             duration_ms=5,
@@ -840,7 +939,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v12",
+                "cera.pi_scene.writer_authority_order.v13",
             )
             self.assertEqual(
                 authority_order["precedence"][:2],
@@ -2044,7 +2143,10 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertNotIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
         self.assertIn("MAX_WRITER_GENESIS_FILE_BYTES = 128 * 1024", extension)
         self.assertIn("MAX_WRITER_CONTEXT_BYTES = 384 * 1024", extension)
-        self.assertIn("cera.writer_context_packet.v7", extension)
+        self.assertIn("DEEPSEEK_MAXIMUM_REQUEST_BYTES = 512 * 1024", extension)
+        self.assertIn("WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES = 128 * 1024", extension)
+        self.assertIn("Buffer.byteLength(JSON.stringify(text), \"utf8\")", extension)
+        self.assertIn("cera.writer_context_packet.v8", extension)
 
     def test_writer_context_projects_two_active_genesis_bundles_with_growth(self) -> None:
         sakura_id = "character:sakura"
@@ -2061,6 +2163,50 @@ class PiSceneLeanTests(unittest.TestCase):
             label="hana",
             records=121,
             payload_chars=1_800,
+        )
+
+        def owner_private_record(
+            bundle: dict[str, object],
+            index: int,
+            *,
+            owner_id: str,
+            subject_ids: list[str],
+            claim: str,
+        ) -> None:
+            projections = bundle["genesis_record_projections"]
+            assert isinstance(projections, list)
+            projection = projections[index]
+            assert isinstance(projection, dict)
+            record = projection["record"]
+            assert isinstance(record, dict)
+            record["visibility"] = "owner_private"
+            record["owner_id"] = owner_id
+            record["knowledge_owner_ids"] = [owner_id]
+            record["subject_ids"] = subject_ids
+            record["claim"] = claim
+            projection["visibility"] = "owner_private"
+            projection["knowledge_owner_id"] = owner_id
+
+        owner_private_record(
+            sakura,
+            0,
+            owner_id=sakura_id,
+            subject_ids=[sakura_id],
+            claim="CERA-SAKURA-OWNER-PRIVATE-CLAIM",
+        )
+        owner_private_record(
+            hana,
+            0,
+            owner_id=hana_id,
+            subject_ids=[hana_id],
+            claim="CERA-HANA-OWNER-PRIVATE-CLAIM",
+        )
+        owner_private_record(
+            sakura,
+            1,
+            owner_id=enne_id,
+            subject_ids=[sakura_id, enne_id],
+            claim="CERA-FOREIGN-OWNER-PRIVATE-CLAIM",
         )
         relationships = {
             sakura_id: genesis_claim_bundle(
@@ -2082,12 +2228,24 @@ class PiSceneLeanTests(unittest.TestCase):
                 payload_chars=600,
             ),
             "relationship:active-legacy": {
+                "target_key": "relationship:active-legacy",
                 "participants": ["character:ted", sakura_id],
-                "claim": "A legacy active relationship remains exact.",
+                "accepted_branch_changes": [
+                    branch_change(
+                        label="active-relationship-change",
+                        subject_ids=["character:ted", sakura_id],
+                    )
+                ],
             },
             "relationship:inactive-legacy": {
+                "target_key": "relationship:inactive-legacy",
                 "participants": ["character:ted", enne_id],
-                "claim": "An unrelated legacy relationship is not Writer-visible.",
+                "accepted_branch_changes": [
+                    branch_change(
+                        label="inactive-relationship-change",
+                        subject_ids=["character:ted", enne_id],
+                    )
+                ],
             },
         }
         memories = {
@@ -2170,7 +2328,7 @@ class PiSceneLeanTests(unittest.TestCase):
             projection = authority["context_projection"]
             self.assertEqual(
                 projection["schema_version"],
-                "cera.pi_scene.writer_context_projection.v1",
+                "cera.pi_scene.writer_context_projection.v2",
             )
             self.assertEqual(
                 projection["active_character_ids"],
@@ -2192,7 +2350,7 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertTrue(
                 all(
                     value["schema_version"]
-                    == "cera.pi_scene.writer_genesis_claim_bundle.v1"
+                    == "cera.pi_scene.writer_genesis_claim_bundle.v2"
                     for value in projected_characters
                 )
             )
@@ -2202,11 +2360,16 @@ class PiSceneLeanTests(unittest.TestCase):
             by_id = {value["character_id"]: value for value in projected_characters}
             self.assertEqual(by_id[sakura_id]["source_bundle_sha256"], canonical_sha256(sakura))
             self.assertEqual(by_id[hana_id]["source_bundle_sha256"], canonical_sha256(hana))
+            self.assertEqual(by_id[sakura_id]["omitted_record_count"], 1)
+            self.assertEqual(by_id[hana_id]["omitted_record_count"], 0)
             visible_character_text = "\n".join(
                 path.read_text(encoding="utf-8") for path in projected_character_files
             )
             self.assertIn("CERA-SAKURA-CLAIM-120", visible_character_text)
             self.assertIn("CERA-HANA-CLAIM-120", visible_character_text)
+            self.assertIn("CERA-SAKURA-OWNER-PRIVATE-CLAIM", visible_character_text)
+            self.assertIn("CERA-HANA-OWNER-PRIVATE-CLAIM", visible_character_text)
+            self.assertNotIn("CERA-FOREIGN-OWNER-PRIVATE-CLAIM", visible_character_text)
             self.assertNotIn("CERA-OMITTED-PAYLOAD", visible_character_text)
             self.assertNotIn("payload_json", visible_character_text)
 
@@ -2215,18 +2378,18 @@ class PiSceneLeanTests(unittest.TestCase):
                 for path in (view.root / "relationships").glob("*.json")
             ]
             self.assertEqual(len(relationship_values), 3)
-            relationship_claims = {
-                value.get("claim")
+            relationship_change_keys = {
+                change["change_key"]
                 for value in relationship_values
-                if value.get("claim") is not None
+                for change in value.get("accepted_branch_changes", [])
             }
             self.assertIn(
-                "A legacy active relationship remains exact.",
-                relationship_claims,
+                "active-relationship-change",
+                relationship_change_keys,
             )
             self.assertNotIn(
-                "An unrelated legacy relationship is not Writer-visible.",
-                relationship_claims,
+                "inactive-relationship-change",
+                relationship_change_keys,
             )
             self.assertNotIn(
                 enne_id,
@@ -2246,14 +2409,26 @@ class PiSceneLeanTests(unittest.TestCase):
             packet = json.loads(probe.stdout)
             self.assertGreater(packet["bytes"], 64 * 1024)
             self.assertLessEqual(packet["bytes"], 384 * 1024)
-            self.assertEqual(packet["packet"], "cera.writer_context_packet.v7")
+            self.assertEqual(packet["packet"], "cera.writer_context_packet.v8")
             self.assertTrue(packet["hasSakuraClaim"])
             self.assertTrue(packet["hasHanaClaim"])
+            self.assertTrue(packet["hasSakuraOwnerPrivateClaim"])
+            self.assertTrue(packet["hasHanaOwnerPrivateClaim"])
+            self.assertFalse(packet["hasForeignOwnerPrivateClaim"])
             self.assertFalse(packet["hasOmittedPayload"])
             self.assertTrue(packet["hasSixthTurn"])
-            self.assertLess(packet["serializedRequestEstimateBytes"], 524_288)
+            route_request_limit = deepseek_composer_candidate().maximum_request_bytes
+            self.assertEqual(route_request_limit, 524_288)
+            self.assertEqual(packet["maximumRequestBytes"], route_request_limit)
+            self.assertEqual(packet["serializedContextLimitBytes"], 384 * 1024)
+            self.assertEqual(packet["nonContextRequestReserveBytes"], 128 * 1024)
+            self.assertLess(packet["freshSessionRequestEstimateBytes"], route_request_limit)
+            self.assertLessEqual(
+                packet["maximumEnvelopeNonContextBytes"],
+                packet["nonContextRequestReserveBytes"],
+            )
             self.assertGreater(
-                524_288 - packet["serializedRequestEstimateBytes"],
+                route_request_limit - packet["freshSessionRequestEstimateBytes"],
                 32 * 1024,
             )
 
@@ -2312,6 +2487,599 @@ class PiSceneLeanTests(unittest.TestCase):
                         accepted_records=(),
                     )
                 )
+
+    def test_writer_projection_filters_private_genesis_and_branch_overlays(self) -> None:
+        active_id = "character:active"
+        foreign_id = "character:foreign"
+        bundle = genesis_claim_bundle(
+            active_id,
+            label="mixed-owner",
+            records=5,
+            payload_chars=200,
+        )
+        projections = bundle["genesis_record_projections"]
+        assert isinstance(projections, list)
+
+        def configure_record(
+            index: int,
+            *,
+            label: str,
+            visibility: str,
+            owner_id: str | None,
+            knowledge_owner_ids: list[str],
+            subject_ids: list[str],
+            relationship_from_id: str | None = None,
+        ) -> dict[str, object]:
+            projection = projections[index]
+            assert isinstance(projection, dict)
+            record = projection["record"]
+            assert isinstance(record, dict)
+            record["record_id"] = f"record:{label}"
+            record["claim"] = f"CERA-{label.upper()}-CLAIM"
+            record["payload_json"] = canonical_json(
+                {"private_payload_sentinel": f"CERA-{label.upper()}-PAYLOAD"}
+            )
+            record["visibility"] = visibility
+            record["owner_id"] = owner_id
+            record["knowledge_owner_ids"] = knowledge_owner_ids
+            record["subject_ids"] = subject_ids
+            record["relationship_from_id"] = relationship_from_id
+            projection["visibility"] = visibility
+            projection["knowledge_owner_id"] = (
+                owner_id
+                if owner_id is not None
+                else knowledge_owner_ids[0]
+                if len(knowledge_owner_ids) == 1
+                else None
+            )
+            return record
+
+        foreign_private = configure_record(
+            0,
+            label="foreign-private",
+            visibility="owner_private",
+            owner_id=foreign_id,
+            knowledge_owner_ids=[active_id],
+            subject_ids=[active_id, foreign_id],
+        )
+        configure_record(
+            1,
+            label="active-private",
+            visibility="owner_private",
+            owner_id=active_id,
+            knowledge_owner_ids=[active_id],
+            subject_ids=[active_id],
+        )
+        configure_record(
+            2,
+            label="public-active",
+            visibility="public",
+            owner_id=None,
+            knowledge_owner_ids=[],
+            subject_ids=[active_id],
+        )
+        foreign_system = configure_record(
+            3,
+            label="foreign-system",
+            visibility="system_private",
+            owner_id=None,
+            knowledge_owner_ids=[],
+            subject_ids=[foreign_id],
+            relationship_from_id=active_id,
+        )
+        configure_record(
+            4,
+            label="active-system",
+            visibility="system_private",
+            owner_id=None,
+            knowledge_owner_ids=[],
+            subject_ids=[active_id],
+        )
+        bundle["accepted_branch_changes"] = [
+            branch_change(
+                label="active-public-change",
+                subject_ids=[active_id],
+            ),
+            branch_change(
+                label="active-private-change",
+                subject_ids=[active_id],
+                visibility="character_private",
+                knowledge_owner_id=active_id,
+            ),
+            branch_change(
+                label="foreign-private-change",
+                subject_ids=[active_id, foreign_id],
+                visibility="character_private",
+                knowledge_owner_id=foreign_id,
+            ),
+        ]
+        memories = {
+            "knowledge:active-owner": branch_change(
+                label="active-private-memory",
+                subject_ids=[active_id],
+                visibility="character_private",
+                knowledge_owner_id=active_id,
+            ),
+            "knowledge:foreign-owner": branch_change(
+                label="foreign-private-memory",
+                subject_ids=[active_id, foreign_id],
+                visibility="character_private",
+                knowledge_owner_id=foreign_id,
+            ),
+        }
+
+        with TemporaryDirectory() as temporary:
+            materializer = WriterViewMaterializer(Path(temporary) / "views")
+            view = materializer.materialize(
+                WriterViewInputV1(
+                    world_id="world-private-projection",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-private-projection",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue.",
+                    primary_authority=adult_handoff("private_projection"),
+                    current_state={
+                        "public_scene_state": "The active adult remains present.",
+                        "genesis_revision": "genesis:test:private-projection",
+                    },
+                    characters={active_id: bundle},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories=memories,
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            character_path = next((view.root / "characters").glob("*.json"))
+            projected = json.loads(character_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                projected["schema_version"],
+                "cera.pi_scene.writer_genesis_claim_bundle.v2",
+            )
+            self.assertEqual(projected["source_record_count"], 5)
+            self.assertEqual(projected["omitted_record_count"], 2)
+            self.assertEqual(
+                set(projected["omitted_source_record_sha256s"]),
+                {canonical_sha256(foreign_private), canonical_sha256(foreign_system)},
+            )
+            visible_claims = {claim["claim"] for claim in projected["claims"]}
+            self.assertEqual(
+                visible_claims,
+                {
+                    "CERA-ACTIVE-PRIVATE-CLAIM",
+                    "CERA-PUBLIC-ACTIVE-CLAIM",
+                    "CERA-ACTIVE-SYSTEM-CLAIM",
+                },
+            )
+            projected_text = character_path.read_text(encoding="utf-8")
+            self.assertNotIn("CERA-FOREIGN-PRIVATE-CLAIM", projected_text)
+            self.assertNotIn("CERA-FOREIGN-PRIVATE-PAYLOAD", projected_text)
+            self.assertNotIn("CERA-FOREIGN-SYSTEM-CLAIM", projected_text)
+            self.assertEqual(projected["source_accepted_branch_change_count"], 3)
+            self.assertEqual(projected["omitted_branch_change_count"], 1)
+            self.assertEqual(
+                {change["change_key"] for change in projected["accepted_branch_changes"]},
+                {"active-public-change", "active-private-change"},
+            )
+            memory_values = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in (view.root / "relevant_memories").glob("*.json")
+            ]
+            self.assertEqual(
+                {value["change_key"] for value in memory_values},
+                {"active-private-memory"},
+            )
+            authority = json.loads(
+                (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            receipt = authority["context_projection"]
+            self.assertEqual(receipt["character_context_mode"], "production_genesis")
+            self.assertEqual(receipt["omitted_unauthorized_genesis_records"], 2)
+            self.assertEqual(receipt["omitted_unauthorized_branch_changes"], 1)
+            self.assertEqual(receipt["excluded_memory_actor_buckets"], 1)
+
+            fallback = materializer.materialize(
+                WriterViewInputV1(
+                    world_id="world-private-projection",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    turn_id="turn-0002",
+                    candidate_id="candidate-no-genesis-fallback",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue.",
+                    primary_authority=adult_handoff("fallback"),
+                    current_state={
+                        "public_scene_state": "The newly present adult remains present.",
+                        "genesis_revision": "genesis:test:private-projection",
+                    },
+                    characters={
+                        active_id: no_genesis_character(
+                            active_id,
+                            accepted_branch_changes=[
+                                branch_change(
+                                    label="fallback-active-change",
+                                    subject_ids=[active_id],
+                                )
+                            ],
+                        )
+                    },
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            fallback_value = json.loads(
+                next((fallback.root / "characters").glob("*.json")).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                fallback_value["schema_version"],
+                "cera.pi_scene.writer_no_genesis_character.v1",
+            )
+            self.assertEqual(
+                fallback_value["accepted_branch_changes"][0]["change_key"],
+                "fallback-active-change",
+            )
+
+            malformed_projection = json.loads(canonical_json(bundle))
+            malformed_projection["genesis_record_projections"][0][
+                "future_outer_projection_field"
+            ] = "must fail closed"
+            malformed_sources = (
+                {
+                    "character_id": active_id,
+                    "genesis_record_projections": None,
+                    "raw_private_payload": "must not pass",
+                },
+                {
+                    **bundle,
+                    "future_outer_bundle_field": "must fail closed",
+                },
+                malformed_projection,
+            )
+            for index, malformed in enumerate(malformed_sources, start=1):
+                with self.subTest(malformed=index), self.assertRaisesRegex(
+                    ContractValidationError,
+                    (
+                        "Genesis Writer bundle fields changed|"
+                        "Genesis Writer bundle records are invalid|"
+                        "Genesis Writer projection fields changed"
+                    ),
+                ):
+                    materializer.materialize(
+                        WriterViewInputV1(
+                            world_id="world-private-projection",
+                            branch_id="branch-main",
+                            scene_id="scene-room",
+                            turn_id=f"turn-malformed-{index}",
+                            candidate_id=f"candidate-malformed-{index}",
+                            route=SceneRoute.ADULT,
+                            user_prompt="Continue.",
+                            primary_authority=adult_handoff(f"malformed_{index}"),
+                            current_state={
+                                "public_scene_state": "The scene remains bounded.",
+                                "genesis_revision": "genesis:test:private-projection",
+                            },
+                            characters={active_id: malformed},
+                            relationships={},
+                            recent_prose=(),
+                            relevant_memories={},
+                            voice_examples={},
+                            craft_index={},
+                            accepted_records=(),
+                        )
+                    )
+
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "Writer Genesis revision custody changed",
+            ):
+                materializer.materialize(
+                    WriterViewInputV1(
+                        world_id="world-private-projection",
+                        branch_id="branch-main",
+                        scene_id="scene-room",
+                        turn_id="turn-malformed-revision",
+                        candidate_id="candidate-malformed-revision",
+                        route=SceneRoute.ADULT,
+                        user_prompt="Continue.",
+                        primary_authority=adult_handoff("malformed_revision"),
+                        current_state={
+                            "public_scene_state": "The scene remains bounded.",
+                            "genesis_revision": None,
+                        },
+                        characters={active_id: {"raw_private_payload": "must not pass"}},
+                        relationships={},
+                        recent_prose=(),
+                        relevant_memories={},
+                        voice_examples={},
+                        craft_index={},
+                        accepted_records=(),
+                    )
+                )
+
+            malformed_private_memory = branch_change(
+                label="malformed-private-memory",
+                subject_ids=[active_id],
+                visibility="character_private",
+                knowledge_owner_id=active_id,
+            )
+            malformed_private_memory["knowledge_owner_id"] = None
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "private overlay has no owner",
+            ):
+                materializer.materialize(
+                    WriterViewInputV1(
+                        world_id="world-private-projection",
+                        branch_id="branch-main",
+                        scene_id="scene-room",
+                        turn_id="turn-malformed-private",
+                        candidate_id="candidate-malformed-private",
+                        route=SceneRoute.ADULT,
+                        user_prompt="Continue.",
+                        primary_authority=adult_handoff("malformed_private"),
+                        current_state={
+                            "public_scene_state": "The scene remains bounded.",
+                            "genesis_revision": "genesis:test:private-projection",
+                        },
+                        characters={active_id: bundle},
+                        relationships={},
+                        recent_prose=(),
+                        relevant_memories={"knowledge:malformed": malformed_private_memory},
+                        voice_examples={},
+                        craft_index={},
+                        accepted_records=(),
+                    )
+                )
+
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "production overlay fields changed",
+            ):
+                materializer.materialize(
+                    WriterViewInputV1(
+                        world_id="world-private-projection",
+                        branch_id="branch-main",
+                        scene_id="scene-room",
+                        turn_id="turn-raw-overlay",
+                        candidate_id="candidate-raw-overlay",
+                        route=SceneRoute.ADULT,
+                        user_prompt="Continue.",
+                        primary_authority=adult_handoff("raw_overlay"),
+                        current_state={
+                            "public_scene_state": "The scene remains bounded.",
+                            "genesis_revision": "genesis:test:private-projection",
+                        },
+                        characters={active_id: bundle},
+                        relationships={
+                            "relationship:unknown": {
+                                "participants": [active_id],
+                                "raw_private_payload": "must fail closed",
+                            }
+                        },
+                        recent_prose=(),
+                        relevant_memories={},
+                        voice_examples={},
+                        craft_index={},
+                        accepted_records=(),
+                    )
+                )
+
+    def test_writer_context_enforces_escaped_and_schema_specific_bounds(self) -> None:
+        active_id = "character:active"
+
+        def materialize_legacy(root: Path, *, candidate_id: str, escaped_chars: int):
+            escaped = "\\" * escaped_chars
+            return WriterViewMaterializer(root / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-legacy-bound",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    turn_id=candidate_id.replace("candidate", "turn"),
+                    candidate_id=candidate_id,
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue.",
+                    primary_authority=adult_handoff(candidate_id),
+                    current_state={"public_scene_state": "One active adult remains present."},
+                    characters={active_id: {"blob": escaped}},
+                    relationships={
+                        "relationship:legacy": {
+                            "participants": [active_id],
+                            "blob": escaped,
+                        }
+                    },
+                    recent_prose=(),
+                    relevant_memories={
+                        "memory:legacy": {
+                            "character_id": active_id,
+                            "blob": escaped,
+                        }
+                    },
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            oversized_legacy = materialize_legacy(
+                root,
+                candidate_id="candidate-legacy-108k",
+                escaped_chars=54_000,
+            )
+            oversized_probe = run_pi_context_extension(
+                root=root,
+                view_root=oversized_legacy.root,
+            )
+            self.assertEqual(oversized_probe.returncode, 7)
+            self.assertIn("context file exceeds the read bound", oversized_probe.stderr)
+
+            escaped_over = materialize_legacy(
+                root,
+                candidate_id="candidate-escaped-over",
+                escaped_chars=32_500,
+            )
+            self.assertTrue(
+                all(
+                    path.stat().st_size < 64 * 1024
+                    for directory in ("characters", "relationships", "relevant_memories")
+                    for path in (escaped_over.root / directory).glob("*.json")
+                )
+            )
+            escaped_rejected = run_pi_context_extension(
+                root=root,
+                view_root=escaped_over.root,
+            )
+            self.assertEqual(escaped_rejected.returncode, 7)
+            self.assertIn(
+                "Writer view exceeds the serialized request bound",
+                escaped_rejected.stderr,
+            )
+
+            escaped_under = materialize_legacy(
+                root,
+                candidate_id="candidate-escaped-under",
+                escaped_chars=32_000,
+            )
+            accepted = run_pi_context_extension(root=root, view_root=escaped_under.root)
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            packet = json.loads(accepted.stdout)
+            self.assertLessEqual(
+                packet["serializedContextBytes"],
+                packet["serializedContextLimitBytes"],
+            )
+            self.assertGreater(
+                packet["serializedContextBytes"],
+                packet["serializedContextLimitBytes"] - 24 * 1024,
+            )
+            self.assertLessEqual(
+                packet["maximumEnvelopeNonContextBytes"],
+                packet["nonContextRequestReserveBytes"],
+            )
+            self.assertLessEqual(
+                packet["serializedContextBytes"]
+                + packet["maximumEnvelopeNonContextBytes"],
+                deepseek_composer_candidate().maximum_request_bytes,
+            )
+
+            recorder = WriterViewMaterializer(root / "recorder-views").materialize(
+                WriterViewInputV1(
+                    world_id="world-recorder-bound",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    turn_id="turn-recorder-bound",
+                    candidate_id="candidate-recorder-bound",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Record the accepted turn.",
+                    primary_authority=adult_handoff("recorder_bound"),
+                    current_state={"recording_phase": "post_accept"},
+                    characters={active_id: {"blob": "R" * 70_000}},
+                    relationships={},
+                    recent_prose=("Accepted visible prose.",),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                    purpose="recorder",
+                )
+            )
+            recorder_authority = json.loads(
+                (recorder.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                recorder_authority["schema_version"],
+                "cera.pi_scene.writer_authority_order.v12",
+            )
+            self.assertIsNone(recorder_authority["context_projection"])
+            recorder_character = next((recorder.root / "characters").glob("*.json"))
+            self.assertGreater(recorder_character.stat().st_size, 64 * 1024)
+            self.assertIn("R" * 100, recorder_character.read_text(encoding="utf-8"))
+            recorder_probe = run_pi_context_extension(
+                root=root,
+                view_root=recorder.root,
+                purpose="recorder",
+            )
+            self.assertEqual(recorder_probe.returncode, 7)
+            self.assertIn("context file exceeds the read bound", recorder_probe.stderr)
+
+    def test_preexisting_v1_writer_projection_fails_closed_on_reuse(self) -> None:
+        active_id = "character:active"
+        source = WriterViewInputV1(
+            world_id="world-stale-projection",
+            branch_id="branch-main",
+            scene_id="scene-room",
+            turn_id="turn-0001",
+            candidate_id="candidate-stale-projection",
+            route=SceneRoute.ADULT,
+            user_prompt="Continue.",
+            primary_authority=adult_handoff("stale_projection"),
+            current_state={
+                "public_scene_state": "The active adult remains present.",
+                "genesis_revision": "genesis:test:stale-projection",
+            },
+            characters={
+                active_id: genesis_claim_bundle(
+                    active_id,
+                    label="stale-projection",
+                    records=1,
+                    payload_chars=100,
+                )
+            },
+            relationships={},
+            recent_prose=(),
+            relevant_memories={},
+            voice_examples={},
+            craft_index={},
+            accepted_records=(),
+        )
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            materializer = WriterViewMaterializer(root / "views")
+            view = materializer.materialize(source)
+            character_path = next((view.root / "characters").glob("*.json"))
+            current = json.loads(character_path.read_text(encoding="utf-8"))
+            stale = {
+                "schema_version": "cera.pi_scene.writer_genesis_claim_bundle.v1",
+                "character_id": current["character_id"],
+                "source_bundle_sha256": current["source_bundle_sha256"],
+                "claims": current["claims"],
+            }
+            stale_text = canonical_json(stale)
+            character_path.write_text(stale_text, encoding="utf-8")
+            manifest_path = view.root / "MANIFEST.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            relative = character_path.relative_to(view.root).as_posix()
+            entry = next(item for item in manifest["files"] if item["path"] == relative)
+            entry["sha256"] = text_sha256(stale_text)
+            entry["bytes"] = len(stale_text.encode("utf-8"))
+            manifest_path.write_text(canonical_json(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                StateConflictError,
+                "Writer Genesis projection is stale",
+            ):
+                verify_writer_view(view.root)
+            with self.assertRaisesRegex(
+                StateConflictError,
+                "Writer Genesis projection is stale",
+            ):
+                materializer.materialize(source)
+            probe = run_pi_context_extension(root=root, view_root=view.root)
+            self.assertEqual(probe.returncode, 7)
+            self.assertIn("Writer Genesis projection is stale or invalid", probe.stderr)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(
@@ -2838,7 +3606,11 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertTrue(writer_calls[1].force_rehydrate)
             self.assertTrue(writer_calls[2].force_rehydrate)
             self.assertIsNotNone(writer_calls[2].accepted_parent_session)
-            self.assertIsNone(successor.candidate.writer_receipt.parent_session_id_sha256)
+            assert writer_calls[2].accepted_parent_session is not None
+            self.assertEqual(
+                successor.candidate.writer_receipt.parent_session_id_sha256,
+                writer_calls[2].accepted_parent_session.session_id_sha256,
+            )
             self.assertTrue(successor.candidate.writer_receipt.rehydrated)
 
     def test_all_post_accept_writers_rehydrate_without_forking_soft_lineage(self) -> None:
@@ -2863,8 +3635,10 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIsNotNone(first_restarted_call.accepted_parent_session)
             self.assertTrue(first_restarted_call.force_rehydrate)
             self.assertTrue(after_restart.candidate.writer_receipt.rehydrated)
-            self.assertIsNone(
-                after_restart.candidate.writer_receipt.parent_session_id_sha256
+            assert first_restarted_call.accepted_parent_session is not None
+            self.assertEqual(
+                after_restart.candidate.writer_receipt.parent_session_id_sha256,
+                first_restarted_call.accepted_parent_session.session_id_sha256,
             )
             restarted.accept(after_restart.review_id)
 
@@ -2875,7 +3649,11 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIsNotNone(writer_calls[-1].accepted_parent_session)
             self.assertTrue(writer_calls[-1].force_rehydrate)
             self.assertTrue(third.candidate.writer_receipt.rehydrated)
-            self.assertIsNone(third.candidate.writer_receipt.parent_session_id_sha256)
+            assert writer_calls[-1].accepted_parent_session is not None
+            self.assertEqual(
+                third.candidate.writer_receipt.parent_session_id_sha256,
+                writer_calls[-1].accepted_parent_session.session_id_sha256,
+            )
 
     def test_complete_fake_smoke_shape_reaches_four_accepted_turns(self) -> None:
         failures = {(2, 1)}

@@ -45,8 +45,10 @@ _SURFACE_REALIZATION_KINDS = frozenset(
     kind.value for kind in SequenceItemV1.SURFACE_REALIZATION_KINDS
 )
 _GENESIS_PROJECTION_SCHEMA = "cera.pi_scene_genesis_record_projection.v1"
-_WRITER_GENESIS_BUNDLE_SCHEMA = "cera.pi_scene.writer_genesis_claim_bundle.v1"
-_WRITER_CONTEXT_PROJECTION_SCHEMA = "cera.pi_scene.writer_context_projection.v1"
+_WRITER_GENESIS_BUNDLE_SCHEMA = "cera.pi_scene.writer_genesis_claim_bundle.v2"
+_WRITER_NO_GENESIS_CHARACTER_SCHEMA = "cera.pi_scene.writer_no_genesis_character.v1"
+_WRITER_CONTEXT_PROJECTION_SCHEMA = "cera.pi_scene.writer_context_projection.v2"
+_LEGACY_CONTEXT_GENESIS_REVISION = "cera.pi_scene.context_seed.v1"
 _GENESIS_PROJECTION_FIELDS = frozenset(
     {
         "schema_version",
@@ -113,6 +115,38 @@ _WRITER_GENESIS_RECORD_FIELDS = (
     "valid_to",
     "supersedes",
 )
+_BRANCH_CHANGE_FIELDS = frozenset(
+    {
+        "accepted_turn_id",
+        "change_key",
+        "kind",
+        "subject_ids",
+        "concise_change",
+        "target_key",
+        "visibility",
+        "knowledge_owner_id",
+        "source_kind",
+    }
+)
+_BRANCH_CHANGE_KINDS = frozenset({"character_development", "relationship", "knowledge"})
+_BRANCH_CHANGE_VISIBILITIES = frozenset(
+    {"public", "character_private", "branch_internal_unspecified"}
+)
+_RELATIONSHIP_OVERLAY_FIELDS = frozenset({"target_key", "participants", "accepted_branch_changes"})
+_RECORDER_PROJECTION_FIELDS = frozenset(
+    {"accepted_turn_id", "source_kind", "visibility", "concise_change"}
+)
+_ADULT_PUBLIC_CONTINUITY_FIELDS = frozenset(
+    {
+        "accepted_turn_id",
+        "event_key",
+        "authority",
+        "visibility",
+        "non_explicit_summary",
+        "lasting_story_meaning",
+    }
+)
+_GENESIS_VISIBLE_WITHOUT_OWNER = frozenset({"public", "shared", "system_private"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,7 +344,11 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v12",
+                "schema_version": (
+                    "cera.pi_scene.writer_authority_order.v13"
+                    if source.purpose == "writer"
+                    else "cera.pi_scene.writer_authority_order.v12"
+                ),
                 "current_route": source.route.value,
                 "current_purpose": source.purpose,
                 "current_source_path": "USER_PROMPT.txt",
@@ -449,6 +487,40 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
     }
     if actual != listed:
         raise StateConflictError("Writer-view manifest occupancy changed")
+    if purpose == "writer":
+        try:
+            authority_order = json.loads(
+                (root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise StateConflictError("Writer context projection authority is unreadable") from exc
+        context_projection = (
+            authority_order.get("context_projection") if isinstance(authority_order, dict) else None
+        )
+        if (
+            not isinstance(authority_order, dict)
+            or authority_order.get("schema_version") != "cera.pi_scene.writer_authority_order.v13"
+            or not isinstance(context_projection, dict)
+            or context_projection.get("schema_version") != _WRITER_CONTEXT_PROJECTION_SCHEMA
+        ):
+            raise StateConflictError("Writer context projection authority is stale")
+        for relative in listed:
+            if not relative.startswith(
+                ("characters/", "relationships/", "relevant_memories/")
+            ) or not relative.endswith(".json"):
+                continue
+            try:
+                value = json.loads((root / relative).read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise StateConflictError("Writer semantic context is unreadable") from exc
+            if (
+                isinstance(value, dict)
+                and str(value.get("schema_version", "")).startswith(
+                    "cera.pi_scene.writer_genesis_claim_bundle."
+                )
+                and value.get("schema_version") != _WRITER_GENESIS_BUNDLE_SCHEMA
+            ):
+                raise StateConflictError("Writer Genesis projection is stale")
     response_sequence_path = root / "RESPONSE_SEQUENCE.json"
     if purpose == "writer" and route == SceneRoute.ORDINARY.value:
         try:
@@ -570,6 +642,7 @@ def _project_writer_semantic_context(
     """Expose exact active-actor claims while retaining source bytes by hash."""
 
     active_character_ids = frozenset(source.characters)
+    production_genesis_mode = _production_genesis_mode(source)
     source_context = {
         "characters": dict(source.characters),
         "relationships": dict(source.relationships),
@@ -578,21 +651,51 @@ def _project_writer_semantic_context(
     scoped_relationships, excluded_relationships = _active_writer_buckets(
         source.relationships,
         active_character_ids=active_character_ids,
+        production_genesis_mode=production_genesis_mode,
     )
     scoped_memories, excluded_memories = _active_writer_buckets(
         source.relevant_memories,
         active_character_ids=active_character_ids,
+        production_genesis_mode=production_genesis_mode,
     )
-    projected_characters: dict[str, Mapping[str, Any]] = {
-        key: _project_writer_mapping_value(key, value) for key, value in source.characters.items()
-    }
-    projected_relationships: dict[str, Mapping[str, Any]] = {
-        key: _project_writer_mapping_value(key, value)
-        for key, value in scoped_relationships.items()
-    }
-    projected_memories: dict[str, Mapping[str, Any]] = {
-        key: _project_writer_mapping_value(key, value) for key, value in scoped_memories.items()
-    }
+    projected_characters: dict[str, Mapping[str, Any]] = {}
+    projected_relationships: dict[str, Mapping[str, Any]] = {}
+    projected_memories: dict[str, Mapping[str, Any]] = {}
+    omitted_unauthorized_genesis_records = 0
+    omitted_unauthorized_branch_changes = 0
+    for key, value in source.characters.items():
+        projected, omitted_records, omitted_changes = _project_writer_mapping_value(
+            key,
+            value,
+            mapping_kind="character",
+            active_character_ids=active_character_ids,
+            production_genesis_mode=production_genesis_mode,
+        )
+        projected_characters[key] = projected
+        omitted_unauthorized_genesis_records += omitted_records
+        omitted_unauthorized_branch_changes += omitted_changes
+    for key, value in scoped_relationships.items():
+        projected, omitted_records, omitted_changes = _project_writer_mapping_value(
+            key,
+            value,
+            mapping_kind="relationship",
+            active_character_ids=active_character_ids,
+            production_genesis_mode=production_genesis_mode,
+        )
+        projected_relationships[key] = projected
+        omitted_unauthorized_genesis_records += omitted_records
+        omitted_unauthorized_branch_changes += omitted_changes
+    for key, value in scoped_memories.items():
+        projected, omitted_records, omitted_changes = _project_writer_mapping_value(
+            key,
+            value,
+            mapping_kind="memory",
+            active_character_ids=active_character_ids,
+            production_genesis_mode=production_genesis_mode,
+        )
+        projected_memories[key] = projected
+        omitted_unauthorized_genesis_records += omitted_records
+        omitted_unauthorized_branch_changes += omitted_changes
     projected_context = {
         "characters": projected_characters,
         "relationships": projected_relationships,
@@ -601,17 +704,20 @@ def _project_writer_semantic_context(
     projection_receipt = {
         "schema_version": _WRITER_CONTEXT_PROJECTION_SCHEMA,
         "active_character_ids": sorted(active_character_ids),
+        "character_context_mode": (
+            "production_genesis" if production_genesis_mode else "legacy_unpinned"
+        ),
         "actor_bucket_rule": ("character_owned_buckets_require_an_exact_active_character_key"),
         "legacy_unowned_bucket_rule": (
-            "an_exact_active_character_identity_must_occur_in_the_value"
+            "an_exact_active_character_identity_and_authorized_visibility_are_required"
         ),
-        "genesis_record_rule": (
-            "exact_claim_and_authority_fields_with_omitted_source_bytes_hash_bound"
-        ),
+        "genesis_record_rule": ("exact_active_authorized_claims_with_private_omissions_hash_bound"),
         "source_semantic_context_sha256": canonical_sha256(source_context),
         "projected_semantic_context_sha256": canonical_sha256(projected_context),
         "excluded_relationship_actor_buckets": excluded_relationships,
         "excluded_memory_actor_buckets": excluded_memories,
+        "omitted_unauthorized_genesis_records": omitted_unauthorized_genesis_records,
+        "omitted_unauthorized_branch_changes": omitted_unauthorized_branch_changes,
     }
     return (
         projected_characters,
@@ -625,17 +731,22 @@ def _active_writer_buckets(
     values: Mapping[str, Mapping[str, Any]],
     *,
     active_character_ids: frozenset[str],
+    production_genesis_mode: bool,
 ) -> tuple[dict[str, Mapping[str, Any]], int]:
     selected: dict[str, Mapping[str, Any]] = {}
     for key, value in values.items():
         if key.startswith("character:"):
-            include = key in active_character_ids
+            relevant = key in active_character_ids
         else:
-            include = any(
+            relevant = any(
                 _contains_exact_identity(value, character_id)
                 for character_id in active_character_ids
             )
-        if include:
+        if relevant and _raw_mapping_visibility_allows(
+            value,
+            active_character_ids=active_character_ids,
+            production_genesis_mode=production_genesis_mode,
+        ):
             selected[key] = value
     return selected, len(values) - len(selected)
 
@@ -653,17 +764,72 @@ def _contains_exact_identity(value: object, identity: str) -> bool:
 def _project_writer_mapping_value(
     mapping_key: str,
     value: Mapping[str, Any],
-) -> dict[str, Any]:
-    projections = value.get("genesis_record_projections")
-    if projections is None:
-        return dict(value)
-    if set(value) != {"character_id", "genesis_record_projections"}:
+    *,
+    mapping_kind: str,
+    active_character_ids: frozenset[str],
+    production_genesis_mode: bool,
+) -> tuple[dict[str, Any], int, int]:
+    if "genesis_record_projections" in value:
+        return _project_genesis_bundle(
+            mapping_key,
+            value,
+            active_character_ids=active_character_ids,
+        )
+    if mapping_kind == "character" and production_genesis_mode:
+        return _project_no_genesis_character(
+            mapping_key,
+            value,
+            active_character_ids=active_character_ids,
+        )
+    if mapping_kind == "character":
+        return dict(value), 0, 0
+    projected, omitted_changes = _project_raw_branch_overlay(
+        value,
+        mapping_kind=mapping_kind,
+        active_character_ids=active_character_ids,
+        production_genesis_mode=production_genesis_mode,
+    )
+    return projected, 0, omitted_changes
+
+
+def _production_genesis_mode(source: WriterViewInputV1) -> bool:
+    revision: str | None = None
+    if "genesis_revision" in source.current_state:
+        raw_revision = source.current_state["genesis_revision"]
+        if not isinstance(raw_revision, str) or not raw_revision.strip():
+            raise ContractValidationError("Writer Genesis revision custody changed")
+        revision = raw_revision
+    if any(
+        "genesis_record_projections" in value
+        for values in (source.characters, source.relationships, source.relevant_memories)
+        for value in values.values()
+    ):
+        return True
+    return revision is not None and revision != _LEGACY_CONTEXT_GENESIS_REVISION
+
+
+def _project_genesis_bundle(
+    mapping_key: str,
+    value: Mapping[str, Any],
+    *,
+    active_character_ids: frozenset[str],
+) -> tuple[dict[str, Any], int, int]:
+    expected_fields = {"character_id", "genesis_record_projections"}
+    if "accepted_branch_changes" in value:
+        expected_fields.add("accepted_branch_changes")
+    if set(value) != expected_fields:
         raise ContractValidationError("Genesis Writer bundle fields changed")
     if value.get("character_id") != mapping_key:
         raise ContractValidationError("Genesis Writer bundle character changed")
+    projections = value["genesis_record_projections"]
     if not isinstance(projections, (list, tuple)) or not projections:
         raise ContractValidationError("Genesis Writer bundle records are invalid")
+    accepted_changes, omitted_changes = _project_branch_changes(
+        value.get("accepted_branch_changes", ()),
+        active_character_ids=active_character_ids,
+    )
     claims: list[dict[str, Any]] = []
+    omitted_record_sha256s: list[str] = []
     for projection in projections:
         if not isinstance(projection, Mapping) or set(projection) != _GENESIS_PROJECTION_FIELDS:
             raise ContractValidationError("Genesis Writer projection fields changed")
@@ -674,6 +840,7 @@ def _project_writer_mapping_value(
             raise ContractValidationError("Genesis Writer record fields changed")
         if record.get("schema_version") != "cera.genesis_record.v1":
             raise ContractValidationError("Genesis Writer record schema changed")
+        _validate_genesis_projection_custody(projection, record)
         payload_json = record.get("payload_json")
         if not isinstance(payload_json, str):
             raise ContractValidationError("Genesis Writer payload custody changed")
@@ -683,19 +850,330 @@ def _project_writer_mapping_value(
             raise ContractValidationError("Genesis Writer payload custody changed") from exc
         if canonical_json(payload) != payload_json:
             raise ContractValidationError("Genesis Writer payload custody changed")
+        record_sha256 = canonical_sha256(record)
+        if not _genesis_record_is_writer_visible(
+            record,
+            active_character_ids=active_character_ids,
+        ):
+            omitted_record_sha256s.append(record_sha256)
+            continue
         claims.append(
             {
                 "source_schema_version": record["schema_version"],
-                "source_record_sha256": canonical_sha256(record),
+                "source_record_sha256": record_sha256,
                 **{field: record[field] for field in _WRITER_GENESIS_RECORD_FIELDS},
             }
         )
-    return {
-        "schema_version": _WRITER_GENESIS_BUNDLE_SCHEMA,
-        "character_id": mapping_key,
-        "source_bundle_sha256": canonical_sha256(value),
-        "claims": claims,
-    }
+    return (
+        {
+            "schema_version": _WRITER_GENESIS_BUNDLE_SCHEMA,
+            "character_id": mapping_key,
+            "source_bundle_sha256": canonical_sha256(value),
+            "source_record_count": len(projections),
+            "claims": claims,
+            "omitted_record_count": len(omitted_record_sha256s),
+            "omitted_source_record_sha256s": omitted_record_sha256s,
+            "source_accepted_branch_change_count": len(value.get("accepted_branch_changes", ())),
+            "accepted_branch_changes": accepted_changes,
+            "omitted_branch_change_count": omitted_changes,
+        },
+        len(omitted_record_sha256s),
+        omitted_changes,
+    )
+
+
+def _validate_genesis_projection_custody(
+    projection: Mapping[str, Any],
+    record: Mapping[str, Any],
+) -> None:
+    visibility = record.get("visibility")
+    if not isinstance(visibility, str) or projection.get("visibility") != visibility:
+        raise ContractValidationError("Genesis Writer projection visibility changed")
+    owner_id = record.get("owner_id")
+    if owner_id is not None and not isinstance(owner_id, str):
+        raise ContractValidationError("Genesis Writer record owner changed")
+    knowledge_owner_ids = record.get("knowledge_owner_ids")
+    if not isinstance(knowledge_owner_ids, list) or any(
+        not isinstance(owner, str) for owner in knowledge_owner_ids
+    ):
+        raise ContractValidationError("Genesis Writer knowledge owners changed")
+    expected_owner = owner_id
+    if expected_owner is None and len(knowledge_owner_ids) == 1:
+        expected_owner = knowledge_owner_ids[0]
+    if projection.get("knowledge_owner_id") != expected_owner:
+        raise ContractValidationError("Genesis Writer projection owner changed")
+
+
+def _genesis_record_is_writer_visible(
+    record: Mapping[str, Any],
+    *,
+    active_character_ids: frozenset[str],
+) -> bool:
+    visibility = record["visibility"]
+    if not isinstance(visibility, str):
+        raise ContractValidationError("Genesis Writer record visibility changed")
+    owner_id = record["owner_id"]
+    if owner_id is not None and not isinstance(owner_id, str):
+        raise ContractValidationError("Genesis Writer record owner changed")
+    knowledge_owner_ids = record["knowledge_owner_ids"]
+    if not isinstance(knowledge_owner_ids, list) or any(
+        not isinstance(owner, str) or not owner.startswith("character:")
+        for owner in knowledge_owner_ids
+    ):
+        raise ContractValidationError("Genesis Writer knowledge owners changed")
+    if len(knowledge_owner_ids) != len(set(knowledge_owner_ids)):
+        raise ContractValidationError("Genesis Writer knowledge owners contain duplicates")
+    subject_ids = record["subject_ids"]
+    if not isinstance(subject_ids, list) or any(
+        not isinstance(subject, str) for subject in subject_ids
+    ):
+        raise ContractValidationError("Genesis Writer record subjects changed")
+    if len(subject_ids) != len(set(subject_ids)):
+        raise ContractValidationError("Genesis Writer record subjects contain duplicates")
+    if visibility == "owner_private":
+        if not isinstance(owner_id, str) or not owner_id.startswith("character:"):
+            raise ContractValidationError("Genesis Writer private owner changed")
+        if owner_id not in active_character_ids:
+            return False
+        return not knowledge_owner_ids or bool(set(knowledge_owner_ids) & active_character_ids)
+    if visibility not in _GENESIS_VISIBLE_WITHOUT_OWNER:
+        raise ContractValidationError("Genesis Writer record visibility changed")
+    if knowledge_owner_ids and not (set(knowledge_owner_ids) & active_character_ids):
+        return False
+    if visibility == "system_private":
+        return bool(set(subject_ids) & active_character_ids)
+    relevance_ids = set(subject_ids)
+    for field in ("relationship_from_id", "relationship_to_id"):
+        endpoint = record[field]
+        if endpoint is not None:
+            if not isinstance(endpoint, str):
+                raise ContractValidationError("Genesis Writer relationship endpoint changed")
+            relevance_ids.add(endpoint)
+    if isinstance(owner_id, str):
+        relevance_ids.add(owner_id)
+    return bool(relevance_ids & active_character_ids)
+
+
+def _project_no_genesis_character(
+    mapping_key: str,
+    value: Mapping[str, Any],
+    *,
+    active_character_ids: frozenset[str],
+) -> tuple[dict[str, Any], int, int]:
+    if set(value) != {
+        "character_id",
+        "genesis_record_available",
+        "accepted_branch_changes",
+    }:
+        raise ContractValidationError("no-Genesis Writer character fields changed")
+    if (
+        value.get("character_id") != mapping_key
+        or value.get("genesis_record_available") is not False
+    ):
+        raise ContractValidationError("no-Genesis Writer character identity changed")
+    changes, omitted_changes = _project_branch_changes(
+        value["accepted_branch_changes"],
+        active_character_ids=active_character_ids,
+    )
+    return (
+        {
+            "schema_version": _WRITER_NO_GENESIS_CHARACTER_SCHEMA,
+            "character_id": mapping_key,
+            "genesis_record_available": False,
+            "source_character_sha256": canonical_sha256(value),
+            "source_accepted_branch_change_count": len(value["accepted_branch_changes"]),
+            "accepted_branch_changes": changes,
+            "omitted_branch_change_count": omitted_changes,
+        },
+        0,
+        omitted_changes,
+    )
+
+
+def _project_raw_branch_overlay(
+    value: Mapping[str, Any],
+    *,
+    mapping_kind: str,
+    active_character_ids: frozenset[str],
+    production_genesis_mode: bool,
+) -> tuple[dict[str, Any], int]:
+    if production_genesis_mode:
+        _validate_production_raw_overlay(value, mapping_kind=mapping_kind)
+    if "accepted_branch_changes" not in value:
+        return dict(value), 0
+    changes, omitted_changes = _project_branch_changes(
+        value["accepted_branch_changes"],
+        active_character_ids=active_character_ids,
+    )
+    projected = dict(value)
+    projected["accepted_branch_changes"] = changes
+    projected["writer_source_overlay_sha256"] = canonical_sha256(value)
+    projected["writer_source_accepted_branch_change_count"] = len(value["accepted_branch_changes"])
+    projected["writer_omitted_branch_change_count"] = omitted_changes
+    return projected, omitted_changes
+
+
+def _validate_production_raw_overlay(
+    value: Mapping[str, Any],
+    *,
+    mapping_kind: str,
+) -> None:
+    fields = set(value)
+    if mapping_kind == "relationship" and fields == _RELATIONSHIP_OVERLAY_FIELDS:
+        target_key = value["target_key"]
+        participants = value["participants"]
+        if not isinstance(target_key, str) or not target_key.strip():
+            raise ContractValidationError("Writer relationship overlay target changed")
+        if not isinstance(participants, list) or any(
+            not isinstance(participant, str) or not participant.strip()
+            for participant in participants
+        ):
+            raise ContractValidationError("Writer relationship participants changed")
+        if len(participants) != len(set(participants)):
+            raise ContractValidationError("Writer relationship participants contain duplicates")
+        return
+    if fields == _BRANCH_CHANGE_FIELDS:
+        _project_branch_changes(value=[value], active_character_ids=frozenset())
+        return
+    if fields == _RECORDER_PROJECTION_FIELDS:
+        for field in ("accepted_turn_id", "source_kind", "concise_change"):
+            item = value[field]
+            if not isinstance(item, str) or not item.strip():
+                raise ContractValidationError("Writer Recorder projection text changed")
+        if value["visibility"] != "branch_internal_unspecified":
+            raise ContractValidationError("Writer Recorder projection visibility changed")
+        if value["source_kind"] not in {
+            "ordinary_recorder_projection",
+            "ordinary_secondary_canon",
+        }:
+            raise ContractValidationError("Writer Recorder projection source changed")
+        return
+    if mapping_kind == "memory" and fields == _ADULT_PUBLIC_CONTINUITY_FIELDS:
+        for field in (
+            "accepted_turn_id",
+            "event_key",
+            "non_explicit_summary",
+            "lasting_story_meaning",
+        ):
+            item = value[field]
+            if not isinstance(item, str) or not item.strip():
+                raise ContractValidationError("Writer adult continuity text changed")
+        if (
+            value["authority"] != "accepted_adult_filtered_projection"
+            or value["visibility"] != "public"
+        ):
+            raise ContractValidationError("Writer adult continuity authority changed")
+        return
+    raise ContractValidationError("Writer production overlay fields changed")
+
+
+def _project_branch_changes(
+    value: object,
+    *,
+    active_character_ids: frozenset[str],
+) -> tuple[list[dict[str, Any]], int]:
+    if not isinstance(value, (list, tuple)):
+        raise ContractValidationError("Writer accepted branch changes are invalid")
+    selected: list[dict[str, Any]] = []
+    omitted = 0
+    for change in value:
+        if not isinstance(change, Mapping) or set(change) != _BRANCH_CHANGE_FIELDS:
+            raise ContractValidationError("Writer accepted branch change fields changed")
+        for field in (
+            "accepted_turn_id",
+            "change_key",
+            "concise_change",
+            "target_key",
+            "source_kind",
+        ):
+            item = change[field]
+            if not isinstance(item, str) or not item.strip():
+                raise ContractValidationError("Writer accepted branch change text changed")
+        if change["kind"] not in _BRANCH_CHANGE_KINDS:
+            raise ContractValidationError("Writer accepted branch change kind changed")
+        visibility = change["visibility"]
+        if visibility not in _BRANCH_CHANGE_VISIBILITIES:
+            raise ContractValidationError("Writer accepted branch change visibility changed")
+        subject_ids = change["subject_ids"]
+        if not isinstance(subject_ids, list) or any(
+            not isinstance(subject, str) or not subject.strip() for subject in subject_ids
+        ):
+            raise ContractValidationError("Writer accepted branch change subjects changed")
+        if len(subject_ids) != len(set(subject_ids)):
+            raise ContractValidationError(
+                "Writer accepted branch change subjects contain duplicates"
+            )
+        owner = change["knowledge_owner_id"]
+        if visibility == "character_private":
+            if (
+                not isinstance(owner, str)
+                or not owner.startswith("character:")
+                or owner not in subject_ids
+            ):
+                raise ContractValidationError("Writer private branch change owner changed")
+            include = owner in active_character_ids
+        else:
+            if owner is not None:
+                raise ContractValidationError("Writer public branch change owner changed")
+            include = bool(set(subject_ids) & active_character_ids)
+        if include:
+            selected.append(dict(change))
+        else:
+            omitted += 1
+    return selected, omitted
+
+
+def _raw_mapping_visibility_allows(
+    value: Mapping[str, Any],
+    *,
+    active_character_ids: frozenset[str],
+    production_genesis_mode: bool,
+) -> bool:
+    if "genesis_record_projections" in value or "visibility" not in value:
+        return True
+    visibility = value["visibility"]
+    if not isinstance(visibility, str):
+        raise ContractValidationError("Writer overlay visibility changed")
+    owners = _raw_mapping_privacy_owners(value)
+    if visibility == "character_private":
+        if not owners:
+            raise ContractValidationError("Writer private overlay has no owner")
+        return bool(owners & active_character_ids)
+    allowed_non_private = {"public", "branch_internal_unspecified"}
+    if not production_genesis_mode:
+        allowed_non_private.add("system_private")
+    if visibility not in allowed_non_private:
+        raise ContractValidationError("Writer overlay visibility changed")
+    if owners:
+        raise ContractValidationError("Writer non-private overlay names an owner")
+    if visibility == "system_private":
+        subjects = value.get("subject_ids")
+        if not isinstance(subjects, list) or any(
+            not isinstance(subject, str) for subject in subjects
+        ):
+            raise ContractValidationError("Writer system-private overlay subjects changed")
+        return bool(set(subjects) & active_character_ids)
+    return True
+
+
+def _raw_mapping_privacy_owners(value: Mapping[str, Any]) -> set[str]:
+    owners: set[str] = set()
+    if "knowledge_owner_id" in value:
+        owner = value["knowledge_owner_id"]
+        if owner is not None:
+            if not isinstance(owner, str) or not owner.startswith("character:"):
+                raise ContractValidationError("Writer overlay owner changed")
+            owners.add(owner)
+    if "knowledge_owner_ids" in value:
+        raw_owners = value["knowledge_owner_ids"]
+        if not isinstance(raw_owners, (list, tuple)) or any(
+            not isinstance(owner, str) or not owner.startswith("character:") for owner in raw_owners
+        ):
+            raise ContractValidationError("Writer overlay owners changed")
+        if len(raw_owners) != len(set(raw_owners)):
+            raise ContractValidationError("Writer overlay owners contain duplicates")
+        owners.update(raw_owners)
+    return owners
 
 
 def _ordinary_authority_projection(
