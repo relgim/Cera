@@ -1439,6 +1439,67 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             raise FileNotFoundError(self._review_action_chain_path(chain_id))
         return self.load_review_action_response(identity.action_id)
 
+    def reconcile_finalized_review_action_response_for_review_optional(
+        self,
+        review_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1] | None:
+        """Return one exact finalized action response, or no action at all.
+
+        Absence is the legacy/no-action fallback. Once an action identity exists,
+        missing response or finalization evidence is a custody conflict rather
+        than permission to reconstruct a response from mutable review state.
+        """
+
+        _require_identifier(review_id, "review ID")
+        matches: list[tuple[ProtectedOrdinaryReviewActionIdentityV1, dict[str, Any]]] = []
+        for path in self.review_actions_root.glob("*.json"):
+            action_id = f"review-action-{path.stem}"
+            payload = self._read_json(path)
+            identity, _ = self._review_action_identity_any(action_id)
+            if identity.review_id == review_id:
+                matches.append((identity, payload))
+        if not matches:
+            return None
+        if len(matches) != 1:
+            raise StateConflictError("ordinary review has ambiguous protected actions")
+
+        identity, action_payload = matches[0]
+        if action_payload.get("schema_version") != self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION:
+            pending_response = self.load_review_action_response_optional(identity.action_id)
+            if pending_response is None:
+                raise StateConflictError("ordinary protected review action response is unavailable")
+            self.finalize_review_action(identity.action_id)
+            action_payload = self._read_json(self._review_action_path(identity.action_id))
+
+        finalized = self._verify_review_action_tombstone(
+            action_payload,
+            action_id=identity.action_id,
+        )
+        try:
+            response, receipt = self.load_review_action_response(identity.action_id)
+        except (FileNotFoundError, StateConflictError) as exc:
+            raise StateConflictError(
+                "ordinary protected review action response is unavailable"
+            ) from exc
+        review_payload = self._read_json(self._review_path(review_id))
+        if review_payload.get("schema_version") != self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+            raise StateConflictError("ordinary review action response is not finalized")
+        review_identity, _ = self._verify_review_tombstone(
+            review_payload,
+            review_id=review_id,
+        )
+        if (
+            finalized != identity
+            or review_identity.review_id != identity.review_id
+            or review_identity.request_id != identity.request_id
+            or action_payload.get("terminal_evidence_sha256") != receipt.response_sha256
+            or review_payload.get("terminal_evidence_sha256") != receipt.response_sha256
+        ):
+            raise StateConflictError(
+                "ordinary protected review action response lost finalization custody"
+            )
+        return response, receipt
+
     def retire_review_action(
         self,
         action_id: str,

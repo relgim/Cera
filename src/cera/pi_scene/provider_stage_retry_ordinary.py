@@ -704,6 +704,14 @@ class OrdinaryProviderStageRetryRuntimeV1:
     ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1]:
         return self._custody_store.load_review_action_response_for_chain(chain_id)
 
+    def reconcile_finalized_review_action_response_for_review_optional(
+        self,
+        review_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1] | None:
+        return self._custody_store.reconcile_finalized_review_action_response_for_review_optional(
+            review_id
+        )
+
     def retire_review_request(
         self,
         review_id: str,

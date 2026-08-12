@@ -2019,6 +2019,11 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         )
         feedback_sentinel = "ACTION-FEEDBACK-MUST-STAY-PROTECTED-7f9e"
         exact_action = {"action": "replan", "feedback": feedback_sentinel}
+        self.assertIsNone(
+            self.integration.reconcile_finalized_review_action_response_for_review_optional(
+                review.review_id
+            )
+        )
         with self.integration.bind_review_action(
             review_id=review.review_id,
             normalized_action=exact_action,
@@ -2159,6 +2164,25 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             self.integration.load_review_action_response_for_chain(chain_id),
             (response, receipt),
         )
+        self.assertEqual(
+            self.integration.reconcile_finalized_review_action_response_for_review_optional(
+                review.review_id
+            ),
+            (response, receipt),
+        )
+        response_path = self.custody._review_action_response_path(action_identity.action_id)
+        exact_response_bytes = response_path.read_bytes()
+        response_path.write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(StateConflictError, "response is unavailable"):
+            self.integration.reconcile_finalized_review_action_response_for_review_optional(
+                review.review_id
+            )
+        response_path.write_bytes(exact_response_bytes)
+        response_path.unlink()
+        with self.assertRaisesRegex(StateConflictError, "response is unavailable"):
+            self.integration.reconcile_finalized_review_action_response_for_review_optional(
+                review.review_id
+            )
         with self.assertRaisesRegex(StateConflictError, "retired"):
             with self.integration.bind_review_action(
                 review_id=review.review_id,

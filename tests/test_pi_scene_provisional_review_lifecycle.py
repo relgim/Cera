@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Barrier, Event, Thread
@@ -322,6 +323,22 @@ class _HttpReviewCustody:
 
     def recorder_review_resolution(self, **_kwargs: object) -> object:
         return SimpleNamespace(kind="initial_start")
+
+
+class _ExactTerminalResponseCustody:
+    def __init__(self, review_id: str, response: dict[str, object]) -> None:
+        self.review_id = review_id
+        self.response = response
+
+    def reconcile_finalized_review_action_response_for_review_optional(
+        self,
+        review_id: str,
+    ) -> tuple[dict[str, object], object] | None:
+        if review_id != self.review_id:
+            return None
+        return deepcopy(self.response), SimpleNamespace(
+            response_sha256=canonical_sha256(self.response)
+        )
 
 
 def _controls(mode: str = "automatic") -> LeanSceneRequestControlsV3:
@@ -893,6 +910,61 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                     "text_sha256": text_sha256(feedback),
                 },
             )
+
+    def test_terminal_regenerate_replays_exact_response_while_successor_validates(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, _pi, retry = self._runtime(Path(temporary))
+            original = coordinator.start_ordinary(_turn(mode="manual"))
+            predecessor = coordinator.begin_ordinary_validation(original.review_id)
+            adapter = self._adapter(coordinator)
+            decision = adapter.decide(
+                predecessor.review_id,
+                {"action": "regenerate", "feedback": None},
+            )
+            successor_id = decision["successor"]["cera"]["provisional_review_id"]
+            adapter.ordinary_stage_retry_runtime = (  # type: ignore[assignment]
+                _ExactTerminalResponseCustody(
+                    predecessor.review_id,
+                    decision,
+                )
+            )
+            retry.entered["luna"].clear()
+            retry.entered["reader"].clear()
+            retry.release_reader.clear()
+            failures: list[BaseException] = []
+
+            def validate_successor() -> None:
+                try:
+                    coordinator.begin_ordinary_validation(successor_id)
+                except BaseException as exc:  # pragma: no cover - asserted below
+                    failures.append(exc)
+
+            worker = Thread(target=validate_successor)
+            worker.start()
+            self.assertTrue(retry.entered["luna"].wait(timeout=5))
+            self.assertTrue(retry.entered["reader"].wait(timeout=5))
+            try:
+                replay = coordinator.terminal_decision_replay(predecessor.review_id)
+                self.assertIsNotNone(replay)
+                assert replay is not None
+                self.assertNotEqual(
+                    replay.result.successor,
+                    coordinator.get_review(successor_id, reconcile=False),
+                )
+                with self.assertRaisesRegex(
+                    StateConflictError,
+                    "response review is not durable",
+                ):
+                    adapter.decision_payload(replay.action, replay.result)
+                self.assertEqual(
+                    adapter.terminal_decision_payload(predecessor.review_id),
+                    decision,
+                )
+            finally:
+                retry.release_reader.set()
+                worker.join(timeout=5)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(failures, [])
 
     def test_regenerate_http_accounting_aligns_each_candidate_retry_chain(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -1862,7 +1862,22 @@ class PiSceneHttpAdapter:
         replay = self.coordinator.terminal_decision_replay(review_id)
         if replay is None:
             raise PiSceneReviewDecisionNotFoundError("Pi Scene terminal decision is unavailable")
-        payload = self.decision_payload(replay.action, replay.result)
+        payload: dict[str, Any] | None = None
+        ordinary_retry = self.ordinary_stage_retry_runtime
+        if ordinary_retry is not None:
+            exact = ordinary_retry.reconcile_finalized_review_action_response_for_review_optional(
+                review_id
+            )
+            if exact is not None:
+                response, receipt = exact
+                if canonical_sha256(response) != receipt.response_sha256:
+                    raise StateConflictError(
+                        "Pi Scene terminal decision changed protected response custody"
+                    )
+                payload = response
+        if payload is None:
+            payload = self.decision_payload(replay.action, replay.result)
+        self._require_review_decision(payload)
         projected_review = payload.get("review")
         if (
             not isinstance(projected_review, Mapping)
