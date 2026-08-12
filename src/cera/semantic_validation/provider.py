@@ -42,6 +42,10 @@ from .schema import semantic_verdict_json_schema
 
 LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v3"
 LUNA_VALIDATOR_PROMPT = "cera.semantic_validation.luna_prompt.v1"
+FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID = (
+    "cera_full_model_qualification_semantic_validator_luna_xhigh_v1"
+)
+FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS = 128_000
 # A fresh xhigh validation may legitimately outlive the UI's progress target.
 # Keep one bounded call alive; never turn the extra headroom into a retry.
 LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS = 600
@@ -64,6 +68,24 @@ def luna_validator_route() -> LiveProviderRoute:
     )
 
 
+def full_model_qualification_luna_validator_route() -> LiveProviderRoute:
+    """Return diagnostic headroom for the frozen full-model campaign only."""
+
+    return replace(
+        luna_validator_route(),
+        route_id=FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID,
+        maximum_output_tokens=(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS),
+    )
+
+
+def _validate_luna_validator_route(route: LiveProviderRoute) -> None:
+    if type(route) is not LiveProviderRoute or route not in (
+        luna_validator_route(),
+        full_model_qualification_luna_validator_route(),
+    ):
+        raise ContractValidationError("Luna Validator route is not an approved exact identity")
+
+
 class CodexLunaSemanticValidatorBackend:
     """One fresh, archived Luna thread for every ordinary candidate."""
 
@@ -74,12 +96,15 @@ class CodexLunaSemanticValidatorBackend:
         workspace: Path,
         call_ledger: ContinuousProviderCallLedger,
         operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
+        route: LiveProviderRoute | None = None,
     ) -> None:
+        selected_route = luna_validator_route() if route is None else route
+        _validate_luna_validator_route(selected_route)
         self.lifecycle = lifecycle
         self.workspace = workspace
         self.call_ledger = call_ledger
         self.operation_evidence = operation_evidence
-        self.route = luna_validator_route()
+        self.route = selected_route
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
@@ -228,3 +253,15 @@ class CodexLunaSemanticValidatorBackend:
                 thread_identity_sha256=identity_sha256,
             )
         return resumable
+
+
+__all__ = [
+    "CodexLunaSemanticValidatorBackend",
+    "FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS",
+    "FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID",
+    "LUNA_VALIDATOR_ADAPTER",
+    "LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS",
+    "LUNA_VALIDATOR_PROMPT",
+    "full_model_qualification_luna_validator_route",
+    "luna_validator_route",
+]

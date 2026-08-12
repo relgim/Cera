@@ -1515,6 +1515,7 @@ def build_provider_stage_retry_production_assembly(
     sol_ledger: ContinuousProviderCallLedger,
     pi_adapter: PiSceneAdapter,
     ordinary_ports: OrdinaryStageProviderPortsV1,
+    semantic_validator_maximum_output_tokens: int = 4_096,
 ) -> ProviderStageRetryProductionAssemblyV1:
     """Construct all Retry custody and adapters without provider/lifecycle calls."""
 
@@ -1686,7 +1687,10 @@ def build_provider_stage_retry_production_assembly(
         protected_blob_store=TrustedLocalProtectedStageBlobStore(root / "protected" / "blobs"),
         registrations=(*ordinary_adapters, *adult_adapters),
     )
-    configurations = production_provider_stage_configurations(pi_adapter)
+    configurations = production_provider_stage_configurations(
+        pi_adapter,
+        semantic_validator_maximum_output_tokens=(semantic_validator_maximum_output_tokens),
+    )
     ordinary = OrdinaryProviderStageRetryRuntimeV1(
         service=runtime,
         custody_store=custody,
@@ -1782,7 +1786,14 @@ def build_provider_stage_retry_production_assembly(
 
 def production_provider_stage_configurations(
     pi_adapter: PiSceneAdapter,
+    *,
+    semantic_validator_maximum_output_tokens: int = 4_096,
 ) -> dict[ProviderStage, ProviderStageConfigurationV1]:
+    if (
+        type(semantic_validator_maximum_output_tokens) is not int
+        or not 1 <= semantic_validator_maximum_output_tokens <= 131_072
+    ):
+        raise ContractValidationError("semantic Validator output-token budget is invalid")
     pi_stage = {
         "automatic_retry": False,
         "fallback": False,
@@ -1823,7 +1834,13 @@ def production_provider_stage_configurations(
             ),
             stage_configuration=(
                 {
-                    "maximum_output_tokens": (12_288 if stage is ProviderStage.PLANNER else 4_096),
+                    "maximum_output_tokens": (
+                        12_288
+                        if stage is ProviderStage.PLANNER
+                        else semantic_validator_maximum_output_tokens
+                        if stage is ProviderStage.SEMANTIC_VALIDATOR
+                        else 4_096
+                    ),
                     "single_provider_operation": True,
                 }
                 if codex

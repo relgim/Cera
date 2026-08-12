@@ -99,6 +99,7 @@ from cera.providers.codex_runtime_policy import (
     validate_codex_app_server_configuration,
     validate_codex_mcp_server_status,
 )
+from cera.providers.models import LiveProviderRoute
 from cera.reader_validation import (
     SOL_READER_BASE_INSTRUCTIONS,
     CodexSolReaderBackend,
@@ -110,6 +111,7 @@ from cera.semantic_validation import (
     CodexLunaSemanticValidatorBackend,
     FreshLunaValidatorFactory,
 )
+from cera.semantic_validation.provider import luna_validator_route
 from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
 from cera.sequence_first.sessions import PersistentPlannerSession
@@ -358,9 +360,14 @@ def build_live_runtime(
     planner_backend_factory: PlannerBackendFactory | None = None,
     cognition_backend_factory: CognitionBackendFactory | None = None,
     provider_components: FullModelProviderComponents | None = None,
+    luna_route: LiveProviderRoute | None = None,
 ) -> LivePiSceneRuntime:
     if planner_backend_factory is not None and cognition_backend_factory is not None:
         raise ContractValidationError("only one custom cognition backend factory may be supplied")
+    if luna_route is not None and provider_components is not None:
+        raise ContractValidationError(
+            "a concrete Luna route cannot be combined with injected provider components"
+        )
     assert_provider_dispatch_allowed(
         "scripts.pi_scene_lean.live_runtime",
         external_provider_boundary=(
@@ -462,6 +469,7 @@ def build_live_runtime(
                 workspace=operation_root / "semantic_validator",
                 call_ledger=sol_ledger,
                 operation_evidence=luna_evidence,
+                route=luna_route,
             )
             reader_evidence = ProviderOperationEvidenceStoreV1(
                 (runtime_root / "debug" / "reader_validator").resolve(),
@@ -713,6 +721,12 @@ def build_live_runtime(
                 raise StateConflictError("Reader Retry receipt is unavailable")
             return result
 
+        assembled_luna_route = getattr(luna_backend, "route", None)
+        semantic_validator_maximum_output_tokens = (
+            assembled_luna_route.maximum_output_tokens
+            if type(assembled_luna_route) is LiveProviderRoute
+            else luna_validator_route().maximum_output_tokens
+        )
         provider_stage_retry = (
             build_provider_stage_retry_production_assembly(
                 runtime_root=runtime_root,
@@ -729,6 +743,7 @@ def build_live_runtime(
                     reader_validator=reader_validator,
                     reader_provider_result=reader_provider_result,
                 ),
+                semantic_validator_maximum_output_tokens=(semantic_validator_maximum_output_tokens),
             )
             if type(pi) is PiSceneAdapter
             else None

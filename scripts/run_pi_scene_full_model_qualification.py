@@ -99,6 +99,7 @@ from cera.pi_scene.qualification_isolation import (
     stage_qualification_sillytavern,
     verify_qualification_sillytavern,
 )
+from cera.semantic_validation.provider import full_model_qualification_luna_validator_route
 from cera.serialization import canonical_bytes, canonical_sha256, re_is_sha256, text_sha256
 from scripts.run_pi_scene_lean_server import (
     DEFAULT_PI,
@@ -1301,6 +1302,7 @@ def provider_free_check(
 ) -> dict[str, Any]:
     fixtures = load_qualification_fixtures(fixture_path)
     fixture_metadata = qualification_fixture_manifest_metadata(fixtures)
+    semantic_validator_route = full_model_qualification_luna_validator_route()
     result: dict[str, Any] = {
         "status": "provider_free_ready",
         "fixtures": len(fixtures),
@@ -1312,6 +1314,12 @@ def provider_free_check(
         "sol_ceiling": SOL_FAMILY_CEILING,
         "deepseek_http_operation_ceiling": DEEPSEEK_HTTP_OPERATION_CEILING,
         "deepseek_per_invocation_ceiling": DEEPSEEK_PER_INVOCATION_CEILING,
+        "semantic_validator_model": semantic_validator_route.model_name,
+        "semantic_validator_reasoning_effort": semantic_validator_route.reasoning_effort,
+        "semantic_validator_maximum_output_tokens": (
+            semantic_validator_route.maximum_output_tokens
+        ),
+        "semantic_validator_route_sha256": semantic_validator_route.route_sha256,
         "manual_provider_stage_retry_authorized": True,
         "provider_stage_retry_stages": [
             "planner",
@@ -1390,6 +1398,7 @@ def _start_cera_service(
         deepseek_ceiling=deepseek_ceiling,
         deepseek_per_invocation_ceiling=DEEPSEEK_PER_INVOCATION_CEILING,
         seed_runtime_root=seed_runtime_root,
+        luna_route=full_model_qualification_luna_validator_route(),
     )
     try:
         provider_stage_retry = getattr(runtime, "provider_stage_retry", None)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -9,7 +10,7 @@ from unittest.mock import patch
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger, ProviderCallState
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
-from cera.errors import ErrorCode
+from cera.errors import ContractValidationError, ErrorCode
 from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
@@ -22,9 +23,12 @@ from cera.semantic_validation import (
 )
 from cera.semantic_validation.prompting import LUNA_VALIDATOR_PROFILE
 from cera.semantic_validation.provider import (
+    FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS,
+    FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID,
     LUNA_VALIDATOR_ADAPTER,
     LUNA_VALIDATOR_PROMPT,
     CodexLunaSemanticValidatorBackend,
+    full_model_qualification_luna_validator_route,
     luna_validator_route,
 )
 from cera.serialization import canonical_sha256, to_primitive
@@ -116,6 +120,46 @@ class SemanticValidationProviderTests(unittest.TestCase):
         self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v3")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
+        self.assertEqual(route.maximum_output_tokens, 4_096)
+
+    def test_full_model_qualification_route_changes_only_identity_and_output_budget(self) -> None:
+        production_route = luna_validator_route()
+        qualification_route = full_model_qualification_luna_validator_route()
+
+        self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
+        self.assertEqual(
+            qualification_route,
+            replace(
+                production_route,
+                route_id=FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID,
+                maximum_output_tokens=128_000,
+            ),
+        )
+        self.assertNotEqual(qualification_route.route_sha256, production_route.route_sha256)
+
+    def test_luna_backend_accepts_only_the_two_exact_route_identities(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            qualification_route = full_model_qualification_luna_validator_route()
+            backend = CodexLunaSemanticValidatorBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+                route=qualification_route,
+            )
+            self.assertEqual(backend.route, qualification_route)
+
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "not an approved exact identity",
+            ):
+                CodexLunaSemanticValidatorBackend(
+                    lifecycle=SimpleNamespace(external_provider_boundary=False),
+                    workspace=root / "other-workspace",
+                    call_ledger=ledger,
+                    route=replace(qualification_route, maximum_output_tokens=128_001),
+                )
 
     def test_completed_invalid_verdict_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:

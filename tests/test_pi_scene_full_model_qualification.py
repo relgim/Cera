@@ -2110,7 +2110,11 @@ class FullModelQualificationTests(unittest.TestCase):
                 return
 
         with (
-            patch.object(entrypoint, "build_live_runtime", return_value=runtime),
+            patch.object(
+                entrypoint,
+                "build_live_runtime",
+                return_value=runtime,
+            ) as build_runtime,
             patch.object(entrypoint, "build_session_context_provider", return_value=object()),
             patch.object(entrypoint, "PiSceneHttpAdapter", return_value=object()) as adapter,
             patch.object(entrypoint, "build_pi_scene_server", return_value=FakeServer()),
@@ -2126,6 +2130,12 @@ class FullModelQualificationTests(unittest.TestCase):
             service.close()
 
         kwargs = adapter.call_args.kwargs
+        runtime_kwargs = build_runtime.call_args.kwargs
+        self.assertEqual(
+            runtime_kwargs["luna_route"],
+            entrypoint.full_model_qualification_luna_validator_route(),
+        )
+        self.assertEqual(runtime_kwargs["luna_route"].maximum_output_tokens, 128_000)
         for name, seam in seams.items():
             self.assertIs(kwargs[name], seam)
         self.assertIs(
@@ -5504,6 +5514,13 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(result["provider_calls"], 0)
         self.assertEqual(result["backend"], 20)
         self.assertEqual(result["sillytavern"], 10)
+        self.assertEqual(result["semantic_validator_model"], "gpt-5.6-luna")
+        self.assertEqual(result["semantic_validator_reasoning_effort"], "xhigh")
+        self.assertEqual(result["semantic_validator_maximum_output_tokens"], 128_000)
+        self.assertEqual(
+            result["semantic_validator_route_sha256"],
+            entrypoint.full_model_qualification_luna_validator_route().route_sha256,
+        )
         self.assertEqual(
             result["fixture_schema_version"],
             "cera.pi_scene.full_model_qualification_fixtures.v13",

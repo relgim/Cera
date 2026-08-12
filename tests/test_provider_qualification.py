@@ -51,6 +51,10 @@ from cera.providers.codex_sdk_compat import (
 )
 from cera.registry import build_schema_registry
 from cera.runtime.failure import PrivacySafeReceiptPayload
+from cera.semantic_validation.provider import (
+    full_model_qualification_luna_validator_route,
+    luna_validator_route,
+)
 from cera.serialization import canonical_json, canonical_sha256, text_sha256, to_primitive
 from tests.provider_fakes import (
     OfflineDeepSeekChatTransport,
@@ -1600,6 +1604,67 @@ class ProviderQualificationTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, ErrorCode.PROVIDER_BUDGET_EXCEEDED)
         self.assertEqual(caught.exception.external_provider_calls_observed, 1)
         self.assertEqual(runner.calls, 1)
+
+    def test_luna_qualification_headroom_accepts_root_r_output_without_widening_default(
+        self,
+    ) -> None:
+        default_route = luna_validator_route()
+        qualification_route = full_model_qualification_luna_validator_route()
+        self.assertEqual(default_route.maximum_output_tokens, 4_096)
+        self.assertEqual(qualification_route.maximum_output_tokens, 128_000)
+
+        default_runner = StaticCodexRunner(
+            returned_model="gpt-5.6-luna",
+            output_tokens=4_154,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = CodexSDKTransport(
+                default_route,
+                workspace=Path(temporary),
+                runner=default_runner,
+            )
+            with self.assertRaises(ProviderTransportError) as caught:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                )
+        self.assertEqual(caught.exception.code, ErrorCode.PROVIDER_BUDGET_EXCEEDED)
+        self.assertEqual(default_runner.calls, 1)
+
+        qualification_runner = StaticCodexRunner(
+            returned_model="gpt-5.6-luna",
+            output_tokens=4_154,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            result = CodexSDKTransport(
+                qualification_route,
+                workspace=Path(temporary),
+                runner=qualification_runner,
+            ).invoke(
+                "Probe.",
+                output_schema=codex_transport_probe_output_schema(),
+            )
+        self.assertEqual(result.receipt.output_tokens, 4_154)
+        self.assertEqual(result.receipt.route_sha256, qualification_route.route_sha256)
+        self.assertEqual(qualification_runner.calls, 1)
+
+        over_limit_runner = StaticCodexRunner(
+            returned_model="gpt-5.6-luna",
+            output_tokens=128_001,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            transport = CodexSDKTransport(
+                qualification_route,
+                workspace=Path(temporary),
+                runner=over_limit_runner,
+            )
+            with self.assertRaises(ProviderTransportError) as caught:
+                transport.invoke(
+                    "Probe.",
+                    output_schema=codex_transport_probe_output_schema(),
+                )
+        self.assertEqual(caught.exception.code, ErrorCode.PROVIDER_BUDGET_EXCEEDED)
+        self.assertEqual(over_limit_runner.calls, 1)
 
     def test_provider_schemas_are_registered(self) -> None:
         versions = build_schema_registry().versions

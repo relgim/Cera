@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.provider import ContinuousProviderResultV1
-from cera.errors import ErrorCode
+from cera.errors import ContractValidationError, ErrorCode
 from cera.evaluation import EvaluationRole
 from cera.ids import IdKind, TypedId
 from cera.pi_scene._world_workspace_files import lean_scene_branch_root
@@ -38,6 +38,7 @@ from cera.pi_scene.provider_stage_retry_assembly import (
     _ProtectedTerminalCompletionStoreV1,
     _sol_ledger_ports,
     build_provider_stage_retry_production_assembly,
+    production_provider_stage_configurations,
 )
 from cera.pi_scene.provider_stage_retry_executor import (
     PreparedProviderStageDispatchPort,
@@ -290,6 +291,62 @@ class _OrdinaryCompletionCustody:
 
 
 class ProviderStageRetryAssemblyTests(unittest.TestCase):
+    def test_semantic_validator_configuration_uses_the_injected_route_budget_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            pi_executable = root / "pi.cmd"
+            extension = root / "scene.ts"
+            pi_executable.write_text("@echo off\n", encoding="utf-8")
+            extension.write_text("export {};\n", encoding="utf-8")
+            pi = PiSceneAdapter(
+                pi_executable=pi_executable,
+                extension_path=extension,
+                pi_version="0.84.1",
+                operation_ledger=PiProviderOperationLedger(
+                    root / "pi.jsonl",
+                    maximum_operations=40,
+                    maximum_operations_per_invocation=6,
+                ),
+                process_runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                    AssertionError("configuration construction dispatched Pi")
+                ),
+            )
+
+            default = production_provider_stage_configurations(pi)
+            qualification = production_provider_stage_configurations(
+                pi,
+                semantic_validator_maximum_output_tokens=128_000,
+            )
+            self.assertEqual(
+                default[ProviderStage.SEMANTIC_VALIDATOR].to_payload()["stage_configuration"][
+                    "maximum_output_tokens"
+                ],
+                4_096,
+            )
+            self.assertEqual(
+                qualification[ProviderStage.SEMANTIC_VALIDATOR].to_payload()["stage_configuration"][
+                    "maximum_output_tokens"
+                ],
+                128_000,
+            )
+            for stage in ProviderStage:
+                if stage is ProviderStage.SEMANTIC_VALIDATOR:
+                    continue
+                self.assertEqual(default[stage], qualification[stage])
+
+            for invalid in (0, 131_073, True):
+                with (
+                    self.subTest(invalid=invalid),
+                    self.assertRaisesRegex(
+                        ContractValidationError,
+                        "output-token budget is invalid",
+                    ),
+                ):
+                    production_provider_stage_configurations(
+                        pi,
+                        semantic_validator_maximum_output_tokens=invalid,
+                    )
+
     def test_parallel_sol_validation_owners_account_only_their_own_call(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
