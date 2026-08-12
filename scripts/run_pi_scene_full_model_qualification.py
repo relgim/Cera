@@ -70,6 +70,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V11,
     QUALIFICATION_MANIFEST_SCHEMA_V12,
     QUALIFICATION_MANIFEST_SCHEMA_V13,
+    QUALIFICATION_MANIFEST_SCHEMA_V14,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
@@ -77,7 +78,7 @@ from cera.pi_scene.qualification import (
     FullModelQualificationRunner,
     ManualActionRequiredError,
     QualificationFixtureV1,
-    QualificationFixtureV11,
+    QualificationFixtureV12,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
@@ -120,7 +121,10 @@ LEGACY_FIXTURES_V9 = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qua
 LEGACY_FIXTURES_V10 = (
     ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v10.json"
 )
-DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v11.json"
+LEGACY_FIXTURES_V11 = (
+    ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v11.json"
+)
+DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v12.json"
 PI_PACKAGE_ROOT = Path(
     r"C:\Users\Ted\AppData\Roaming\npm\node_modules\@earendil-works\pi-coding-agent"
 )
@@ -464,6 +468,7 @@ def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
                 LEGACY_FIXTURES_V8.relative_to(ROOT),
                 LEGACY_FIXTURES_V9.relative_to(ROOT),
                 LEGACY_FIXTURES_V10.relative_to(ROOT),
+                LEGACY_FIXTURES_V11.relative_to(ROOT),
             )
         )
     )
@@ -1192,8 +1197,8 @@ def freeze(
     if root.exists():
         raise StateConflictError("qualification output root already exists")
     fixtures = load_qualification_fixtures(fixture_path)
-    if not fixtures or not all(type(value) is QualificationFixtureV11 for value in fixtures):
-        raise StateConflictError("live qualification requires novel stress fixtures v11")
+    if not fixtures or not all(type(value) is QualificationFixtureV12 for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v12")
     spent_manifests = _load_spent_qualification_manifests(
         output_root=root,
         explicit_paths=spent_manifest_paths,
@@ -1231,7 +1236,7 @@ def _load_spent_qualification_manifests(
     output_root: Path,
     explicit_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], ...]:
-    """Load cumulative V5/V6/V7/V8/V9/V10/V11/V12/V13/V14 authority.
+    """Load cumulative V5/V6/V7/V8/V9/V10/V11/V12/V13/V14/V15 authority.
 
     V5 remains exact historical authority for the retired V2 suite. Every V5
     or later sibling is included automatically so a caller cannot accidentally
@@ -1264,6 +1269,7 @@ def _load_spent_qualification_manifests(
                 QUALIFICATION_MANIFEST_SCHEMA_V11,
                 QUALIFICATION_MANIFEST_SCHEMA_V12,
                 QUALIFICATION_MANIFEST_SCHEMA_V13,
+                QUALIFICATION_MANIFEST_SCHEMA_V14,
                 QUALIFICATION_MANIFEST_SCHEMA,
             }:
                 candidates[candidate.resolve()] = None
@@ -2365,8 +2371,8 @@ def live(
     _assert_frozen_python_interpreter(manifest)
     verify_qualification_artifacts(manifest, repository_root=ROOT)
     fixtures = load_qualification_fixtures(fixture_path)
-    if not fixtures or not all(type(value) is QualificationFixtureV11 for value in fixtures):
-        raise StateConflictError("live qualification requires novel stress fixtures v11")
+    if not fixtures or not all(type(value) is QualificationFixtureV12 for value in fixtures):
+        raise StateConflictError("live qualification requires novel stress fixtures v12")
     if manifest["fixture_set_sha256"] != __import__(
         "cera.serialization", fromlist=["bytes_sha256"]
     ).bytes_sha256(fixture_path.read_bytes()):
