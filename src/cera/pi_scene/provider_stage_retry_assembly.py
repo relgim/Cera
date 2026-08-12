@@ -1522,7 +1522,18 @@ def build_provider_stage_retry_production_assembly(
     owner_root = root / "protected" / "ordinary_owners"
     custody = ProtectedOrdinaryStageRetryCustodyStoreV1(root / "protected" / "ordinary_requests")
     retrieval = ActiveDerivedPlannerRetrievalManifestPortV1(scene_store.root)
-    sol_current, sol_prefix = _sol_ledger_ports(sol_ledger)
+    planner_sol_current, planner_sol_prefix = _sol_ledger_ports(
+        sol_ledger,
+        owner="planner",
+    )
+    luna_sol_current, luna_sol_prefix = _sol_ledger_ports(
+        sol_ledger,
+        owner="validator",
+    )
+    reader_sol_current, reader_sol_prefix = _sol_ledger_ports(
+        sol_ledger,
+        owner="reader",
+    )
     pi_current, pi_prefix = _pi_ledger_ports(pi_adapter.operation_ledger)
 
     planner_receipts: dict[int, ProviderStageReceiptMetricsV1] = {}
@@ -1532,8 +1543,8 @@ def build_provider_stage_retry_production_assembly(
         boundary_kind=ProviderStageBoundaryKind.CODEX,
         maximum_provider_operations=1,
         protected_root=owner_root,
-        read_current_ledger=sol_current,
-        read_ledger_prefix=sol_prefix,
+        read_current_ledger=planner_sol_current,
+        read_ledger_prefix=planner_sol_prefix,
         build_request=planner_request_from_frozen_input,
         invoke_provider=lambda request, chain_id, attempt: _invoke_planner_and_bind_receipt(
             request=request,
@@ -1579,8 +1590,8 @@ def build_provider_stage_retry_production_assembly(
         boundary_kind=ProviderStageBoundaryKind.CODEX,
         maximum_provider_operations=1,
         protected_root=owner_root,
-        read_current_ledger=sol_current,
-        read_ledger_prefix=sol_prefix,
+        read_current_ledger=luna_sol_current,
+        read_ledger_prefix=luna_sol_prefix,
         build_request=semantic_validation_input_from_frozen_input,
         invoke_provider=lambda request, chain_id, attempt: _invoke_luna_and_bind_receipt(
             request=request,
@@ -1608,8 +1619,8 @@ def build_provider_stage_retry_production_assembly(
         boundary_kind=ProviderStageBoundaryKind.CODEX,
         maximum_provider_operations=1,
         protected_root=owner_root,
-        read_current_ledger=sol_current,
-        read_ledger_prefix=sol_prefix,
+        read_current_ledger=reader_sol_current,
+        read_ledger_prefix=reader_sol_prefix,
         build_request=reader_validation_input_from_frozen_input,
         invoke_provider=lambda request, chain_id, attempt: _invoke_reader_and_bind_receipt(
             request=request,
@@ -2094,10 +2105,18 @@ def _adult_pipeline_input(prepared: PreparedAdultRouteOperationV1) -> AdultPipel
 
 def _sol_ledger_ports(
     ledger: ContinuousProviderCallLedger,
+    *,
+    owner: str,
 ) -> tuple[
     Callable[[], ProviderStageLedgerSnapshotV1],
     Callable[[str], ProviderStageLedgerSnapshotV1],
 ]:
+    if owner not in {"planner", "validator", "reader"}:
+        raise ContractValidationError("Sol provider-stage ledger owner changed")
+
+    def owner_events() -> tuple[dict[str, Any], ...]:
+        return tuple(event for event in ledger.events if event.get("owner") == owner)
+
     def conservative_operations(events: tuple[dict[str, Any], ...]) -> int:
         invoked = {
             cast(str, event["call_id"])
@@ -2129,10 +2148,10 @@ def _sol_ledger_ports(
         )
 
     def current() -> ProviderStageLedgerSnapshotV1:
-        return snapshot(tuple(ledger.events))
+        return snapshot(owner_events())
 
     def prefix(prefix_sha256: str) -> ProviderStageLedgerSnapshotV1:
-        events = tuple(ledger.events)
+        events = owner_events()
         for length in range(len(events) + 1):
             candidate = events[:length]
             if canonical_sha256(candidate) == prefix_sha256:

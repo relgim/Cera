@@ -4,8 +4,11 @@ import json
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import patch
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
@@ -33,9 +36,11 @@ from cera.pi_scene.provider_stage_retry_assembly import (
     ProviderStageOwnerLifecycleClass,
     _LateBoundOrdinaryHttpContinuationV1,
     _ProtectedTerminalCompletionStoreV1,
+    _sol_ledger_ports,
     build_provider_stage_retry_production_assembly,
 )
 from cera.pi_scene.provider_stage_retry_executor import (
+    PreparedProviderStageDispatchPort,
     ProviderStageSemanticDisposition,
     ProviderStageSuccessfulResultV1,
 )
@@ -285,6 +290,112 @@ class _OrdinaryCompletionCustody:
 
 
 class ProviderStageRetryAssemblyTests(unittest.TestCase):
+    def test_parallel_sol_validation_owners_account_only_their_own_call(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "sol.jsonl", maximum_calls=2)
+            dispatch_ready = Barrier(2)
+            calls_completed = Barrier(2)
+
+            def prepared_owner(
+                stage: ProviderStage,
+                ledger_owner: str,
+            ) -> PreparedProviderStageDispatchPort:
+                current, prefix = _sol_ledger_ports(ledger, owner=ledger_owner)
+                exact_input = canonical_bytes(
+                    {
+                        "schema_version": ProviderStageFrozenPacketV1.SCHEMA_VERSION,
+                        "stage": stage.value,
+                        "packet_kind": "parallel_sol_validation_owner_test",
+                    }
+                )
+                packet = ProviderStageFrozenPacketV1(
+                    schema_version=ProviderStageFrozenPacketV1.SCHEMA_VERSION,
+                    stage=stage,
+                    packet_kind="parallel_sol_validation_owner_test",
+                    exact_bytes=exact_input,
+                    stage_input_sha256=bytes_sha256(exact_input),
+                )
+                scope = ProviderStageRetryOccurrenceScopeV1.create(
+                    world_id="world:parallel-validation",
+                    branch_id="branch:parallel-validation",
+                    request_id="request:parallel-validation",
+                    generation_id="generation:parallel-validation",
+                    stage=stage,
+                    stage_ordinal=1,
+                    accepted_state_sha256=canonical_sha256({"head": None}),
+                    exact_input=exact_input,
+                    authority_binding={"lane": stage.value},
+                )
+
+                def invoke_provider(
+                    _request: object,
+                    _chain_id: str,
+                    _attempt_number: int,
+                ) -> object:
+                    dispatch_ready.wait(timeout=10)
+                    result = ledger.execute(
+                        owner=ledger_owner,
+                        operation=f"parallel_{ledger_owner}_validation",
+                        route="codex_app",
+                        model="gpt-5.6-sol",
+                        effort="xhigh",
+                        dispatch_with_invocation_marker=lambda mark_invoked: (
+                            mark_invoked(),
+                            {"lane": ledger_owner},
+                        )[1],
+                        finalize=lambda value: value,
+                        receipt_of=lambda _value: {"lane": ledger_owner},
+                        stored_thread_sha256=text_sha256(
+                            f"parallel-validation-thread:{ledger_owner}"
+                        ),
+                    )
+                    calls_completed.wait(timeout=10)
+                    return result
+
+                factory = OrdinaryProviderStageAttemptOwnerFactoryV1(
+                    stage=stage,
+                    lifecycle=ProviderStageOwnerLifecycleClass.FRESH_SINGLE_USE,
+                    boundary_kind=ProviderStageBoundaryKind.CODEX,
+                    maximum_provider_operations=1,
+                    protected_root=root / "owners",
+                    read_current_ledger=current,
+                    read_ledger_prefix=prefix,
+                    build_request=lambda value: value,
+                    invoke_provider=invoke_provider,
+                    serialize_result=lambda result: canonical_bytes(result),
+                    result_receipt_metrics=lambda _result: ProviderStageReceiptMetricsV1(
+                        receipt_evidence_sha256=canonical_sha256({"receipt": ledger_owner}),
+                        provider_operations=1,
+                        duration_ms=1,
+                    ),
+                    semantic_disposition=lambda _result: ProviderStageSemanticDisposition.ACCEPTED,
+                    retire_failed_owner=lambda *_args: canonical_sha256({"retired": ledger_owner}),
+                )
+                owner = factory.create_initial_owner(scope=scope, packet=packet)
+                prepared = owner.prepare(
+                    chain_id=scope.identity.chain_id,
+                    attempt_number=1,
+                    exact_input=exact_input,
+                )
+                self.assertTrue(callable(getattr(prepared, "invoke", None)))
+                return cast(PreparedProviderStageDispatchPort, prepared)
+
+            luna = prepared_owner(ProviderStage.SEMANTIC_VALIDATOR, "validator")
+            reader = prepared_owner(ProviderStage.READER, "reader")
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                outcomes = tuple(pool.map(lambda value: value.invoke(), (luna, reader)))
+
+            self.assertEqual(ledger.dispatched_call_count, 2)
+            self.assertTrue(
+                all(isinstance(value, ProviderStageSuccessfulResultV1) for value in outcomes),
+                [type(value).__name__ for value in outcomes],
+            )
+            self.assertEqual(
+                [value.metrics.provider_operations_observed for value in outcomes],
+                [1, 1],
+            )
+
     def test_validation_lane_never_freezes_a_stale_terminal_completion(self) -> None:
         ordinary = _OrdinaryCompletionCustody()
         chain_id = "stage-retry-" + "a" * 64
