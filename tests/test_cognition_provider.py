@@ -756,9 +756,9 @@ class CognitionProviderContractTests(unittest.TestCase):
             context=context,
             reference_scope=reference_scope,
         )
-        item_evidence = schema["properties"]["sequence"]["properties"]["items"][
-            "items"
-        ]["properties"]["evidence_keys"]
+        item_evidence = schema["properties"]["sequence"]["properties"]["items"]["items"][
+            "properties"
+        ]["evidence_keys"]
         self.assertEqual(
             item_evidence["items"]["enum"],
             [turn.current_source_key, "evidence:b-citable-4000"],
@@ -769,13 +769,11 @@ class CognitionProviderContractTests(unittest.TestCase):
         decision = schema["properties"]["decision_records"]["items"]["properties"]
         descriptions = (
             decision["causal_trigger_refs"]["description"],
-            decision["observer_frame"]["properties"]["directly_perceived"][
-                "items"
-            ]["properties"]["source_ref"]["description"],
-            decision["decisive_factor_refs"]["description"],
-            decision["material_pressures"]["items"]["properties"][
-                "evidence_refs"
+            decision["observer_frame"]["properties"]["directly_perceived"]["items"]["properties"][
+                "source_ref"
             ]["description"],
+            decision["decisive_factor_refs"]["description"],
+            decision["material_pressures"]["items"]["properties"]["evidence_refs"]["description"],
         )
         self.assertEqual(len(descriptions), 4)
         for description in descriptions:

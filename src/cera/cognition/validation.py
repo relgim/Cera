@@ -74,9 +74,7 @@ def validate_cognition_plan(
         *(value.evidence_key for value in turn.evidence_records),
     }
     if not set(context.available_evidence_refs).issubset(static_refs):
-        raise ContractValidationError(
-            "cognition validation received untyped dynamic evidence refs"
-        )
+        raise ContractValidationError("cognition validation received untyped dynamic evidence refs")
 
     static_scope = cognition_static_citation_scope(turn)
     allowed_item_evidence_refs = {

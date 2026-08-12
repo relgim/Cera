@@ -142,6 +142,7 @@ class CodexCognitionPlannerBackend:
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             dynamic_evidence = _take_cognition_dynamic_evidence(self.world_bridge)
+
             def decode_plan() -> CognitionPlanV1:
                 plan = cast(
                     CognitionPlanV1,
@@ -241,9 +242,7 @@ class CodexCognitionPlannerBackend:
         self.workspace.mkdir(parents=True, exist_ok=True)
         candidate_index = max(1, self._operation_index + 1)
         while True:
-            candidate = self.workspace / (
-                f"cognition_planner_operation_{candidate_index:04d}"
-            )
+            candidate = self.workspace / (f"cognition_planner_operation_{candidate_index:04d}")
             try:
                 candidate.mkdir()
             except FileExistsError:
