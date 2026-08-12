@@ -28,7 +28,11 @@ from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256
 
-from .contracts import SemanticValidationRequestV1, SemanticValidationVerdictV1
+from .contracts import (
+    SemanticValidationRequestV1,
+    SemanticValidationVerdictV1,
+    validate_semantic_validation_verdict_binding,
+)
 from .prompting import (
     LUNA_VALIDATOR_BASE_INSTRUCTIONS,
     LUNA_VALIDATOR_PROFILE,
@@ -36,7 +40,7 @@ from .prompting import (
 )
 from .schema import semantic_verdict_json_schema
 
-LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v2"
+LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v3"
 LUNA_VALIDATOR_PROMPT = "cera.semantic_validation.luna_prompt.v1"
 # A fresh xhigh validation may legitimately outlive the UI's progress target.
 # Keep one bounded call alive; never turn the extra headroom into a retry.
@@ -49,7 +53,7 @@ def luna_validator_route() -> LiveProviderRoute:
             model="gpt-5.6-luna",
             effort="xhigh",
         ),
-        route_id="cera_semantic_validator_luna_xhigh_v2",
+        route_id="cera_semantic_validator_luna_xhigh_v3",
         adapter_id=LUNA_VALIDATOR_ADAPTER,
         prompt_version=LUNA_VALIDATOR_PROMPT,
         timeout_seconds=LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS,
@@ -146,13 +150,19 @@ class CodexLunaSemanticValidatorBackend:
                     raise ContractValidationError(
                         "Luna result changed its closed provider envelope"
                     )
-                return cast(
+                verdict = cast(
                     SemanticValidationVerdictV1,
                     from_mapping(
                         SemanticValidationVerdictV1,
                         payload["result"],
                     ),
                 )
+                # The wire DTO is not fully accepted until its provider-owned
+                # quote and decision references bind to this exact request.
+                # Caller-owned custody is validated separately before the
+                # provider lifecycle begins.
+                validate_semantic_validation_verdict_binding(request, verdict)
+                return verdict
 
             verdict = decode_completed_codex_output(
                 result,

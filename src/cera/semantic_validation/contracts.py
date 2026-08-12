@@ -235,27 +235,53 @@ class BoundSemanticValidationV1:
     verdict: SemanticValidationVerdictV1
 
     def __post_init__(self) -> None:
-        if canonical_sha256(self.request.cognition_plan) != self.custody.cognition_plan_sha256:
-            raise ContractValidationError("validation custody lost the cognition plan")
-        if text_sha256(self.request.exact_candidate_prose) != self.custody.candidate_prose_sha256:
-            raise ContractValidationError("validation custody lost the candidate prose")
-        if canonical_sha256(self.request) != self.custody.validation_request_sha256:
-            raise ContractValidationError("validation custody lost the exact request")
-        conflict = self.verdict.conflict
-        if conflict is None:
-            return
-        if (
-            conflict.exact_quote is not None
-            and conflict.exact_quote not in self.request.exact_candidate_prose
-        ):
-            raise ContractValidationError("validation conflict quote is not exact")
-        if conflict.decision_key is not None:
-            decision_keys = {
-                decision.decision_key for decision in self.request.cognition_plan.decision_records
-            }
-            if conflict.decision_key not in decision_keys:
-                raise ContractValidationError("validation cites an unknown decision")
+        validate_semantic_validation_request_custody(self.request, self.custody)
+        validate_semantic_validation_verdict_binding(self.request, self.verdict)
 
     @property
     def binding_sha256(self) -> str:
         return canonical_sha256(self)
+
+
+def validate_semantic_validation_verdict_binding(
+    request: SemanticValidationRequestV1,
+    verdict: SemanticValidationVerdictV1,
+) -> None:
+    """Validate only provider-owned verdict references against the exact request."""
+
+    if type(request) is not SemanticValidationRequestV1:
+        raise ContractValidationError("validation request changed type")
+    if type(verdict) is not SemanticValidationVerdictV1:
+        raise ContractValidationError("validation verdict changed type")
+    conflict = verdict.conflict
+    if conflict is None:
+        return
+    if (
+        conflict.exact_quote is not None
+        and conflict.exact_quote not in request.exact_candidate_prose
+    ):
+        raise ContractValidationError("validation conflict quote is not exact")
+    if conflict.decision_key is not None:
+        decision_keys = {
+            decision.decision_key for decision in request.cognition_plan.decision_records
+        }
+        if conflict.decision_key not in decision_keys:
+            raise ContractValidationError("validation cites an unknown decision")
+
+
+def validate_semantic_validation_request_custody(
+    request: SemanticValidationRequestV1,
+    custody: SemanticValidationCustodyV1,
+) -> None:
+    """Validate caller-owned custody before any provider lifecycle begins."""
+
+    if type(request) is not SemanticValidationRequestV1:
+        raise ContractValidationError("validation request changed type")
+    if type(custody) is not SemanticValidationCustodyV1:
+        raise ContractValidationError("validation custody changed type")
+    if canonical_sha256(request.cognition_plan) != custody.cognition_plan_sha256:
+        raise ContractValidationError("validation custody lost the cognition plan")
+    if text_sha256(request.exact_candidate_prose) != custody.candidate_prose_sha256:
+        raise ContractValidationError("validation custody lost the candidate prose")
+    if canonical_sha256(request) != custody.validation_request_sha256:
+        raise ContractValidationError("validation custody lost the exact request")

@@ -1215,6 +1215,62 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             1,
         )
 
+    def test_semantic_output_invalid_exposes_only_one_manual_provider_retry(self) -> None:
+        candidate = _candidate()
+        accepted = _validation(candidate)
+        factory = self.factories[ProviderStage.SEMANTIC_VALIDATOR]
+        factory.outcomes = {
+            1: ProviderStageClosedFailureV1(
+                failure_class=ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+                failure_evidence_sha256=_sha("semantic:output-invalid"),
+                metrics=_metrics("semantic:output-invalid"),
+            ),
+            2: _success(
+                "semantic:retry-success",
+                serialize_semantic_validation_result(accepted),
+                disposition=semantic_validation_disposition(accepted),
+            ),
+        }
+        context = _context(
+            world_id=candidate.world_id,
+            branch_id=candidate.branch_id,
+        )
+        self._freeze(context)
+
+        with self.integration.bind_request(context):
+            with self.assertRaises(ProviderStageRetryPendingError) as pending:
+                self.integration.run_semantic_validator(
+                    accepted.request,
+                    accepted.custody,
+                    accepted_state_sha256=_sha("accepted-state"),
+                    authority_binding={"candidate_id": accepted.custody.candidate_id},
+                )
+
+        envelope = pending.exception.envelope
+        status = envelope["status"]
+        self.assertEqual(status["state"], "eligible")
+        self.assertEqual(status["failure_category"], "provider_output_invalid")
+        self.assertEqual(status["available_actions"], ["provider_retry"])
+        self.assertEqual(len(envelope["actions"]), 1)
+        action = backend_action_from_envelope(envelope)
+        self.assertEqual(action["action_kind"], "provider_retry")
+        self.assertFalse(action["automatic"])
+        self.assertTrue(action["provider_dispatch_authorized"])
+        self.assertEqual(action["retry_action_ordinal"], 1)
+
+        projection = self.integration.execute_action(action)
+        self.assertTrue(projection.result_ready)
+        self.assertEqual(projection.envelope["status"]["state"], "succeeded")
+        self.assertEqual(projection.envelope["actions"], [])
+        self.assertEqual(
+            self.integration.reconcile_semantic_validator(projection.chain_id),
+            accepted,
+        )
+        self.assertEqual(
+            self.counts.by_stage[ProviderStage.SEMANTIC_VALIDATOR],
+            2,
+        )
+
     def test_recorder_exhaustion_keeps_accepted_story_and_enters_repair_state(self) -> None:
         store = LeanSceneStore(self.root / "accepted-world")
         accepted = store.accept(_candidate())

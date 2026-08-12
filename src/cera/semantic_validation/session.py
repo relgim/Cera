@@ -15,6 +15,7 @@ from .contracts import (
     SemanticValidationCustodyV1,
     SemanticValidationRequestV1,
     SemanticValidationVerdictV1,
+    validate_semantic_validation_request_custody,
 )
 from .prompting import LUNA_VALIDATOR_BASE_INSTRUCTIONS, LUNA_VALIDATOR_PROFILE
 
@@ -52,6 +53,7 @@ class FreshLunaValidatorSession:
         )
         if self._used or self._archived:
             raise StateConflictError("candidate Luna Validator session is single-use")
+        validate_semantic_validation_request_custody(request, custody)
         self._used = True
         verdict = self._backend.run_validator_once(
             thread_id=self._thread_id,
@@ -83,6 +85,10 @@ class FreshLunaValidatorFactory:
         request: SemanticValidationRequestV1,
         custody: SemanticValidationCustodyV1,
     ) -> BoundSemanticValidationV1:
+        # Reject caller-side custody before even allocating a provider thread.
+        # The backend decoder can then classify only provider-owned verdict
+        # defects as Retry-eligible output invalidity.
+        validate_semantic_validation_request_custody(request, custody)
         thread_id = self._backend.start_fresh_thread(
             base_instructions=LUNA_VALIDATOR_BASE_INSTRUCTIONS,
             profile=LUNA_VALIDATOR_PROFILE,

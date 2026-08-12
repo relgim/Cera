@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from unittest.mock import patch
 
 from cera.errors import ContractValidationError, StateConflictError
@@ -86,6 +86,46 @@ class SemanticValidationSessionTests(unittest.TestCase):
         request = _request()
         with self.assertRaisesRegex(ContractValidationError, "remains resumable"):
             FreshLunaValidatorFactory(backend).validate(request, _custody(request))
+
+    def test_invalid_custody_fails_before_fresh_thread_start(self) -> None:
+        backend = _FakeLunaBackend(_pass())
+        request = _request()
+        invalid_custody = replace(
+            _custody(request),
+            candidate_prose_sha256="0" * 64,
+        )
+
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "custody lost the candidate prose",
+        ):
+            FreshLunaValidatorFactory(backend).validate(request, invalid_custody)
+
+        self.assertEqual(backend.starts, [])
+        self.assertEqual(backend.calls, [])
+        self.assertEqual(backend.archives, [])
+
+    def test_invalid_custody_does_not_consume_direct_session(self) -> None:
+        from cera.semantic_validation.session import FreshLunaValidatorSession
+
+        backend = _FakeLunaBackend(_pass())
+        request = _request()
+        valid_custody = _custody(request)
+        invalid_custody = replace(
+            valid_custody,
+            candidate_prose_sha256="0" * 64,
+        )
+        session = FreshLunaValidatorSession(backend, "thread:luna-custody")
+
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "custody lost the candidate prose",
+        ):
+            session.validate(request, invalid_custody)
+
+        result = session.validate(request, valid_custody)
+        self.assertEqual(result.verdict, _pass())
+        self.assertEqual(backend.calls, ["thread:luna-custody"])
 
     def test_dispatch_guard_blocks_before_single_use_state_changes(self) -> None:
         from cera.semantic_validation.session import FreshLunaValidatorSession

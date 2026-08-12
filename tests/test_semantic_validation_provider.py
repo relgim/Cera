@@ -15,6 +15,8 @@ from cera.providers.models import (
     ProviderTransportError,
 )
 from cera.semantic_validation import (
+    SemanticConflictClass,
+    SemanticConflictV1,
     SemanticValidationVerdictV1,
     SemanticVerdict,
 )
@@ -82,16 +84,36 @@ class _InvalidCompletedLunaTransport(_OfflineLunaTransport):
         return result
 
 
+class _RequestBoundInvalidLunaTransport(_OfflineLunaTransport):
+    def invoke(self, *args, **kwargs) -> object:
+        result = super().invoke(*args, **kwargs)
+        verdict = SemanticValidationVerdictV1(
+            schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
+            verdict=SemanticVerdict.REJECT,
+            conflict=SemanticConflictV1(
+                conflict_class=SemanticConflictClass.STOPPING_BOUNDARY,
+                concise_explanation="The candidate crosses its required stopping boundary.",
+                exact_quote="This quote is absent from the exact candidate prose.",
+                decision_key="sakura_door_response",
+            ),
+        )
+        payload = {"result": to_primitive(verdict)}
+        result.output_text = json.dumps(payload, sort_keys=True)
+        result.parsed_json = payload
+        result.receipt = {"provider": "offline-luna-bound-invalid"}
+        return result
+
+
 class SemanticValidationProviderTests(unittest.TestCase):
     def test_luna_route_binds_the_hardened_runtime_identity(self) -> None:
         route = luna_validator_route()
         self.assertEqual(
             LUNA_VALIDATOR_ADAPTER,
-            "cera.semantic_validation.luna_adapter.v2",
+            "cera.semantic_validation.luna_adapter.v3",
         )
         self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v1")
         self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v1")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v2")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v3")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
 
@@ -111,9 +133,10 @@ class SemanticValidationProviderTests(unittest.TestCase):
                 ),
                 self.assertRaises(ProviderTransportError) as caught,
             ):
+                request = _request()
                 backend.run_validator_once(
                     thread_id="thread:luna-invalid",
-                    request=_request(),
+                    request=request,
                 )
 
             failure = caught.exception
@@ -133,6 +156,50 @@ class SemanticValidationProviderTests(unittest.TestCase):
             )
             self.assertIsNone(failure.__cause__)
             self.assertEqual(ledger.dispatched_call_count, 1)
+            self.assertEqual(
+                tuple(value["state"] for value in ledger.events[-2:]),
+                (
+                    ProviderCallState.PROVIDER_COMPLETED.value,
+                    ProviderCallState.POST_VALIDATION_FAILED.value,
+                ),
+            )
+            self.assertFalse(
+                any(value["state"] == ProviderCallState.ACCEPTED.value for value in ledger.events)
+            )
+
+    def test_request_bound_invalid_verdict_is_typed_retryable_provider_output(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexLunaSemanticValidatorBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+            )
+            request = _request()
+            with (
+                patch(
+                    "cera.semantic_validation.provider.CodexSDKTransport",
+                    _RequestBoundInvalidLunaTransport,
+                ),
+                self.assertRaises(ProviderTransportError) as caught,
+            ):
+                backend.run_validator_once(
+                    thread_id="thread:luna-bound-invalid",
+                    request=request,
+                )
+
+            failure = caught.exception
+            self.assertEqual(failure.code, ErrorCode.REASONER_CONTRACT_INVALID)
+            self.assertEqual(
+                failure.retryable_failure_category,
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+            )
+            self.assertEqual(failure.external_provider_calls_observed, 1)
+            self.assertEqual(
+                failure.provider_call_receipt,
+                {"provider": "offline-luna-bound-invalid"},
+            )
             self.assertEqual(
                 tuple(value["state"] for value in ledger.events[-2:]),
                 (
