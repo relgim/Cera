@@ -17,8 +17,15 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from cera.cognition.citations import MAX_COGNITION_CITABLE_RECORD_CHARACTERS
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, to_primitive
+from cera.serialization import (
+    canonical_bytes,
+    canonical_json,
+    canonical_sha256,
+    text_sha256,
+    to_primitive,
+)
 
 from ._world_workspace_files import is_link_or_reparse, read_json_object
 
@@ -34,6 +41,13 @@ MAX_TURN_CHARACTERS = 8
 MAX_SEARCH_TERMS = 8
 MAX_SEARCH_RESULTS = 20
 MAX_EXACT_RECORD_BYTES = 1_048_576
+COGNITION_ELIGIBLE_AFTER_EXACT_FETCH = "eligible_after_exact_fetch"
+COGNITION_CONTEXT_ONLY_EXACT_RECORD_TOO_LARGE = (
+    "context_only_exact_record_too_large"
+)
+COGNITION_CONTEXT_ONLY_VISIBILITY_NOT_CITABLE = (
+    "context_only_visibility_not_citable"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,6 +297,65 @@ class BranchRetrievalService:
                 "truncated": len(rows) == limit,
             }
 
+    def search_cognition_evidence(
+        self,
+        terms: Sequence[str],
+        *,
+        character_id: str | None = None,
+        limit: int = MAX_SEARCH_RESULTS,
+    ) -> dict[str, Any]:
+        """Return authorized per-record locators for cognition-only retrieval.
+
+        Authorization and visibility classification happen before query terms
+        are compared.  Creator/system/multi-owner and other-owner records do
+        not produce a row, context reference, or term-match signal.  Unlike the
+        historical character-scoped search, this surface never returns a whole
+        dossier row.
+        """
+
+        if (
+            not terms
+            or len(terms) > MAX_SEARCH_TERMS
+            or any(not isinstance(value, str) or not value.strip() for value in terms)
+            or not 1 <= limit <= MAX_SEARCH_RESULTS
+        ):
+            raise ContractValidationError("branch evidence search arguments are invalid")
+        with self._operation("search_evidence"):
+            needles = tuple(value.casefold() for value in terms)
+            rows: list[dict[str, Any]] = []
+            projections = self.workspace.branch_root / "ACTIVE" / "GenesisRecords"
+            for path in sorted(projections.rglob("*.json")):
+                _assert_confined_record(path, self.workspace.branch_root)
+                projection = read_json_object(path, "Genesis projection")
+                scope = _cognition_projection_scope(projection)
+                if scope is None:
+                    continue
+                visibility, owner = scope
+                if visibility == "character_private" and owner != character_id:
+                    continue
+                record = projection.get("record")
+                assert isinstance(record, Mapping)
+                exact_record = canonical_json(record)
+                if not all(value in exact_record.casefold() for value in needles):
+                    continue
+                row = _record_descriptor(projection, path, self.workspace)
+                row["visibility"] = visibility
+                row["knowledge_owner_id"] = owner
+                row["citation_eligibility"] = (
+                    COGNITION_ELIGIBLE_AFTER_EXACT_FETCH
+                    if len(exact_record) <= MAX_COGNITION_CITABLE_RECORD_CHARACTERS
+                    else COGNITION_CONTEXT_ONLY_EXACT_RECORD_TOO_LARGE
+                )
+                rows.append(row)
+                if len(rows) == limit:
+                    break
+            return {
+                "terms": list(terms),
+                "character_scope": character_id,
+                "records": rows,
+                "truncated": len(rows) == limit,
+            }
+
     def get_exact_record(self, record_id: str) -> dict[str, Any]:
         if not isinstance(record_id, str) or not record_id.startswith("record:"):
             raise ContractValidationError("exact record identity is invalid")
@@ -455,6 +528,78 @@ def _record_descriptor(
         "path": path.relative_to(workspace.branch_root).as_posix(),
         "content_sha256": text_sha256(path.read_text(encoding="utf-8")),
     }
+
+
+def cognition_exact_record_projection(
+    value: Mapping[str, Any],
+) -> tuple[str, str | None, str, str | None]:
+    """Classify one exact response without weakening retrieval authorization.
+
+    Returns normalized visibility, one optional private owner, the closed
+    provider-facing eligibility status, and the canonical fact only when it is
+    eligible to become independent validation evidence.
+    """
+
+    record = value.get("record")
+    if not isinstance(record, Mapping):
+        raise StateConflictError("exact cognition record changed shape")
+    scope = _cognition_projection_scope(value)
+    if scope is None:
+        return (
+            "public",
+            None,
+            COGNITION_CONTEXT_ONLY_VISIBILITY_NOT_CITABLE,
+            None,
+        )
+    visibility, owner = scope
+    exact_record = canonical_json(record)
+    if len(exact_record) > MAX_COGNITION_CITABLE_RECORD_CHARACTERS:
+        return (
+            visibility,
+            owner,
+            COGNITION_CONTEXT_ONLY_EXACT_RECORD_TOO_LARGE,
+            None,
+        )
+    if not exact_record.strip():
+        raise StateConflictError("exact cognition record is empty")
+    return (
+        visibility,
+        owner,
+        COGNITION_ELIGIBLE_AFTER_EXACT_FETCH,
+        exact_record,
+    )
+
+
+def _cognition_projection_scope(
+    projection: Mapping[str, Any],
+) -> tuple[str, str | None] | None:
+    record = projection.get("record")
+    if not isinstance(record, Mapping):
+        raise StateConflictError("Genesis projection record changed")
+    raw_visibility = str(projection.get("visibility", "system_private")).casefold()
+    if raw_visibility in {"creator_private", "creator-only", "system_private"}:
+        return None
+    if raw_visibility == "public":
+        return "public", None
+    if raw_visibility not in {"private", "character_private", "owner_private"}:
+        return None
+    owners: set[str] = set()
+    for value in (
+        projection.get("knowledge_owner_id"),
+        record.get("owner_id"),
+    ):
+        if isinstance(value, str) and value.startswith("character:"):
+            owners.add(value)
+    raw_owners = record.get("knowledge_owner_ids")
+    if isinstance(raw_owners, list | tuple):
+        owners.update(
+            value
+            for value in raw_owners
+            if isinstance(value, str) and value.startswith("character:")
+        )
+    if len(owners) != 1:
+        return None
+    return "character_private", next(iter(owners))
 
 
 def _assert_confined_record(path: Path, branch_root: Path) -> None:

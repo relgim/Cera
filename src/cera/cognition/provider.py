@@ -12,7 +12,7 @@ from cera.continuous.call_ledger import (
 )
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.provider import ContinuousProviderResultV1
-from cera.errors import ContractValidationError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
@@ -29,13 +29,18 @@ from cera.schema import from_mapping
 from cera.sequence_first.contracts import ProviderReferenceScopeV1
 from cera.serialization import text_sha256
 
+from .citations import (
+    CognitionDynamicEvidenceV1,
+    CognitionProviderCompletedTurnV1,
+    cognition_provider_turn_handoff,
+)
 from .contracts import CognitionPlanV1, CognitionTurnContextV1
 from .prompting import COGNITION_PLANNER_BASE_INSTRUCTIONS, COGNITION_PLANNER_PROFILE
 from .provider_schema import cognition_plan_json_schema
 from .validation import CognitionValidationContextV1, validate_cognition_plan
 
-COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v4"
-COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v5"
+COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v6"
+COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v7"
 # This is a transport-loss boundary, not the three-minute interaction target.
 # Retained-turn latency remains observable in provider telemetry.
 COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
@@ -44,7 +49,7 @@ COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
 def cognition_planner_route() -> LiveProviderRoute:
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_cognition_planner_sol_medium_v5",
+        route_id="cera_cognition_planner_sol_medium_v7",
         adapter_id=COGNITION_PLANNER_ADAPTER,
         prompt_version=COGNITION_PLANNER_PROMPT,
         timeout_seconds=COGNITION_PLANNER_HARD_TIMEOUT_SECONDS,
@@ -75,7 +80,6 @@ class CodexCognitionPlannerBackend:
         self.route = cognition_planner_route()
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
-        self.last_available_evidence_refs: tuple[str, ...] = ()
 
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
         assert_provider_dispatch_allowed(
@@ -100,22 +104,13 @@ class CodexCognitionPlannerBackend:
         prompt: str,
         context: CognitionTurnContextV1,
         reference_scope: ProviderReferenceScopeV1,
-    ) -> CognitionPlanV1:
+    ) -> CognitionProviderCompletedTurnV1:
         assert_provider_dispatch_allowed(
             "cognition.planner.turn",
             external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
-        self.last_available_evidence_refs = reference_scope.evidence_keys
-        self._operation_index += 1
-        operation_workspace = self.workspace / (
-            f"cognition_planner_operation_{self._operation_index:04d}"
-        )
-        try:
-            operation_workspace.mkdir(parents=True)
-        except FileExistsError as exc:
-            raise ContractValidationError(
-                "cognition provider operation workspace already exists"
-            ) from exc
+        self.clear_cognition_transient_state()
+        operation_workspace = self._allocate_operation_workspace()
 
         transport = CodexSDKTransport(
             self.route,
@@ -146,11 +141,7 @@ class CodexCognitionPlannerBackend:
             world_tool_debug = (
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
-            dynamic_evidence_refs = _bound_world_evidence_refs(world_tool_debug)
-            available_evidence_refs = tuple(
-                dict.fromkeys((*reference_scope.evidence_keys, *dynamic_evidence_refs))
-            )
-
+            dynamic_evidence = _take_cognition_dynamic_evidence(self.world_bridge)
             def decode_plan() -> CognitionPlanV1:
                 plan = cast(
                     CognitionPlanV1,
@@ -162,8 +153,9 @@ class CodexCognitionPlannerBackend:
                     context=CognitionValidationContextV1(
                         autonomy_mode=context.autonomy_mode,
                         logic_route=context.logic_route,
-                        available_evidence_refs=available_evidence_refs,
+                        available_evidence_refs=reference_scope.evidence_keys,
                         available_provisional_record_ids=(context.available_provisional_record_ids),
+                        dynamic_evidence=dynamic_evidence,
                     ),
                 )
                 return plan
@@ -173,9 +165,17 @@ class CodexCognitionPlannerBackend:
                 safe_diagnostic="provider_output:cognition_plan_contract_invalid",
                 decoder=decode_plan,
             )
-            self.last_available_evidence_refs = available_evidence_refs
+            handoff = cognition_provider_turn_handoff(
+                plan=plan,
+                turn=context.turn,
+                provider_thread_sha256=stored_thread_sha256,
+                dynamic_evidence=dynamic_evidence,
+            )
             return ContinuousProviderResultV1(
-                value=plan,
+                value=CognitionProviderCompletedTurnV1(
+                    plan=plan,
+                    handoff=handoff,
+                ),
                 provider_receipt=result.receipt,
                 operation_telemetry=result.operation_telemetry,
                 tool_call_count=result.tool_call_count,
@@ -184,30 +184,40 @@ class CodexCognitionPlannerBackend:
                 physical_session_sha256=stored_thread_sha256,
             )
 
-        provider_result = self.call_ledger.execute(
-            owner="planner",
-            operation=f"cognition_plan_{self._operation_index:04d}",
-            route=self.route.route_id,
-            model=self.route.model_name,
-            effort=self.route.reasoning_effort,
-            dispatch_with_stage_markers=dispatch,
-            finalize=finalize,
-            stored_thread_sha256=stored_thread_sha256,
-            operation_evidence=(
-                None
-                if self.operation_evidence is None
-                else self.operation_evidence.request(
-                    request_bytes=prompt.encode("utf-8"),
-                    structured_output_schema=output_schema,
-                    prompt_version=self.route.prompt_version,
-                    schema_version=CognitionPlanV1.SCHEMA_VERSION,
-                    operation_workspace=str(operation_workspace),
-                    role="planner",
-                    archival_policy="persistent_per_accepted_branch",
-                )
-            ),
+        try:
+            provider_result = self.call_ledger.execute(
+                owner="planner",
+                operation=f"cognition_plan_{self._operation_index:04d}",
+                route=self.route.route_id,
+                model=self.route.model_name,
+                effort=self.route.reasoning_effort,
+                dispatch_with_stage_markers=dispatch,
+                finalize=finalize,
+                stored_thread_sha256=stored_thread_sha256,
+                operation_evidence=(
+                    None
+                    if self.operation_evidence is None
+                    else self.operation_evidence.request(
+                        request_bytes=prompt.encode("utf-8"),
+                        structured_output_schema=output_schema,
+                        prompt_version=self.route.prompt_version,
+                        schema_version=CognitionPlanV1.SCHEMA_VERSION,
+                        operation_workspace=str(operation_workspace),
+                        role="planner",
+                        archival_policy="persistent_per_accepted_branch",
+                    )
+                ),
+            )
+        except BaseException:
+            self.clear_cognition_transient_state()
+            raise
+        completed = provider_result.value
+        if not isinstance(completed, CognitionProviderCompletedTurnV1):
+            raise ContractValidationError("cognition provider completion changed shape")
+        self.last_provider_result = replace(
+            provider_result,
+            value=completed.plan,
         )
-        self.last_provider_result = provider_result
         if self.operation_evidence is not None:
             self.operation_evidence.record_archival(
                 role="planner",
@@ -215,30 +225,53 @@ class CodexCognitionPlannerBackend:
                 resumable=self.lifecycle.resume_stored_thread(thread_id),
                 disposition="retained_for_accepted_branch",
             )
-        return cast(CognitionPlanV1, provider_result.value)
+        return completed
+
+    def clear_cognition_transient_state(self) -> None:
+        self.last_provider_result = None
+
+    def take_last_provider_result(self) -> ContinuousProviderResultV1:
+        result = self.last_provider_result
+        self.last_provider_result = None
+        if result is None:
+            raise StateConflictError("cognition provider receipt is unavailable")
+        return result
+
+    def _allocate_operation_workspace(self) -> Path:
+        self.workspace.mkdir(parents=True, exist_ok=True)
+        candidate_index = max(1, self._operation_index + 1)
+        while True:
+            candidate = self.workspace / (
+                f"cognition_planner_operation_{candidate_index:04d}"
+            )
+            try:
+                candidate.mkdir()
+            except FileExistsError:
+                candidate_index += 1
+                continue
+            self._operation_index = candidate_index
+            return candidate
 
     def is_resumable(self, thread_id: str) -> bool:
         return self.lifecycle.resume_stored_thread(thread_id)
 
 
-def _bound_world_evidence_refs(value: object) -> tuple[str, ...]:
-    """Extract only Python-allocated bindings from this exact bridge result."""
+def _take_cognition_dynamic_evidence(
+    world_bridge: object,
+) -> tuple[CognitionDynamicEvidenceV1, ...]:
+    """Move typed facts from the request bridge without debug projection."""
 
-    if value is None:
+    if world_bridge is None:
         return ()
-    if not isinstance(value, dict):
-        raise ContractValidationError("cognition world-tool receipt changed shape")
-    raw = value.get("evidence_bindings", ())
-    if not isinstance(raw, list | tuple):
-        raise ContractValidationError("cognition evidence bindings changed shape")
-    output: list[str] = []
-    for binding in raw:
-        if not isinstance(binding, dict) or binding.get("kind") != "world_record":
-            raise ContractValidationError("cognition evidence binding is invalid")
-        key = binding.get("binding_key")
-        if not isinstance(key, str) or not key.startswith("binding_record_"):
-            raise ContractValidationError("cognition evidence binding key is invalid")
-        output.append(key)
-    if len(output) != len(set(output)):
-        raise ContractValidationError("cognition evidence bindings contain duplicates")
-    return tuple(output)
+    take = getattr(world_bridge, "take_additional_finalization", None)
+    if not callable(take):
+        raise ContractValidationError("cognition world bridge lacks typed finalization")
+    value = take()
+    if not isinstance(value, tuple) or any(
+        not isinstance(item, CognitionDynamicEvidenceV1) for item in value
+    ):
+        raise ContractValidationError("cognition dynamic evidence changed shape")
+    refs = tuple(item.evidence_ref for item in value)
+    if len(refs) != len(set(refs)):
+        raise ContractValidationError("cognition dynamic evidence refs collide")
+    return value

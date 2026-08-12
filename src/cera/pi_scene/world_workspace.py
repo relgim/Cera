@@ -28,6 +28,7 @@ from cera.continuous.world_mcp import (
 )
 from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import CodexMcpRuntimeBinding
+from cera.sequence_first.contracts import PROTECTED_USER_ID
 from cera.serialization import canonical_sha256, to_primitive
 
 from ._world_workspace_files import (
@@ -151,6 +152,17 @@ class BranchBoundWorldMcpFactory:
         private_character_ids: tuple[str, ...] = (),
         maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS,
     ) -> ContinuousWorldToolDispatcher:
+        if (
+            role is RetrievalProviderRole.COGNITION_PLANNER
+            and PROTECTED_USER_ID in private_character_ids
+        ):
+            raise PermissionError(
+                "cognition world tools cannot receive protected-user private authority"
+            )
+        if role is RetrievalProviderRole.COGNITION_PLANNER and request_id is None:
+            raise ContractValidationError(
+                "cognition world tools require a request-bound provider contract"
+            )
         if request_id is None:
             return ContinuousWorldToolDispatcher(
                 self.workspace.branch_root,
@@ -197,6 +209,9 @@ class BranchBoundWorldMcpFactory:
             require_private_search_scope=True,
             allowed_private_character_ids=private_character_ids,
             additional_tool_handler=handler,
+            require_additional_provider_contract=(
+                role is RetrievalProviderRole.COGNITION_PLANNER
+            ),
         )
 
     def bridge(
@@ -227,6 +242,7 @@ class RequestBoundWorldMcpBridge:
         self._bridge_factory = bridge_factory
         self._bridge: ContinuousWorldMcpBridge | None = None
         self._terminal = False
+        self._additional_finalization: object | None = None
 
     @property
     def runtime_binding(self) -> CodexMcpRuntimeBinding:
@@ -261,16 +277,54 @@ class RequestBoundWorldMcpBridge:
         bridge = self._bridge
         self._terminal = True
         try:
-            return bridge.finalize(provider_result)
+            try:
+                result = bridge.finalize(provider_result)
+                take_additional = getattr(bridge, "take_additional_finalization", None)
+                self._additional_finalization = (
+                    None if not callable(take_additional) else take_additional()
+                )
+                return result
+            except BaseException:
+                self._discard_additional_finalization(bridge)
+                raise
         finally:
-            bridge.stop(suppress_errors=False)
+            try:
+                bridge.stop(suppress_errors=False)
+            except BaseException:
+                self._discard_additional_finalization(bridge)
+                raise
+
+    def take_additional_finalization(self) -> object | None:
+        if not self._terminal:
+            raise StateConflictError(
+                "request-bound world MCP additional result is not finalized"
+            )
+        value = self._additional_finalization
+        self._additional_finalization = None
+        return value
 
     def abort(self) -> None:
-        if self._terminal:
-            return
+        was_terminal = self._terminal
         self._terminal = True
-        if self._bridge is not None:
-            self._bridge.stop(suppress_errors=True)
+        self._additional_finalization = None
+        bridge = self._bridge
+        if bridge is not None:
+            abort_provider_turn = getattr(bridge, "abort_provider_turn", None)
+            try:
+                if callable(abort_provider_turn):
+                    abort_provider_turn()
+            finally:
+                if not was_terminal:
+                    bridge.stop(suppress_errors=True)
+
+    def _discard_additional_finalization(
+        self,
+        bridge: ContinuousWorldMcpBridge,
+    ) -> None:
+        self._additional_finalization = None
+        abort_provider_turn = getattr(bridge, "abort_provider_turn", None)
+        if callable(abort_provider_turn):
+            abort_provider_turn()
 
     def __enter__(self) -> RequestBoundWorldMcpBridge:
         return self

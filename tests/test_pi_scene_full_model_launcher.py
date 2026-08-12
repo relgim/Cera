@@ -12,7 +12,10 @@ from unittest.mock import patch
 from cera.cognition import (
     CharacterAutonomyMode,
     CognitionPlanV1,
+    CognitionProviderCompletedTurnV1,
     CognitionTurnContextV1,
+    LogicRoute,
+    cognition_provider_turn_handoff,
 )
 from cera.cognition.provider import (
     CodexCognitionPlannerBackend,
@@ -27,8 +30,11 @@ from cera.pi_scene.full_model_runtime import (
     COGNITION_WORLD_TOOLS_COMPATIBILITY,
     BranchBoundCognitionPlannerBackend,
     cognition_thread_compatibility_sha256,
+    default_cognition_session_factory,
 )
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
+from cera.pi_scene.planner_state import PlannerThreadStateStore, PlannerThreadStateV1
+from cera.pi_scene.retrieval_tools import RetrievalProviderRole
 from cera.pi_scene.review_store import LeanReviewState, LeanSceneTurnInputV1
 from cera.pi_scene.world_workspace import BranchBoundWorldMcpFactory
 from cera.providers.models import LiveProviderRoute
@@ -44,13 +50,14 @@ from cera.semantic_validation import (
     SemanticValidationVerdictV1,
     SemanticVerdict,
 )
+from cera.sequence_first.contracts import ProviderReferenceScopeV1
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from scripts.run_pi_scene_lean_server import (
     FullModelProviderComponents,
     build_live_runtime,
     build_session_context_provider,
 )
-from tests.test_cognition_contracts import _plan
+from tests.test_cognition_contracts import _plan, _turn
 from tests.test_pi_scene_lean_v1 import FakePi
 
 _VALIDATION_BARRIER: Barrier | None = None
@@ -179,6 +186,7 @@ class _FakeCognitionBackend:
     route: LiveProviderRoute = field(default_factory=cognition_planner_route)
     starts: list[tuple[str, str]] = field(default_factory=list)
     calls: list[CognitionTurnContextV1] = field(default_factory=list)
+    clear_count: int = 0
 
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
         self.starts.append((base_instructions, profile))
@@ -191,11 +199,20 @@ class _FakeCognitionBackend:
         thread_id: str,
         prompt: str,
         context: CognitionTurnContextV1,
-        reference_scope: object,
-    ) -> CognitionPlanV1:
-        del thread_id, prompt, reference_scope
+        reference_scope: ProviderReferenceScopeV1,
+    ) -> CognitionProviderCompletedTurnV1:
+        del prompt
         self.calls.append(context)
-        return self.plan_value
+        del reference_scope
+        handoff = cognition_provider_turn_handoff(
+            plan=self.plan_value,
+            turn=context.turn,
+            provider_thread_sha256=text_sha256(thread_id),
+        )
+        return CognitionProviderCompletedTurnV1(plan=self.plan_value, handoff=handoff)
+
+    def clear_cognition_transient_state(self) -> None:
+        self.clear_count += 1
 
     def is_resumable(self, _thread_id: str) -> bool:
         return True
@@ -273,12 +290,35 @@ class _Bridge:
 
 class _WorldMcpFactory:
     def __init__(self) -> None:
+        self.workspace = SimpleNamespace(
+            world_id="world:test",
+            branch_id="branch:test",
+        )
         self.bridges: list[_Bridge] = []
+        self.calls: list[dict[str, object]] = []
 
-    def bridge(self, **_kwargs) -> _Bridge:
+    def bridge(self, **kwargs) -> _Bridge:
         bridge = _Bridge()
+        self.calls.append(kwargs)
         self.bridges.append(bridge)
         return bridge
+
+
+@dataclass
+class _StateOnlyCognitionBackend:
+    external_provider_boundary = False
+
+    clear_count: int = 0
+
+    def clear_cognition_transient_state(self) -> None:
+        self.clear_count += 1
+
+    def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
+        del base_instructions, profile
+        return "thread:new-compatible"
+
+    def is_resumable(self, _thread_id: str) -> bool:
+        return True
 
 
 def _controls(session_id: str, *, effort: str = "medium") -> LeanSceneRequestControlsV1:
@@ -291,10 +331,114 @@ def _controls(session_id: str, *, effort: str = "medium") -> LeanSceneRequestCon
 
 
 class PiSceneFullModelLauncherTests(unittest.TestCase):
+    def test_restarted_backend_allocates_distinct_retrieval_request_identity(self) -> None:
+        factory = _WorldMcpFactory()
+        context = CognitionTurnContextV1(
+            turn=_turn(),
+            autonomy_mode=CharacterAutonomyMode.BOTH,
+            logic_route=LogicRoute.ORDINARY,
+            available_provisional_record_ids=(),
+        )
+        reference_scope = ProviderReferenceScopeV1.from_turn(context.turn)
+        with tempfile.TemporaryDirectory() as temporary:
+            kwargs = {
+                "world_mcp_factory": factory,
+                "lifecycle": object(),
+                "workspace": Path(temporary),
+                "call_ledger": object(),
+            }
+            first_backend = BranchBoundCognitionPlannerBackend(
+                **kwargs,  # type: ignore[arg-type]
+                retrieval_request_nonce_factory=lambda: "restart-nonce-one",
+            )
+            second_backend = BranchBoundCognitionPlannerBackend(
+                **kwargs,  # type: ignore[arg-type]
+                retrieval_request_nonce_factory=lambda: "restart-nonce-two",
+            )
+            with patch.object(
+                CodexCognitionPlannerBackend,
+                "run_cognition_turn",
+                autospec=True,
+                side_effect=lambda current, **_kwargs: current.world_bridge,
+            ):
+                first_backend.run_cognition_turn(
+                    thread_id="thread:restart",
+                    prompt="one",
+                    context=context,
+                    reference_scope=reference_scope,
+                )
+                second_backend.run_cognition_turn(
+                    thread_id="thread:restart",
+                    prompt="two",
+                    context=context,
+                    reference_scope=reference_scope,
+                )
+
+        request_ids = tuple(value["request_id"] for value in factory.calls)
+        self.assertEqual(len(request_ids), 2)
+        self.assertNotEqual(request_ids[0], request_ids[1])
+
+    def test_default_session_factory_retires_old_contract_before_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime_root = Path(temporary)
+            old_compatibility = "c" * 64
+            current_compatibility = cognition_thread_compatibility_sha256()
+            state_store = PlannerThreadStateStore(runtime_root / "planner_threads")
+            old_state = PlannerThreadStateV1(
+                "chat-upgrade",
+                "medium",
+                old_compatibility,
+                "thread:old-contract",
+            )
+            state_store.persist(old_state)
+            old_bytes = next(
+                runtime_root.rglob("PLANNER_THREAD_STATE.json")
+            ).read_bytes()
+
+            backend = _StateOnlyCognitionBackend()
+            session = default_cognition_session_factory(runtime_root)(
+                "chat-upgrade",
+                "medium",
+                backend,  # type: ignore[arg-type]
+            )
+            self.assertIsNone(session.thread_id)
+            archive = next(
+                runtime_root.rglob("INCOMPATIBLE_THREADS/thread-*.json")
+            )
+            receipt = json.loads(
+                next(
+                    runtime_root.rglob(
+                        "INCOMPATIBLE_THREADS/thread-*.receipt.json"
+                    )
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(archive.read_bytes(), old_bytes)
+            self.assertEqual(
+                (
+                    receipt["prior_compatibility_sha256"],
+                    receipt["new_compatibility_sha256"],
+                ),
+                (old_compatibility, current_compatibility),
+            )
+
+            session.prepare_fresh_thread()
+            self.assertEqual(session.thread_id, "thread:new-compatible")
+            restarted = default_cognition_session_factory(runtime_root)(
+                "chat-upgrade",
+                "medium",
+                _StateOnlyCognitionBackend(),  # type: ignore[arg-type]
+            )
+            self.assertEqual(restarted.thread_id, "thread:new-compatible")
+
     def test_branch_cognition_backend_refreshes_mcp_per_retained_turn(self) -> None:
         factory = _WorldMcpFactory()
-        context = SimpleNamespace(turn=SimpleNamespace(current_source_key="source:current"))
-        reference_scope = SimpleNamespace(known_character_ids=("character:sakura_hanezawa",))
+        context = CognitionTurnContextV1(
+            turn=_turn(),
+            autonomy_mode=CharacterAutonomyMode.BOTH,
+            logic_route=LogicRoute.ORDINARY,
+            available_provisional_record_ids=(),
+        )
+        reference_scope = ProviderReferenceScopeV1.from_turn(context.turn)
         with tempfile.TemporaryDirectory() as temporary:
             backend = BranchBoundCognitionPlannerBackend(
                 world_mcp_factory=factory,  # type: ignore[arg-type]
@@ -311,19 +455,33 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 first = backend.run_cognition_turn(
                     thread_id="thread:one",
                     prompt="one",
-                    context=context,  # type: ignore[arg-type]
-                    reference_scope=reference_scope,  # type: ignore[arg-type]
+                    context=context,
+                    reference_scope=reference_scope,
                 )
                 second = backend.run_cognition_turn(
                     thread_id="thread:one",
                     prompt="two",
-                    context=context,  # type: ignore[arg-type]
-                    reference_scope=reference_scope,  # type: ignore[arg-type]
+                    context=context,
+                    reference_scope=reference_scope,
                 )
         self.assertIs(first, factory.bridges[0])
         self.assertIs(second, factory.bridges[1])
         self.assertIsNone(backend.world_bridge)
         self.assertEqual([bridge.aborts for bridge in factory.bridges], [0, 0])
+        self.assertTrue(
+            all(
+                value["role"] is RetrievalProviderRole.COGNITION_PLANNER
+                for value in factory.calls
+            )
+        )
+        self.assertEqual(
+            [value["private_character_ids"] for value in factory.calls],
+            [("character:sakura_hanezawa",)] * 2,
+        )
+        self.assertNotEqual(
+            factory.calls[0]["request_id"],
+            factory.calls[1]["request_id"],
+        )
 
         with patch.object(
             CodexCognitionPlannerBackend,
@@ -334,8 +492,8 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 backend.run_cognition_turn(
                     thread_id="thread:one",
                     prompt="three",
-                    context=context,  # type: ignore[arg-type]
-                    reference_scope=reference_scope,  # type: ignore[arg-type]
+                    context=context,
+                    reference_scope=reference_scope,
                 )
         self.assertEqual(factory.bridges[-1].aborts, 1)
         self.assertIsNone(backend.world_bridge)
@@ -413,24 +571,58 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
             )
             frozen_three = runtime.coordinator.start_ordinary(separate)
             accepted_three = runtime.coordinator.begin_ordinary_validation(frozen_three.review_id)
+            high = context(
+                accepted_three.candidate.route,
+                source,
+                ({"role": "user", "content": source},),
+                _controls("chat-launcher-c", effort="high"),
+            )
+            frozen_four = runtime.coordinator.start_ordinary(high)
+            accepted_four = runtime.coordinator.begin_ordinary_validation(
+                frozen_four.review_id
+            )
 
             self.assertTrue(
                 all(
                     review.state is LeanReviewState.ACCEPTED
-                    for review in (accepted_one, accepted_two, accepted_three)
+                    for review in (
+                        accepted_one,
+                        accepted_two,
+                        accepted_three,
+                        accepted_four,
+                    )
                 )
             )
-            self.assertEqual(len(backends), 2)
+            self.assertEqual(len(backends), 3)
             self.assertEqual(len(backends[0].starts), 1)
             self.assertEqual(len(backends[0].calls), 2)
             self.assertEqual(len(backends[1].starts), 1)
+            self.assertEqual(len(backends[2].starts), 1)
+            self.assertEqual(
+                backends[0].route.route_id,
+                "cera_cognition_planner_sol_medium_v7",
+            )
             self.assertEqual(
                 (backends[1].route.reasoning_effort, backends[1].route.timeout_seconds),
                 ("xhigh", 600),
             )
             self.assertEqual(
                 backends[1].route.route_id,
-                "cera_pi_scene_cognition_gpt-5.6-sol_xhigh_v3",
+                "cera_pi_scene_cognition_gpt-5.6-sol_xhigh_v5",
+            )
+            self.assertEqual(
+                (backends[2].route.reasoning_effort, backends[2].route.route_id),
+                ("high", "cera_pi_scene_cognition_gpt-5.6-sol_high_v5"),
+            )
+            self.assertTrue(
+                all(
+                    (backend.route.adapter_id, backend.route.prompt_version)
+                    == (
+                        "cera.cognition.codex_planner_adapter.v6",
+                        "cera.cognition.codex_planner_prompt.v7",
+                    )
+                    for backend in backends
+                )
             )
             self.assertNotEqual(
                 backends[0].world_mcp_factory.workspace.world_id,
@@ -445,10 +637,10 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
             )
             self.assertEqual(luna.calls, luna.starts)
             self.assertEqual(luna.archives, luna.starts)
-            self.assertEqual(len(luna.calls), 3)
+            self.assertEqual(len(luna.calls), 4)
             self.assertEqual(reader.calls, reader.starts)
             self.assertEqual(reader.archives, reader.starts)
-            self.assertEqual(len(reader.calls), 3)
+            self.assertEqual(len(reader.calls), 4)
             self.assertEqual(runtime.sol_ledger.dispatched_call_count, 0)
             self.assertEqual(runtime.deepseek_ledger.operation_count, 0)
             self.assertEqual(
@@ -466,12 +658,19 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 1,
             )
             self.assertEqual(
+                runtime.store.load_head(
+                    world_id=high.world_id,
+                    branch_id=high.branch_id,
+                ).generation,
+                1,
+            )
+            self.assertEqual(
                 COGNITION_THREAD_COMPATIBILITY_SCHEMA,
-                "cera.pi_scene.cognition_thread_compatibility.v4",
+                "cera.pi_scene.cognition_thread_compatibility.v6",
             )
             self.assertEqual(
                 COGNITION_WORLD_TOOLS_COMPATIBILITY,
-                "cera.branch_bound_named_retrieval_mcp.v3",
+                "cera.branch_bound_named_retrieval_mcp.v4",
             )
             self.assertEqual(len(cognition_thread_compatibility_sha256()), 64)
 

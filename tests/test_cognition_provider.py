@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -10,19 +10,26 @@ from unittest.mock import patch
 
 from cera.cognition import (
     CharacterAutonomyMode,
+    CognitionCitationClass,
+    CognitionDynamicEvidenceV1,
     CognitionPlanV1,
+    CognitionProviderCompletedTurnV1,
     CognitionTurnContextV1,
     LogicRoute,
     PersistentCognitionPlannerSession,
+    cognition_provider_turn_handoff,
+    cognition_static_citation_scope,
 )
 from cera.cognition.prompting import (
     COGNITION_PLANNER_BASE_INSTRUCTIONS,
     COGNITION_PLANNER_PROFILE,
+    cognition_turn_prompt,
 )
 from cera.cognition.provider import (
     COGNITION_PLANNER_ADAPTER,
     COGNITION_PLANNER_PROMPT,
     CodexCognitionPlannerBackend,
+    _take_cognition_dynamic_evidence,
     cognition_planner_route,
 )
 from cera.cognition.provider_schema import cognition_plan_json_schema
@@ -30,7 +37,7 @@ from cera.continuous.call_ledger import (
     ContinuousProviderCallLedger,
     ProviderCallState,
 )
-from cera.errors import ErrorCode, StateConflictError
+from cera.errors import ContractValidationError, ErrorCode, StateConflictError
 from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
 from cera.pi_scene.runtime import PlannerTurnInputV1
@@ -39,9 +46,14 @@ from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
 )
-from cera.sequence_first.contracts import ProviderReferenceScopeV1
-from cera.serialization import to_primitive
+from cera.sequence_first.contracts import (
+    EvidenceRecordV1,
+    ProviderReferenceScopeV1,
+    Visibility,
+)
+from cera.serialization import canonical_json, text_sha256, to_primitive
 
+from .test_cognition_citation_handoff import _dynamic, _plan_citing, _plan_item_citing
 from .test_cognition_contracts import _plan, _turn
 
 
@@ -61,9 +73,14 @@ class _FakeBackend:
     result: CognitionPlanV1
     thread_id: str = "thread:cognition"
     resumable: bool = True
+    dynamic_evidence: tuple[CognitionDynamicEvidenceV1, ...] = ()
+    failure_on_call: int | None = None
     last_available_evidence_refs: tuple[str, ...] = ()
+    last_provider_turn_handoff: object | None = None
+    last_provider_result: object | None = None
     starts: list[tuple[str, str]] = field(default_factory=list)
     calls: list[tuple[str, str, CognitionTurnContextV1]] = field(default_factory=list)
+    clear_calls: int = 0
 
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
         self.starts.append((base_instructions, profile))
@@ -76,13 +93,29 @@ class _FakeBackend:
         prompt: str,
         context: CognitionTurnContextV1,
         reference_scope: ProviderReferenceScopeV1,
-    ) -> CognitionPlanV1:
+    ) -> CognitionProviderCompletedTurnV1:
         del reference_scope
         self.calls.append((thread_id, prompt, context))
-        return self.result
+        if self.failure_on_call == len(self.calls):
+            raise StateConflictError("injected cognition backend failure")
+        return CognitionProviderCompletedTurnV1(
+            plan=self.result,
+            handoff=cognition_provider_turn_handoff(
+                plan=self.result,
+                turn=context.turn,
+                provider_thread_sha256=text_sha256(thread_id),
+                dynamic_evidence=self.dynamic_evidence,
+            ),
+        )
 
     def is_resumable(self, thread_id: str) -> bool:
         return self.resumable and thread_id == self.thread_id
+
+    def clear_cognition_transient_state(self) -> None:
+        self.clear_calls += 1
+        self.last_available_evidence_refs = ()
+        self.last_provider_turn_handoff = None
+        self.last_provider_result = None
 
 
 class _InvalidCompletedCognitionTransport:
@@ -124,22 +157,92 @@ class _InvalidCompletedCognitionTransport:
         )
 
 
+class _ScriptedCompletedCognitionTransport:
+    payload: dict[str, object] = {}
+
+    def __init__(
+        self,
+        _route,
+        *,
+        workspace: Path,
+        runner: object,
+    ) -> None:
+        del workspace, runner
+
+    def invoke(
+        self,
+        _prompt: str,
+        *,
+        output_schema: dict[str, object],
+        mcp_binding: object,
+        on_worker_started,
+        on_worker_preflight,
+        on_transport_invoke,
+    ) -> object:
+        del output_schema, mcp_binding
+        on_worker_started()
+        on_worker_preflight()
+        on_transport_invoke()
+        return SimpleNamespace(
+            output_text=json.dumps(self.payload, sort_keys=True),
+            parsed_json=self.payload,
+            receipt={"provider": "offline-planner"},
+            operation_telemetry=None,
+            tool_call_count=1,
+            failed_tool_call_count=0,
+            tool_names=("get_exact_record",),
+            tool_server_names=("cera_continuous_world",),
+        )
+
+
+class _TypedWorldBridge:
+    def __init__(self, additional: object) -> None:
+        self.runtime_binding = object()
+        self.additional = additional
+        self.finalized = False
+
+    def finalize(self, _result: object) -> dict[str, object]:
+        self.finalized = True
+        return {
+            "binding_sha256": "a" * 64,
+            "tool_call_count": 1,
+            "evidence_bindings": [],
+        }
+
+    def take_additional_finalization(self) -> object:
+        if not self.finalized:
+            raise AssertionError("bridge result was taken before finalization")
+        value = self.additional
+        self.additional = None
+        return value
+
+
 class CognitionProviderContractTests(unittest.TestCase):
+    def test_cognition_finalizer_requires_typed_additional_result(self) -> None:
+        for value in (None, ("not-typed",)):
+            with self.subTest(value=value):
+                bridge = SimpleNamespace(take_additional_finalization=lambda value=value: value)
+                with self.assertRaisesRegex(
+                    ContractValidationError,
+                    "dynamic evidence changed shape",
+                ):
+                    _take_cognition_dynamic_evidence(bridge)
+
     def test_live_route_uses_bounded_hard_timeout_without_retry(self) -> None:
         route = cognition_planner_route()
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v6")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v8")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
-            "cera.cognition.codex_planner_adapter.v4",
+            "cera.cognition.codex_planner_adapter.v6",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
-            "cera.cognition.codex_planner_prompt.v5",
+            "cera.cognition.codex_planner_prompt.v7",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v5")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v7")
         self.assertIn(
             "Call get_turn_context first with character_ids omitted",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -164,6 +267,10 @@ class CognitionProviderContractTests(unittest.TestCase):
             "same source_ref may support multiple rows",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
+        self.assertIn("every context_ref", COGNITION_PLANNER_BASE_INSTRUCTIONS)
+        self.assertIn("eligible_after_exact_fetch", COGNITION_PLANNER_BASE_INSTRUCTIONS)
+        self.assertIn("citable_static_evidence_refs", COGNITION_PLANNER_BASE_INSTRUCTIONS)
+        self.assertIn("never count, truncate, or summarize", COGNITION_PLANNER_BASE_INSTRUCTIONS)
 
     def test_completed_invalid_plan_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -214,6 +321,338 @@ class CognitionProviderContractTests(unittest.TestCase):
             self.assertFalse(
                 any(value["state"] == ProviderCallState.ACCEPTED.value for value in ledger.events)
             )
+            self.assertIsNone(backend.last_provider_result)
+            self.assertFalse(hasattr(backend, "last_available_evidence_refs"))
+            self.assertFalse(hasattr(backend, "last_provider_turn_handoff"))
+
+    def test_context_only_citation_fails_before_accepted_with_one_charge(self) -> None:
+        dynamic = _dynamic(
+            CognitionCitationClass.DYNAMIC_CONTEXT_ONLY_BINDING,
+            fact=None,
+            tool_name="search_evidence",
+            call_index=1,
+        )
+        plan = _plan_citing(dynamic.evidence_ref)
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(plan)
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+                world_bridge=_TypedWorldBridge((dynamic,)),
+            )
+            with (
+                patch(
+                    "cera.cognition.provider.CodexSDKTransport",
+                    _ScriptedCompletedCognitionTransport,
+                ),
+                self.assertRaises(ProviderTransportError) as caught,
+            ):
+                backend.run_cognition_turn(
+                    thread_id="thread:cognition-context-only",
+                    prompt="Return one cognition plan.",
+                    context=_context(),
+                    reference_scope=ProviderReferenceScopeV1.from_turn(_context().turn),
+                )
+            dispatched_call_count = ledger.dispatched_call_count
+            events = ledger.events
+
+        self.assertEqual(
+            caught.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(dispatched_call_count, 1)
+        self.assertEqual(
+            tuple(value["state"] for value in events[-2:]),
+            (
+                ProviderCallState.PROVIDER_COMPLETED.value,
+                ProviderCallState.POST_VALIDATION_FAILED.value,
+            ),
+        )
+        self.assertFalse(hasattr(backend, "last_provider_turn_handoff"))
+
+    def test_expired_restart_ref_fails_preaccepted_without_redispatch(self) -> None:
+        current = _dynamic(
+            CognitionCitationClass.DYNAMIC_EXACT_RECORD_VALIDATION_EVIDENCE,
+            fact='{"record_id":"record:current"}',
+        )
+        expired_ref = "binding_record_expired00000000001"
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(_plan_citing(expired_ref))
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+                world_bridge=_TypedWorldBridge((current,)),
+            )
+            with (
+                patch(
+                    "cera.cognition.provider.CodexSDKTransport",
+                    _ScriptedCompletedCognitionTransport,
+                ),
+                self.assertRaises(ProviderTransportError) as caught,
+            ):
+                backend.run_cognition_turn(
+                    thread_id="thread:cognition-restarted",
+                    prompt="Return one cognition plan.",
+                    context=_context(),
+                    reference_scope=ProviderReferenceScopeV1.from_turn(_context().turn),
+                )
+            dispatched_call_count = ledger.dispatched_call_count
+            events = ledger.events
+
+        self.assertEqual(
+            caught.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(dispatched_call_count, 1)
+        self.assertEqual(
+            tuple(value["state"] for value in events[-2:]),
+            (
+                ProviderCallState.PROVIDER_COMPLETED.value,
+                ProviderCallState.POST_VALIDATION_FAILED.value,
+            ),
+        )
+        self.assertIsNone(backend.last_provider_result)
+
+    def test_static_4001_citation_fails_before_accepted_with_one_charge(self) -> None:
+        record = EvidenceRecordV1(
+            evidence_key="evidence:static-unicode-4001",
+            subject_id="character:sakura_hanezawa",
+            visibility=Visibility.PUBLIC,
+            exact_content="é" * 4_001,
+        )
+        turn = replace(_turn(), evidence_records=(record,))
+        context = replace(_context(), turn=turn)
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(
+            _plan_citing(record.evidence_key)
+        )
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+            )
+            with (
+                patch(
+                    "cera.cognition.provider.CodexSDKTransport",
+                    _ScriptedCompletedCognitionTransport,
+                ),
+                self.assertRaises(ProviderTransportError) as caught,
+            ):
+                backend.run_cognition_turn(
+                    thread_id="thread:cognition-static-oversize",
+                    prompt="Return one cognition plan.",
+                    context=context,
+                    reference_scope=ProviderReferenceScopeV1.from_turn(turn),
+                )
+            dispatched_call_count = ledger.dispatched_call_count
+            events = ledger.events
+        self.assertEqual(
+            caught.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(dispatched_call_count, 1)
+        self.assertEqual(
+            tuple(value["state"] for value in events[-2:]),
+            (
+                ProviderCallState.PROVIDER_COMPLETED.value,
+                ProviderCallState.POST_VALIDATION_FAILED.value,
+            ),
+        )
+        self.assertIsNone(backend.last_provider_result)
+
+    def test_static_4001_item_evidence_fails_preaccepted_with_one_charge(self) -> None:
+        record = EvidenceRecordV1(
+            evidence_key="evidence:item-unicode-4001",
+            subject_id="character:sakura_hanezawa",
+            visibility=Visibility.PUBLIC,
+            exact_content=chr(0xE9) * 4_001,
+        )
+        turn = replace(_turn(), evidence_records=(record,))
+        context = replace(_context(), turn=turn)
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(
+            _plan_item_citing(record.evidence_key)
+        )
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+            )
+            with (
+                patch(
+                    "cera.cognition.provider.CodexSDKTransport",
+                    _ScriptedCompletedCognitionTransport,
+                ),
+                self.assertRaises(ProviderTransportError) as caught,
+            ):
+                backend.run_cognition_turn(
+                    thread_id="thread:cognition-item-oversize",
+                    prompt="Return one cognition plan.",
+                    context=context,
+                    reference_scope=ProviderReferenceScopeV1.from_turn(turn),
+                )
+            events = ledger.events
+            dispatched_call_count = ledger.dispatched_call_count
+
+        self.assertEqual(
+            caught.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(dispatched_call_count, 1)
+        self.assertEqual(
+            tuple(value["state"] for value in events[-2:]),
+            (
+                ProviderCallState.PROVIDER_COMPLETED.value,
+                ProviderCallState.POST_VALIDATION_FAILED.value,
+            ),
+        )
+        self.assertFalse(
+            any(value["state"] == ProviderCallState.ACCEPTED.value for value in events)
+        )
+        self.assertIsNone(backend.last_provider_result)
+
+    def test_unselected_static_4001_is_accepted_without_fact_retention(self) -> None:
+        oversized = "é" * 4_001
+        record = EvidenceRecordV1(
+            evidence_key="evidence:static-unicode-4001",
+            subject_id="character:sakura_hanezawa",
+            visibility=Visibility.PUBLIC,
+            exact_content=oversized,
+        )
+        turn = replace(_turn(), evidence_records=(record,))
+        context = replace(_context(), turn=turn)
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(_plan())
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+            )
+            with patch(
+                "cera.cognition.provider.CodexSDKTransport",
+                _ScriptedCompletedCognitionTransport,
+            ):
+                completed = backend.run_cognition_turn(
+                    thread_id="thread:cognition-static-unselected-oversize",
+                    prompt="Return one cognition plan.",
+                    context=context,
+                    reference_scope=ProviderReferenceScopeV1.from_turn(turn),
+                )
+            events = ledger.events
+            dispatched_call_count = ledger.dispatched_call_count
+
+        self.assertEqual(completed.handoff.selected_evidence, ())
+        self.assertEqual(events[-1]["state"], ProviderCallState.ACCEPTED.value)
+        self.assertEqual(dispatched_call_count, 1)
+        self.assertIsNotNone(backend.last_provider_result)
+        self.assertNotIn(oversized, repr(backend.last_provider_result))
+
+    def test_valid_exact_citation_materializes_handoff_before_accepted(self) -> None:
+        fact = '{"record_id":"record:test","value":"raw_fact_not_in_debug"}'
+        dynamic = _dynamic(
+            CognitionCitationClass.DYNAMIC_EXACT_RECORD_VALIDATION_EVIDENCE,
+            owner_id="character:sakura_hanezawa",
+            fact=fact,
+        )
+        plan = _plan_citing(dynamic.evidence_ref)
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(plan)
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            backend = CodexCognitionPlannerBackend(
+                lifecycle=SimpleNamespace(external_provider_boundary=False),
+                workspace=root / "workspace",
+                call_ledger=ledger,
+                world_bridge=_TypedWorldBridge((dynamic,)),
+            )
+            with patch(
+                "cera.cognition.provider.CodexSDKTransport",
+                _ScriptedCompletedCognitionTransport,
+            ):
+                completed = backend.run_cognition_turn(
+                    thread_id="thread:cognition-exact",
+                    prompt="Return one cognition plan.",
+                    context=_context(),
+                    reference_scope=ProviderReferenceScopeV1.from_turn(_context().turn),
+                )
+            dispatched_call_count = ledger.dispatched_call_count
+            events = ledger.events
+
+        self.assertEqual(completed.plan, plan)
+        self.assertEqual(dispatched_call_count, 1)
+        self.assertEqual(
+            events[-1]["state"],
+            ProviderCallState.ACCEPTED.value,
+        )
+        handoff = completed.handoff
+        self.assertEqual(handoff.selected_evidence[0].concise_authoritative_fact, fact)
+        self.assertIsNotNone(backend.last_provider_result)
+        assert backend.last_provider_result is not None
+        self.assertNotIn(
+            "raw_fact_not_in_debug",
+            repr(backend.last_provider_result.world_tool_debug),
+        )
+        self.assertNotIn("raw_fact_not_in_debug", repr(backend.last_provider_result.value))
+        backend.take_last_provider_result()
+        self.assertIsNone(backend.last_provider_result)
+        self.assertFalse(hasattr(backend, "last_available_evidence_refs"))
+        self.assertFalse(hasattr(backend, "last_provider_turn_handoff"))
+
+    def test_new_backend_restart_allocates_fresh_immutable_operation_workspace(self) -> None:
+        _ScriptedCompletedCognitionTransport.payload = to_primitive(_plan())
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            workspace = root / "workspace"
+            ledger = ContinuousProviderCallLedger(root / "ledger.jsonl")
+            with patch(
+                "cera.cognition.provider.CodexSDKTransport",
+                _ScriptedCompletedCognitionTransport,
+            ):
+                first = CodexCognitionPlannerBackend(
+                    lifecycle=SimpleNamespace(external_provider_boundary=False),
+                    workspace=workspace,
+                    call_ledger=ledger,
+                )
+                first.run_cognition_turn(
+                    thread_id="thread:cognition-restart",
+                    prompt="Return one cognition plan.",
+                    context=_context(),
+                    reference_scope=ProviderReferenceScopeV1.from_turn(_context().turn),
+                )
+                first.take_last_provider_result()
+                self.assertIsNone(first.last_provider_result)
+                first_workspace = workspace / "cognition_planner_operation_0001"
+                marker = first_workspace / "immutable-marker.txt"
+                marker.write_text("original", encoding="utf-8")
+                second = CodexCognitionPlannerBackend(
+                    lifecycle=SimpleNamespace(external_provider_boundary=False),
+                    workspace=workspace,
+                    call_ledger=ledger,
+                )
+                self.assertIsNone(second.last_provider_result)
+                self.assertFalse(hasattr(second, "last_available_evidence_refs"))
+                self.assertFalse(hasattr(second, "last_provider_turn_handoff"))
+                second.run_cognition_turn(
+                    thread_id="thread:cognition-restart",
+                    prompt="Return one cognition plan.",
+                    context=_context(),
+                    reference_scope=ProviderReferenceScopeV1.from_turn(_context().turn),
+                )
+            self.assertEqual(marker.read_text(encoding="utf-8"), "original")
+            self.assertTrue((workspace / "cognition_planner_operation_0002").is_dir())
+            self.assertEqual(ledger.dispatched_call_count, 2)
 
     def test_schema_closes_autonomy_and_provisional_scope(self) -> None:
         context = _context()
@@ -253,6 +692,102 @@ class CognitionProviderContractTests(unittest.TestCase):
         )
         self.assertNotIn("uniqueItems", repr(projected))
 
+    def test_static_citation_scope_is_fact_free_in_prompt_and_all_four_schemas(
+        self,
+    ) -> None:
+        records = (
+            EvidenceRecordV1(
+                evidence_key="evidence:z-context-8000",
+                subject_id="character:sakura_hanezawa",
+                visibility=Visibility.PUBLIC,
+                exact_content="z" * 8_000,
+            ),
+            EvidenceRecordV1(
+                evidence_key="evidence:b-citable-4000",
+                subject_id="character:sakura_hanezawa",
+                visibility=Visibility.PUBLIC,
+                exact_content="é" * 4_000,
+            ),
+            EvidenceRecordV1(
+                evidence_key="evidence:a-context-4001",
+                subject_id="character:sakura_hanezawa",
+                visibility=Visibility.PUBLIC,
+                exact_content="a" * 4_001,
+            ),
+        )
+        turn = replace(_turn(), evidence_records=records)
+        context = replace(_context(), turn=turn)
+        scope = cognition_static_citation_scope(turn)
+        self.assertEqual(
+            scope.citable_static_evidence_refs,
+            ("evidence:b-citable-4000",),
+        )
+        self.assertEqual(
+            scope.context_only_static_evidence_refs,
+            ("evidence:a-context-4001", "evidence:z-context-8000"),
+        )
+        self.assertFalse(
+            set(scope.citable_static_evidence_refs).intersection(
+                scope.context_only_static_evidence_refs
+            )
+        )
+        scope_json = canonical_json(scope.to_payload())
+        self.assertNotIn("é" * 4_000, scope_json)
+        self.assertNotIn("a" * 4_001, scope_json)
+        self.assertNotIn("z" * 8_000, scope_json)
+
+        prompt = cognition_turn_prompt(context)
+        static_header = prompt.split("[CURRENT COGNITION TURN]", 1)[0]
+        self.assertEqual(
+            static_header,
+            "[STATIC CITATION SCOPE]\n" + scope_json + "\n",
+        )
+        reference_scope = ProviderReferenceScopeV1.from_turn(turn)
+        self.assertEqual(
+            reference_scope.evidence_keys,
+            (
+                turn.current_source_key,
+                "evidence:z-context-8000",
+                "evidence:b-citable-4000",
+                "evidence:a-context-4001",
+            ),
+        )
+        schema = cognition_plan_json_schema(
+            context=context,
+            reference_scope=reference_scope,
+        )
+        item_evidence = schema["properties"]["sequence"]["properties"]["items"][
+            "items"
+        ]["properties"]["evidence_keys"]
+        self.assertEqual(
+            item_evidence["items"]["enum"],
+            [turn.current_source_key, "evidence:b-citable-4000"],
+        )
+        self.assertIn(scope_json, item_evidence["description"])
+        self.assertNotIn("evidence:a-context-4001", item_evidence["items"]["enum"])
+        self.assertNotIn("evidence:z-context-8000", item_evidence["items"]["enum"])
+        decision = schema["properties"]["decision_records"]["items"]["properties"]
+        descriptions = (
+            decision["causal_trigger_refs"]["description"],
+            decision["observer_frame"]["properties"]["directly_perceived"][
+                "items"
+            ]["properties"]["source_ref"]["description"],
+            decision["decisive_factor_refs"]["description"],
+            decision["material_pressures"]["items"]["properties"][
+                "evidence_refs"
+            ]["description"],
+        )
+        self.assertEqual(len(descriptions), 4)
+        for description in descriptions:
+            self.assertIn(scope_json, description)
+            self.assertIn("citable_static_evidence_refs", description)
+            self.assertIn("context_only_static_evidence_refs", description)
+            self.assertIn("never count, truncate, or summarize", description)
+        rendered_schema = repr(schema)
+        self.assertNotIn("é" * 4_000, rendered_schema)
+        self.assertNotIn("a" * 4_001, rendered_schema)
+        self.assertNotIn("z" * 8_000, rendered_schema)
+
     def test_persistent_session_installs_stable_prompt_once(self) -> None:
         backend = _FakeBackend(_plan())
         persisted: list[str] = []
@@ -269,30 +804,81 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(persisted, ["thread:cognition"])
         self.assertEqual(len(backend.calls), 2)
         self.assertTrue(all("[CURRENT COGNITION TURN]" in call[1] for call in backend.calls))
+        self.assertTrue(all("[STATIC CITATION SCOPE]" in call[1] for call in backend.calls))
         self.assertTrue(
             all(COGNITION_PLANNER_BASE_INSTRUCTIONS not in call[1] for call in backend.calls)
         )
         self.assertEqual(session.last_available_evidence_refs, ("source:current",))
 
     def test_dynamic_evidence_scope_is_append_only_for_one_session_call(self) -> None:
-        dynamic_key = "binding_record_0123456789abcdefabcd"
+        dynamic = _dynamic(
+            CognitionCitationClass.DYNAMIC_EXACT_RECORD_VALIDATION_EVIDENCE,
+            owner_id="character:sakura_hanezawa",
+            fact='{"record_id":"record:test"}',
+        )
         backend = _FakeBackend(
-            _plan(),
-            last_available_evidence_refs=("source:current", dynamic_key),
+            _plan_citing(dynamic.evidence_ref),
+            dynamic_evidence=(dynamic,),
         )
         session = PersistentCognitionPlannerSession(backend)
         session.plan(_context())
         self.assertEqual(
             session.last_available_evidence_refs,
-            ("source:current", dynamic_key),
+            ("source:current", dynamic.evidence_ref),
         )
 
-        missing_base = _FakeBackend(
-            _plan(),
-            last_available_evidence_refs=(dynamic_key,),
+    def test_transient_handoff_clears_on_next_request_and_backend_failure(self) -> None:
+        backend = _FakeBackend(_plan(), failure_on_call=2)
+        session = PersistentCognitionPlannerSession(backend)
+        session.plan(_context())
+        self.assertIsNotNone(session.last_provider_turn_handoff)
+        backend.last_available_evidence_refs = ("binding_record_stale000000000001",)
+        backend.last_provider_turn_handoff = object()
+        backend.last_provider_result = object()
+        changed = replace(
+            _context(),
+            turn=replace(
+                _turn(),
+                current_source_key="source:next",
+            ),
         )
-        with self.assertRaisesRegex(StateConflictError, "not append-only"):
-            PersistentCognitionPlannerSession(missing_base).plan(_context())
+        with self.assertRaisesRegex(StateConflictError, "injected"):
+            session.plan(changed)
+        self.assertEqual(session.last_available_evidence_refs, ())
+        self.assertIsNone(session.last_provider_turn_handoff)
+        self.assertEqual(backend.last_available_evidence_refs, ())
+        self.assertIsNone(backend.last_provider_turn_handoff)
+        self.assertIsNone(backend.last_provider_result)
+
+    def test_transient_handoff_clears_on_reset_prepare_and_abandon(self) -> None:
+        for operation in ("reset", "prepare", "abandon"):
+            with self.subTest(operation=operation):
+                backend = _FakeBackend(_plan())
+                interrupted: list[str] = []
+                abandoned: list[str] = []
+                session = PersistentCognitionPlannerSession(
+                    backend,
+                    archive_interrupted_thread=interrupted.append,
+                    archive_completed_uncommitted_thread=abandoned.append,
+                )
+                session.plan(_context())
+                backend.last_available_evidence_refs = ("binding_record_stale000000000001",)
+                backend.last_provider_turn_handoff = object()
+                backend.last_provider_result = object()
+                expected = text_sha256("thread:cognition")
+                if operation == "reset":
+                    session.reset_after_transport_failure(expected)
+                    self.assertEqual(interrupted, ["thread:cognition"])
+                elif operation == "prepare":
+                    self.assertEqual(session.prepare_fresh_thread(), expected)
+                else:
+                    session.abandon_completed_uncommitted(expected)
+                    self.assertEqual(abandoned, ["thread:cognition"])
+                self.assertEqual(session.last_available_evidence_refs, ())
+                self.assertIsNone(session.last_provider_turn_handoff)
+                self.assertEqual(backend.last_available_evidence_refs, ())
+                self.assertIsNone(backend.last_provider_turn_handoff)
+                self.assertIsNone(backend.last_provider_result)
 
     def test_pi_adapter_propagates_global_autonomy_into_cognition(self) -> None:
         backend = _FakeBackend(_plan())
@@ -343,6 +929,11 @@ class CognitionProviderContractTests(unittest.TestCase):
             ("provisional:test-1",),
         )
         self.assertEqual(result.validation_evidence, ())
+        self.assertEqual(session.last_available_evidence_refs, ())
+        self.assertIsNone(session.last_provider_turn_handoff)
+        self.assertEqual(backend.last_available_evidence_refs, ())
+        self.assertIsNone(backend.last_provider_turn_handoff)
+        self.assertIsNone(backend.last_provider_result)
 
 
 if __name__ == "__main__":

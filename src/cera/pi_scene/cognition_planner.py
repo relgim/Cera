@@ -8,10 +8,9 @@ from typing import Any, Protocol
 from cera.cognition import (
     CharacterAutonomyMode,
     CognitionPlanV1,
+    CognitionProviderTurnHandoffV1,
     CognitionTurnContextV1,
-    CognitionValidationContextV1,
     LogicRoute,
-    validate_cognition_plan,
 )
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError
@@ -32,6 +31,8 @@ class CognitionPlannerSessionPort(Protocol):
     def active_thread_sha256(self) -> str | None: ...
 
     def plan(self, context: CognitionTurnContextV1) -> CognitionPlanV1: ...
+
+    def take_provider_turn_handoff(self) -> CognitionProviderTurnHandoffV1: ...
 
     def reset_after_transport_failure(self, expected_thread_sha256: str) -> None: ...
 
@@ -57,6 +58,7 @@ class RetainedCognitionPlannerAdapter:
         self._turn_index = 0
 
     def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1:
+        self.last_context = None
         controls = request.request_controls
         if controls is None:
             raise ContractValidationError("full-model cognition requires typed request controls")
@@ -87,30 +89,7 @@ class RetainedCognitionPlannerAdapter:
             available_provisional_record_ids=_provisional_ids(request.current_state),
         )
         plan = self.session.plan(context)
-        runtime_evidence_refs = getattr(
-            self.session,
-            "last_available_evidence_refs",
-            (),
-        )
-        if not isinstance(runtime_evidence_refs, tuple) or any(
-            not isinstance(value, str) for value in runtime_evidence_refs
-        ):
-            raise ContractValidationError("cognition session evidence scope changed shape")
-        if not runtime_evidence_refs:
-            runtime_evidence_refs = (
-                semantic_input.current_source_key,
-                *(value.evidence_key for value in semantic_input.evidence_records),
-            )
-        validate_cognition_plan(
-            plan,
-            turn=semantic_input,
-            context=CognitionValidationContextV1(
-                autonomy_mode=context.autonomy_mode,
-                logic_route=context.logic_route,
-                available_evidence_refs=runtime_evidence_refs,
-                available_provisional_record_ids=(context.available_provisional_record_ids),
-            ),
-        )
+        handoff = self.session.take_provider_turn_handoff()
         self.last_context = context
         if self.readable_debug is not None:
             self.readable_debug.write(
@@ -134,6 +113,7 @@ class RetainedCognitionPlannerAdapter:
                 for value in selected_validation_evidence(
                     plan=plan,
                     turn=semantic_input,
+                    handoff=handoff,
                 )
             ),
         )

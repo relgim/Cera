@@ -8,8 +8,12 @@ from typing import Protocol
 from cera.errors import ContractValidationError, StateConflictError
 from cera.provider_dispatch_guard import is_external_provider_boundary
 from cera.sequence_first.contracts import ProviderReferenceScopeV1
-from cera.serialization import re_is_sha256, text_sha256
+from cera.serialization import canonical_sha256, re_is_sha256, text_sha256
 
+from .citations import (
+    CognitionProviderCompletedTurnV1,
+    CognitionProviderTurnHandoffV1,
+)
 from .contracts import CognitionPlanV1, CognitionTurnContextV1
 from .prompting import (
     COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -28,9 +32,11 @@ class CognitionPlannerThreadBackendPort(Protocol):
         prompt: str,
         context: CognitionTurnContextV1,
         reference_scope: ProviderReferenceScopeV1,
-    ) -> CognitionPlanV1: ...
+    ) -> CognitionProviderCompletedTurnV1: ...
 
     def is_resumable(self, thread_id: str) -> bool: ...
+
+    def clear_cognition_transient_state(self) -> None: ...
 
 
 class PersistentCognitionPlannerSession:
@@ -57,6 +63,7 @@ class PersistentCognitionPlannerSession:
         self._archive_completed_uncommitted_thread = archive_completed_uncommitted_thread
         self._verify_completed_uncommitted_thread = verify_completed_uncommitted_thread
         self._last_available_evidence_refs: tuple[str, ...] = ()
+        self._last_provider_turn_handoff: CognitionProviderTurnHandoffV1 | None = None
 
     @property
     def thread_id(self) -> str | None:
@@ -71,36 +78,59 @@ class PersistentCognitionPlannerSession:
         return self._last_available_evidence_refs
 
     @property
+    def last_provider_turn_handoff(self) -> CognitionProviderTurnHandoffV1 | None:
+        return self._last_provider_turn_handoff
+
+    def take_provider_turn_handoff(self) -> CognitionProviderTurnHandoffV1:
+        handoff = self._last_provider_turn_handoff
+        self._last_provider_turn_handoff = None
+        self._last_available_evidence_refs = ()
+        if handoff is None:
+            raise StateConflictError("cognition provider-turn handoff is unavailable")
+        return handoff
+
+    @property
     def active_thread_sha256(self) -> str | None:
         """Return the exact active retained-thread identity without provider work."""
 
         return None if self._thread_id is None else text_sha256(self._thread_id)
 
     def plan(self, context: CognitionTurnContextV1) -> CognitionPlanV1:
+        self._clear_transient_result()
         if self._thread_id is None:
             self.prepare_fresh_thread()
         elif not self._backend.is_resumable(self._thread_id):
             raise StateConflictError("persistent cognition thread is not resumable")
         assert self._thread_id is not None
         reference_scope = ProviderReferenceScopeV1.from_turn(context.turn)
-        plan = self._backend.run_cognition_turn(
+        completed = self._backend.run_cognition_turn(
             thread_id=self._thread_id,
             prompt=cognition_turn_prompt(context),
             context=context,
             reference_scope=reference_scope,
         )
-        dynamic = getattr(
-            self._backend,
-            "last_available_evidence_refs",
-            reference_scope.evidence_keys,
+        if not isinstance(completed, CognitionProviderCompletedTurnV1):
+            raise StateConflictError("cognition backend completion changed shape")
+        plan = completed.plan
+        handoff = completed.handoff
+        dynamic = tuple(
+            dict.fromkeys(
+                (
+                    *reference_scope.evidence_keys,
+                    *(value.evidence_ref for value in handoff.selected_evidence),
+                )
+            )
         )
-        if not isinstance(dynamic, tuple) or any(not isinstance(value, str) for value in dynamic):
-            raise StateConflictError("cognition backend evidence scope changed shape")
-        if not dynamic:
-            dynamic = reference_scope.evidence_keys
         if dynamic[: len(reference_scope.evidence_keys)] != reference_scope.evidence_keys:
             raise StateConflictError("cognition backend evidence scope is not append-only")
+        if (
+            handoff.turn_semantic_sha256 != canonical_sha256(context.turn)
+            or handoff.plan_semantic_sha256 != plan.semantic_sha256
+            or handoff.provider_thread_sha256 != text_sha256(self._thread_id)
+        ):
+            raise StateConflictError("cognition provider-turn handoff changed request custody")
         self._last_available_evidence_refs = dynamic
+        self._last_provider_turn_handoff = handoff
         return plan
 
     def reset_after_transport_failure(self, expected_thread_sha256: str) -> None:
@@ -110,6 +140,7 @@ class PersistentCognitionPlannerSession:
         creates a fresh thread and rehydrates from Python-owned branch state.
         """
 
+        self._clear_transient_result()
         if not re_is_sha256(expected_thread_sha256):
             raise ContractValidationError("cognition interrupted thread hash is invalid")
         thread_id = self._thread_id
@@ -126,7 +157,6 @@ class PersistentCognitionPlannerSession:
             raise StateConflictError("cognition transport retry lacks interrupted-thread archival")
         self._archive_interrupted_thread(thread_id)
         self._thread_id = None
-        self._last_available_evidence_refs = ()
 
     def prepare_fresh_thread(self) -> str:
         """Create and persist one empty retained thread without a model turn.
@@ -138,6 +168,7 @@ class PersistentCognitionPlannerSession:
         charged manual provider dispatch.
         """
 
+        self._clear_transient_result()
         if self._thread_id is None:
             thread_id = self._backend.start_stored_thread(
                 base_instructions=COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -155,6 +186,7 @@ class PersistentCognitionPlannerSession:
     def abandon_completed_uncommitted(self, expected_thread_sha256: str) -> None:
         """Retire a completed Planner thread whose result never became durable."""
 
+        self._clear_transient_result()
         if not re_is_sha256(expected_thread_sha256):
             raise ContractValidationError("cognition completed thread hash is invalid")
         thread_id = self._thread_id
@@ -170,4 +202,11 @@ class PersistentCognitionPlannerSession:
             raise StateConflictError("cognition completed thread lacks retirement custody")
         archive(thread_id)
         self._thread_id = None
+
+    def _clear_transient_result(self) -> None:
         self._last_available_evidence_refs = ()
+        self._last_provider_turn_handoff = None
+        clear_backend = getattr(self._backend, "clear_cognition_transient_state", None)
+        if not callable(clear_backend):
+            raise StateConflictError("cognition backend lacks transient clearing")
+        clear_backend()

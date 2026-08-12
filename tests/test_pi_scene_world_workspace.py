@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from pathlib import Path
 
 from cera.errors import (
     CanonicalizationError,
     ContractValidationError,
     StateConflictError,
 )
+from cera.pi_scene.contracts import LeanCandidateV1, PiWriterReceiptV1, SceneRoute
+from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.world_workspace import (
     AcceptedGenesisCatalog,
     ForkChatWorkspaceRequestV1,
@@ -19,10 +21,7 @@ from cera.pi_scene.world_workspace import (
     PiSceneWorldWorkspaceManager,
     RequestBoundWorldMcpBridge,
 )
-from cera.pi_scene.contracts import LeanCandidateV1, PiWriterReceiptV1, SceneRoute
-from cera.pi_scene.store import LeanSceneStore
 from cera.serialization import canonical_json, text_sha256
-
 
 ROOT = Path(__file__).resolve().parents[1]
 GENESIS_ROOT = ROOT / "genesis" / "packages"
@@ -70,9 +69,37 @@ class _FailingBindingBridge(_FakeRawBridge):
 
 
 class _FailingFinalizeBridge(_FakeRawBridge):
+    def __init__(self, dispatcher) -> None:
+        super().__init__(dispatcher)
+        self.aborts = 0
+
     def finalize(self, provider_result):
         self.finalizations.append(provider_result)
         raise RuntimeError("finalize failed")
+
+    def abort_provider_turn(self) -> None:
+        self.aborts += 1
+
+
+class _StopFailingPrivateBridge(_FakeRawBridge):
+    def __init__(self, dispatcher) -> None:
+        super().__init__(dispatcher)
+        self.aborts = 0
+        self.private_additional: object | None = object()
+
+    def take_additional_finalization(self) -> object | None:
+        value = self.private_additional
+        self.private_additional = None
+        return value
+
+    def abort_provider_turn(self) -> None:
+        self.aborts += 1
+        self.private_additional = None
+
+    def stop(self, *, suppress_errors: bool = False) -> None:
+        self.stops.append(suppress_errors)
+        if not suppress_errors:
+            raise RuntimeError("stop failed")
 
 
 def _pending_candidate(*, world_id: str, branch_id: str) -> LeanCandidateV1:
@@ -211,9 +238,9 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             "main",
         )
         self.assertEqual(
-            _json(first.branch_root / "ACTIVE" / "Settings" / "CHAT_SETTINGS.json")[
-                "settings"
-            ]["autonomy"],
+            _json(first.branch_root / "ACTIVE" / "Settings" / "CHAT_SETTINGS.json")["settings"][
+                "autonomy"
+            ],
             "both",
         )
         self.assertEqual(
@@ -274,15 +301,11 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         exact_projection = next(
             _json(path)
             for path in sorted(
-                (workspace.branch_root / "ACTIVE" / "GenesisRecords").rglob(
-                    "*.json"
-                )
+                (workspace.branch_root / "ACTIVE" / "GenesisRecords").rglob("*.json")
             )
             if _json(path) in sakura_group["genesis_record_projections"]
         )
-        self.assertIn(
-            exact_projection, sakura_group["genesis_record_projections"]
-        )
+        self.assertIn(exact_projection, sakura_group["genesis_record_projections"])
 
     def test_invalid_identity_and_cross_chat_open_fail_closed(self) -> None:
         self._new_chat()
@@ -373,9 +396,7 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         )
 
         # Idempotent replay returns the original child even after the parent moves on.
-        (parent.branch_root / "ACCEPTED" / "turn-003.json").write_text(
-            "{}", encoding="utf-8"
-        )
+        (parent.branch_root / "ACCEPTED" / "turn-003.json").write_text("{}", encoding="utf-8")
         restarted = PiSceneWorldWorkspaceManager(self.runtime_root, GENESIS_ROOT)
         replayed = restarted.fork_chat(request)
         self.assertEqual(replayed.workspace_sha256, child.workspace_sha256)
@@ -413,22 +434,16 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             )
         )
         store = LeanSceneStore(self.runtime_root)
-        accepted = store.accept(
-            _pending_candidate(world_id="world-test", branch_id="branch-main")
-        )
+        accepted = store.accept(_pending_candidate(world_id="world-test", branch_id="branch-main"))
         session_path = parent.branch_root / "pi-session-cache"
         session_path.mkdir()
-        store.promote_pi_session(
-            accepted, session_id="session-1", session_path=session_path
-        )
+        store.promote_pi_session(accepted, session_id="session-1", session_path=session_path)
         provisional = parent.branch_root / "PROVISIONAL" / "canon-1.json"
         provisional.parent.mkdir(parents=True)
         provisional.write_text('{"status":"provisional"}', encoding="utf-8")
         settings = parent.branch_root / "ACTIVE" / "Settings" / "extra.json"
         settings.write_text('{"depth":"auto"}', encoding="utf-8")
-        parent_head_before = store.load_head(
-            world_id="world-test", branch_id="branch-main"
-        )
+        parent_head_before = store.load_head(world_id="world-test", branch_id="branch-main")
 
         child = self.manager.fork_chat(
             ForkChatWorkspaceRequestV1(
@@ -439,21 +454,15 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
                 child_branch_id="branch-fork",
             )
         )
-        child_head = store.load_head(
-            world_id="world-test", branch_id="branch-fork"
-        )
-        parent_head_after = store.load_head(
-            world_id="world-test", branch_id="branch-main"
-        )
+        child_head = store.load_head(world_id="world-test", branch_id="branch-fork")
+        parent_head_after = store.load_head(world_id="world-test", branch_id="branch-main")
 
         self.assertEqual(child_head.accepted_turn_id, accepted.accepted_turn_id)
         self.assertEqual(child_head.receipt.exact_accepted_prose, accepted.exact_accepted_prose)
         self.assertEqual(child_head.receipt.branch_id, "branch-fork")
         self.assertNotEqual(child_head.accepted_head_sha256, accepted.receipt_sha256)
         self.assertEqual(
-            _json(child.branch_root / "BRANCH_HEAD_CACHE.json")[
-                "accepted_head_sha256"
-            ],
+            _json(child.branch_root / "BRANCH_HEAD_CACHE.json")["accepted_head_sha256"],
             child_head.accepted_head_sha256,
         )
         self.assertEqual(
@@ -469,21 +478,13 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             settings.read_bytes(),
         )
         self.assertIsNone(
-            store.load_accepted_pi_session(
-                world_id="world-test", branch_id="branch-fork"
-            )
+            store.load_accepted_pi_session(world_id="world-test", branch_id="branch-fork")
         )
         self.assertTrue(
-            (
-                child.branch_root
-                / "sessions"
-                / "FORK_SOURCE_ACCEPTED_SESSION.json"
-            ).is_file()
+            (child.branch_root / "sessions" / "FORK_SOURCE_ACCEPTED_SESSION.json").is_file()
         )
         self.assertIsNotNone(
-            store.load_accepted_pi_session(
-                world_id="world-test", branch_id="branch-main"
-            )
+            store.load_accepted_pi_session(world_id="world-test", branch_id="branch-main")
         )
 
     def test_tampered_workspace_or_genesis_is_rejected_on_restart(self) -> None:
@@ -508,9 +509,7 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
 
     def test_tampered_genesis_projection_is_rejected_on_restart(self) -> None:
         workspace = self._new_chat()
-        record = next(
-            (workspace.branch_root / "ACTIVE" / "GenesisRecords").rglob("*.json")
-        )
+        record = next((workspace.branch_root / "ACTIVE" / "GenesisRecords").rglob("*.json"))
         record.write_bytes(record.read_bytes() + b" ")
 
         with self.assertRaisesRegex(StateConflictError, "projection changed"):
@@ -540,15 +539,9 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             "cera_world_list", {"prefix": "ACTIVE/GenesisRecords", "limit": 1}
         )
         self.assertEqual(len(listed["records"]), 1)
-        exact = dispatcher.invoke(
-            "cera_world_read", {"path": listed["records"][0]["path"]}
-        )
-        self.assertEqual(
-            exact["content"]["genesis_revision_id"], first.genesis_pin.revision_id
-        )
-        self.assertIsInstance(
-            factory.bridge(turn_id="turn-002"), RequestBoundWorldMcpBridge
-        )
+        exact = dispatcher.invoke("cera_world_read", {"path": listed["records"][0]["path"]})
+        self.assertEqual(exact["content"]["genesis_revision_id"], first.genesis_pin.revision_id)
+        self.assertIsInstance(factory.bridge(turn_id="turn-002"), RequestBoundWorldMcpBridge)
 
     def test_request_bound_bridge_is_lazy_one_use_and_always_stops(self) -> None:
         workspace = self._new_chat()
@@ -559,9 +552,9 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             raw_bridges.append(bridge)
             return bridge
 
-        request_bridge = self.manager.mcp_factory(
-            workspace, raw_bridge_factory=create_raw
-        ).bridge(turn_id="turn-001", maximum_calls=3)
+        request_bridge = self.manager.mcp_factory(workspace, raw_bridge_factory=create_raw).bridge(
+            turn_id="turn-001", maximum_calls=3
+        )
         self.assertEqual(raw_bridges, [])
         self.assertEqual(request_bridge.runtime_binding, "fake-runtime-binding")
         self.assertEqual(request_bridge.runtime_binding, "fake-runtime-binding")
@@ -621,8 +614,33 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "finalize failed"):
             finalize_failure.finalize(object())
         self.assertEqual(finalize_bridges[0].stops, [False])
+        self.assertEqual(finalize_bridges[0].aborts, 1)
         with self.assertRaisesRegex(StateConflictError, "terminal"):
             _ = finalize_failure.runtime_binding
+
+    def test_stop_failure_clears_private_additional_finalization(self) -> None:
+        workspace = self._new_chat()
+        raw_bridges: list[_StopFailingPrivateBridge] = []
+
+        def create_stop_failure(dispatcher):
+            bridge = _StopFailingPrivateBridge(dispatcher)
+            raw_bridges.append(bridge)
+            return bridge
+
+        request_bridge = self.manager.mcp_factory(
+            workspace,
+            raw_bridge_factory=create_stop_failure,
+        ).bridge(turn_id="turn-stop-failure")
+        self.assertEqual(request_bridge.runtime_binding, "fake-runtime-binding")
+        with self.assertRaisesRegex(RuntimeError, "stop failed"):
+            request_bridge.finalize(object())
+        self.assertIsNone(request_bridge.take_additional_finalization())
+        self.assertIsNone(raw_bridges[0].private_additional)
+        self.assertEqual(raw_bridges[0].aborts, 1)
+
+        request_bridge.abort()
+        self.assertIsNone(request_bridge.take_additional_finalization())
+        self.assertEqual(raw_bridges[0].aborts, 2)
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlink API unavailable")
     def test_fork_rejects_linked_parent_content_when_supported(self) -> None:

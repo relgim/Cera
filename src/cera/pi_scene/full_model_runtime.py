@@ -10,10 +10,14 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
+from secrets import token_hex
 from typing import Any, Protocol
 
 from cera.cognition import (
+    CognitionDynamicEvidenceV1,
     CognitionPlanV1,
+    CognitionProviderCompletedTurnV1,
+    CognitionProviderTurnHandoffV1,
     CognitionTurnContextV1,
     PersistentCognitionPlannerSession,
 )
@@ -28,11 +32,12 @@ from cera.cognition.provider import (
     cognition_planner_route,
 )
 from cera.errors import StateConflictError
-from cera.sequence_first.contracts import ProviderReferenceScopeV1
+from cera.sequence_first.contracts import PROTECTED_USER_ID, ProviderReferenceScopeV1
 from cera.serialization import canonical_sha256, text_sha256
 
 from .planner_state import PlannerThreadStateStore, PlannerThreadStateV1
 from .readable_debug import ReadablePiSceneDebugLog
+from .retrieval_tools import RetrievalProviderRole
 from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 from .world_workspace import BranchBoundWorldMcpFactory
 
@@ -41,8 +46,8 @@ CognitionSessionFactory = Callable[
     PersistentCognitionPlannerSession,
 ]
 
-COGNITION_THREAD_COMPATIBILITY_SCHEMA = "cera.pi_scene.cognition_thread_compatibility.v4"
-COGNITION_WORLD_TOOLS_COMPATIBILITY = "cera.branch_bound_named_retrieval_mcp.v3"
+COGNITION_THREAD_COMPATIBILITY_SCHEMA = "cera.pi_scene.cognition_thread_compatibility.v6"
+COGNITION_WORLD_TOOLS_COMPATIBILITY = "cera.branch_bound_named_retrieval_mcp.v4"
 
 
 class CognitionPlannerAdapterPort(Protocol):
@@ -59,6 +64,8 @@ def cognition_thread_compatibility_sha256() -> str:
             "profile": COGNITION_PLANNER_PROFILE,
             "base_instructions_sha256": text_sha256(COGNITION_PLANNER_BASE_INSTRUCTIONS),
             "cognition_plan_schema": CognitionPlanV1.SCHEMA_VERSION,
+            "dynamic_evidence_schema": CognitionDynamicEvidenceV1.SCHEMA_VERSION,
+            "provider_turn_handoff_schema": CognitionProviderTurnHandoffV1.SCHEMA_VERSION,
             "provider": route.provider,
             "model": route.model_name,
             "adapter": COGNITION_PLANNER_ADAPTER,
@@ -81,6 +88,20 @@ def default_cognition_session_factory(
         reasoning_effort: str,
         backend: Any,
     ) -> PersistentCognitionPlannerSession:
+        prior_compatibility = state_store.active_compatibility_sha256(
+            session_id=session_id,
+            reasoning_effort=reasoning_effort,
+        )
+        if (
+            prior_compatibility is not None
+            and prior_compatibility != compatibility_sha256
+        ):
+            state_store.retire_incompatible_thread(
+                session_id=session_id,
+                reasoning_effort=reasoning_effort,
+                prior_compatibility_sha256=prior_compatibility,
+                new_compatibility_sha256=compatibility_sha256,
+            )
         state = state_store.load(
             session_id=session_id,
             reasoning_effort=reasoning_effort,
@@ -155,11 +176,17 @@ class BranchBoundCognitionPlannerBackend(CodexCognitionPlannerBackend):
         self,
         *,
         world_mcp_factory: BranchBoundWorldMcpFactory,
+        retrieval_request_nonce_factory: Callable[[], str] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(world_bridge=None, **kwargs)
         self.world_mcp_factory = world_mcp_factory
         self._retrieval_request_index = 0
+        self._retrieval_request_nonce_factory: Callable[[], str] = (
+            (lambda: token_hex(16))
+            if retrieval_request_nonce_factory is None
+            else retrieval_request_nonce_factory
+        )
 
     def run_cognition_turn(
         self,
@@ -168,23 +195,35 @@ class BranchBoundCognitionPlannerBackend(CodexCognitionPlannerBackend):
         prompt: str,
         context: CognitionTurnContextV1,
         reference_scope: ProviderReferenceScopeV1,
-    ) -> CognitionPlanV1:
+    ) -> CognitionProviderCompletedTurnV1:
         if self.world_bridge is not None:
             raise StateConflictError("cognition Planner retained a prior request MCP bridge")
         self._retrieval_request_index += 1
+        nonce = self._retrieval_request_nonce_factory()
+        if not isinstance(nonce, str) or not nonce.strip():
+            raise StateConflictError("cognition retrieval request nonce is invalid")
+        workspace = self.world_mcp_factory.workspace
         bridge = self.world_mcp_factory.bridge(
             request_id=(
                 "cognition_request_"
-                + text_sha256(
-                    ":".join(
-                        (
-                            context.turn.current_source_key,
-                            str(self._retrieval_request_index),
-                        )
-                    )
-                )[:24]
+                + canonical_sha256(
+                    {
+                        "schema_version": "cera.pi_scene.cognition_retrieval_request.v1",
+                        "world_id": workspace.world_id,
+                        "branch_id": workspace.branch_id,
+                        "turn_semantic_sha256": canonical_sha256(context.turn),
+                        "provider_thread_sha256": text_sha256(thread_id),
+                        "operation_index": self._retrieval_request_index,
+                        "nonce": nonce,
+                    }
+                )[:32]
             ),
-            private_character_ids=reference_scope.known_character_ids,
+            private_character_ids=tuple(
+                value
+                for value in reference_scope.known_character_ids
+                if value != PROTECTED_USER_ID
+            ),
+            role=RetrievalProviderRole.COGNITION_PLANNER,
         )
         self.world_bridge = bridge
         try:

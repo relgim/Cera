@@ -11,6 +11,11 @@ from cera.sequence_first.contracts import (
     SequenceFirstTurnSemanticInputV1,
 )
 
+from .citations import (
+    CognitionDynamicEvidenceV1,
+    classify_cognition_plan_citations,
+    cognition_static_citation_scope,
+)
 from .contracts import (
     AutonomyApplicationV1,
     CharacterAutonomyMode,
@@ -33,6 +38,7 @@ class CognitionValidationContextV1:
     logic_route: LogicRoute
     available_evidence_refs: tuple[str, ...]
     available_provisional_record_ids: tuple[str, ...] = ()
+    dynamic_evidence: tuple[CognitionDynamicEvidenceV1, ...] = ()
 
     def __post_init__(self) -> None:
         if len(self.available_evidence_refs) != len(set(self.available_evidence_refs)):
@@ -42,6 +48,11 @@ class CognitionValidationContextV1:
         ):
             raise ContractValidationError(
                 "cognition validation provisional refs contain duplicates"
+            )
+        dynamic_refs = tuple(value.evidence_ref for value in self.dynamic_evidence)
+        if len(dynamic_refs) != len(set(dynamic_refs)):
+            raise ContractValidationError(
+                "cognition validation dynamic evidence refs contain duplicates"
             )
 
 
@@ -58,28 +69,42 @@ def validate_cognition_plan(
     items = {value.item_key: value for value in plan.sequence.items}
     links = {value.item_key: value.decision_key for value in plan.decision_item_links}
 
-    available_refs = set(context.available_evidence_refs)
-    available_refs.add(turn.current_source_key)
-    available_refs.update(value.evidence_key for value in turn.evidence_records)
-    available_refs.update(item.item_key for item in plan.sequence.items)
+    static_refs = {
+        turn.current_source_key,
+        *(value.evidence_key for value in turn.evidence_records),
+    }
+    if not set(context.available_evidence_refs).issubset(static_refs):
+        raise ContractValidationError(
+            "cognition validation received untyped dynamic evidence refs"
+        )
+
+    static_scope = cognition_static_citation_scope(turn)
+    allowed_item_evidence_refs = {
+        turn.current_source_key,
+        *static_scope.citable_static_evidence_refs,
+    }
+    for item in plan.sequence.items:
+        forbidden = set(item.evidence_keys) - allowed_item_evidence_refs
+        if forbidden:
+            raise ContractValidationError(
+                "sequence item cites context-only or unavailable evidence"
+            )
 
     for decision in plan.decision_records:
         if decision.owner_id not in turn.known_character_ids:
             raise ContractValidationError("decision owner is not a known character")
-        refs = {
-            *decision.causal_trigger_refs,
-            *decision.decisive_factor_refs,
-            *(value.source_ref for value in decision.observer_frame.directly_perceived),
-            *(ref for pressure in decision.material_pressures for ref in pressure.evidence_refs),
-        }
-        if not refs.issubset(available_refs):
-            raise ContractValidationError("decision cites unavailable evidence")
         _validate_autonomy(decision.autonomy_application, context.autonomy_mode)
         for predecessor in decision.observer_frame.draft_local_predecessor_item_keys:
             if predecessor not in items:
                 raise ContractValidationError(
                     "observer frame cites an unknown draft-local predecessor"
                 )
+
+    classify_cognition_plan_citations(
+        plan=plan,
+        turn=turn,
+        dynamic_evidence=context.dynamic_evidence,
+    )
 
     presence_owner_items = {
         change.effective_after_item_key for change in plan.sequence.presence_changes

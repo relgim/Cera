@@ -1,5 +1,19 @@
 """Auditable character cognition contracts and validation."""
 
+from .citations import (
+    MAX_COGNITION_CITABLE_RECORD_CHARACTERS,
+    CognitionCitationCatalogV1,
+    CognitionCitationClass,
+    CognitionDynamicEvidenceV1,
+    CognitionEvidenceVisibility,
+    CognitionProviderCompletedTurnV1,
+    CognitionProviderTurnHandoffV1,
+    CognitionSelectedEvidenceV1,
+    CognitionStaticCitationScopeV1,
+    classify_cognition_plan_citations,
+    cognition_provider_turn_handoff,
+    cognition_static_citation_scope,
+)
 from .contracts import (
     AutonomyApplicationV1,
     CharacterAutonomyMode,
@@ -32,8 +46,16 @@ __all__ = [
     "CharacterAutonomyMode",
     "CharacterLogicPort",
     "CloseAlternativeV1",
+    "CognitionCitationCatalogV1",
+    "CognitionCitationClass",
     "CognitionCustodyEnvelopeV1",
+    "CognitionDynamicEvidenceV1",
+    "CognitionEvidenceVisibility",
     "CognitionPlanV1",
+    "CognitionProviderCompletedTurnV1",
+    "CognitionProviderTurnHandoffV1",
+    "CognitionSelectedEvidenceV1",
+    "CognitionStaticCitationScopeV1",
     "CognitionTurnContextV1",
     "CognitionValidationContextV1",
     "DecisionItemLinkV1",
@@ -41,6 +63,7 @@ __all__ = [
     "KnowledgeCertainty",
     "LogicRoute",
     "MaterialPressureV1",
+    "MAX_COGNITION_CITABLE_RECORD_CHARACTERS",
     "ObserverFrameV1",
     "PerceivedFactV1",
     "PressureLevel",
@@ -51,5 +74,8 @@ __all__ = [
     "RouteTransitionProposalV1",
     "SemanticValidatorPort",
     "UserDirectionDisposition",
+    "classify_cognition_plan_citations",
+    "cognition_provider_turn_handoff",
+    "cognition_static_citation_scope",
     "validate_cognition_plan",
 ]

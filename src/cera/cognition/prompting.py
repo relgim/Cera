@@ -5,9 +5,10 @@ from __future__ import annotations
 from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS
 from cera.serialization import canonical_json
 
+from .citations import cognition_static_citation_scope
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v6"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v8"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
@@ -21,12 +22,22 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     "For one omitted actor, fetch that actor with get_character_context or use one "
     "narrow relationship or memory subset only while no complete dossier for that "
     "actor has returned. Expand only for a specific unresolved gap with narrow "
-    "search_evidence, get_exact_record, thread, voice, or craft context. A hard factual "
-    "decision should fetch its exact record when available. Call get_exact_record "
+    "search_evidence, get_exact_record, thread, voice, or craft context. Dossiers, "
+    "broad context, search rows, and every context_ref are context only and must never "
+    "appear in a cognition citation field. A hard factual decision should fetch its "
+    "exact record when available. Call get_exact_record "
     "only with an exact record_id returned by a prior successful search_evidence "
-    "call in this operation. Cite only evidence "
-    "references actually returned during this operation; they expire with this "
-    "request. A truncated or omitted result is uncertainty, not proof that a "
+    "call in this operation. Cite a dynamic record only through an evidence_ref from "
+    "a successful get_exact_record result whose citation_eligibility is exactly "
+    "eligible_after_exact_fetch. An oversize exact record returns a context_ref and "
+    "remains useful context, but it is not validation evidence and is never citable. "
+    "For static request evidence, cite only refs in the turn-local "
+    "citable_static_evidence_refs list. Every ref in "
+    "context_only_static_evidence_refs is context only and forbidden in every "
+    "citation field. Use the supplied lists exactly; never count, truncate, or "
+    "summarize content to change a static record's citation class. "
+    "Dynamic evidence_refs expire with this request. A truncated or omitted result is "
+    "uncertainty, not proof that a "
     "character lacks knowledge. "
     + " "
     + "Return one cognition plan that wraps the ordered sequence with compact, "
@@ -58,4 +69,10 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
 
 
 def cognition_turn_prompt(context: CognitionTurnContextV1) -> str:
-    return "[CURRENT COGNITION TURN]\n" + canonical_json(context)
+    static_scope = cognition_static_citation_scope(context.turn)
+    return (
+        "[STATIC CITATION SCOPE]\n"
+        + canonical_json(static_scope.to_payload())
+        + "\n[CURRENT COGNITION TURN]\n"
+        + canonical_json(context)
+    )

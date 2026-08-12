@@ -57,6 +57,7 @@ from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.world_runtime import PiSceneChatWorldResolver
 from cera.pi_scene.world_workspace import PiSceneWorldWorkspaceManager
 from cera.sequence_first.contracts import (
+    PROTECTED_USER_ID,
     ItemKind,
     ProtectedSourceClaimV1,
     SequenceDraftV1,
@@ -493,9 +494,16 @@ class NamedRetrievalToolTests(unittest.TestCase):
         self.assertEqual(len(private_character_ids), 9)
         for role in RetrievalProviderRole:
             with self.subTest(role=role.value):
+                role_private_character_ids = tuple(
+                    value
+                    for value in private_character_ids
+                    if role is not RetrievalProviderRole.COGNITION_PLANNER
+                    or value != PROTECTED_USER_ID
+                )
+                self.assertGreaterEqual(len(role_private_character_ids), 2)
                 dispatcher = self._dispatcher(
                     f"request:multi-character-turn-context-{role.value}",
-                    *private_character_ids,
+                    *role_private_character_ids,
                     role=role,
                 )
                 handler = dispatcher.additional_tool_handler
@@ -508,7 +516,7 @@ class NamedRetrievalToolTests(unittest.TestCase):
                 ):
                     dispatcher.invoke(
                         "get_turn_context",
-                        {"character_ids": list(private_character_ids)},
+                        {"character_ids": list(role_private_character_ids)},
                     )
 
                 self.assertEqual(handler.service.call_count, 0)
@@ -977,21 +985,22 @@ class NamedRetrievalToolTests(unittest.TestCase):
                 },
             )
 
-    def test_discovered_key_is_citable_only_in_its_exact_request(self) -> None:
+    def test_legacy_broad_binding_cannot_bypass_typed_cognition_evidence(self) -> None:
         first = self._dispatcher("request:evidence-a", SAKURA)
         first_result = first.invoke(
             "get_character_context", {"character_id": SAKURA}
         )
         first_key = first_result["evidence_refs"][0]
-        validate_cognition_plan(
-            _plan(first_key),
-            turn=_turn(),
-            context=CognitionValidationContextV1(
-                autonomy_mode=CharacterAutonomyMode.BOTH,
-                logic_route=LogicRoute.ORDINARY,
-                available_evidence_refs=("source:current", first_key),
-            ),
-        )
+        with self.assertRaisesRegex(ContractValidationError, "untyped dynamic"):
+            validate_cognition_plan(
+                _plan(first_key),
+                turn=_turn(),
+                context=CognitionValidationContextV1(
+                    autonomy_mode=CharacterAutonomyMode.BOTH,
+                    logic_route=LogicRoute.ORDINARY,
+                    available_evidence_refs=("source:current", first_key),
+                ),
+            )
 
         second = self._dispatcher("request:evidence-b", SAKURA)
         second_result = second.invoke(
@@ -999,7 +1008,7 @@ class NamedRetrievalToolTests(unittest.TestCase):
         )
         second_key = second_result["evidence_refs"][0]
         self.assertNotEqual(first_key, second_key)
-        with self.assertRaisesRegex(ContractValidationError, "unavailable evidence"):
+        with self.assertRaisesRegex(ContractValidationError, "untyped dynamic"):
             validate_cognition_plan(
                 _plan(first_key),
                 turn=_turn(),

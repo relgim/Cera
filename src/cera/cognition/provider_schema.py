@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from cera.sequence_first.contracts import (
     CHARACTER_ID_JSON_PATTERN,
     LOCAL_KEY_JSON_PATTERN,
@@ -10,7 +12,9 @@ from cera.sequence_first.contracts import (
     ProviderReferenceScopeV1,
 )
 from cera.sequence_first.provider import sequence_draft_json_schema
+from cera.serialization import canonical_json
 
+from .citations import CognitionStaticCitationScopeV1, cognition_static_citation_scope
 from .contracts import CognitionTurnContextV1
 
 
@@ -46,6 +50,33 @@ def _identity() -> dict[str, object]:
     return {"type": "string", "pattern": STABLE_IDENTITY_JSON_PATTERN}
 
 
+def _citation_description(scope: CognitionStaticCitationScopeV1) -> str:
+    return (
+        "Copy only the current source ref, a draft-local sequence item key, a "
+        "static ref in citable_static_evidence_refs, or an evidence_ref returned "
+        "by an eligible successful get_exact_record call in this request. The "
+        "turn-local static lists are "
+        + canonical_json(scope.to_payload())
+        + ". Every context_only_static_evidence_refs value is context only and "
+        "forbidden here; never count, truncate, or summarize content to change its "
+        "class. Never use context_ref, a search locator, a dossier ref, an oversize "
+        "exact-record ref, an expired ref, or an invented identifier. Private "
+        "evidence may be cited only by a decision whose owner_id exactly matches "
+        "its one knowledge owner."
+    )
+
+
+def _citation_ref(description: str) -> dict[str, object]:
+    return {
+        **_identity(),
+        "description": description,
+    }
+
+
+def _citation_array(description: str) -> dict[str, object]:
+    return {"type": "array", "items": _identity(), "description": description}
+
+
 def _certainty() -> dict[str, object]:
     return {
         "type": "string",
@@ -60,6 +91,8 @@ def cognition_plan_json_schema(
 ) -> dict[str, object]:
     """Project exact finite input scopes without exposing Python custody."""
 
+    static_scope = cognition_static_citation_scope(context.turn)
+    citation_description = _citation_description(static_scope)
     npc_ids = [value for value in reference_scope.known_character_ids if value != PROTECTED_USER_ID]
     owner_schema: dict[str, object] = {
         "type": "string",
@@ -70,7 +103,7 @@ def cognition_plan_json_schema(
 
     perceived_fact = _strict(
         {
-            "source_ref": _identity(),
+            "source_ref": _citation_ref(citation_description),
             "concise_perception": _text(),
             "certainty": _certainty(),
         }
@@ -100,7 +133,7 @@ def cognition_plan_json_schema(
                 "enum": ["none", "low", "moderate", "high", "overwhelming"],
             },
             "direction": _local_key(),
-            "evidence_refs": _string_array(pattern=STABLE_IDENTITY_JSON_PATTERN),
+            "evidence_refs": _citation_array(citation_description),
         }
     )
     response_layers = _strict(
@@ -147,7 +180,7 @@ def cognition_plan_json_schema(
         {
             "decision_key": _local_key(),
             "owner_id": owner_schema,
-            "causal_trigger_refs": _string_array(pattern=STABLE_IDENTITY_JSON_PATTERN),
+            "causal_trigger_refs": _citation_array(citation_description),
             "observer_frame": observer_frame,
             "perceived_event_meaning": _text(),
             "knowledge_certainty": _certainty(),
@@ -155,7 +188,7 @@ def cognition_plan_json_schema(
             "response_layers": response_layers,
             "selected_intent": _text(),
             "concise_decision_basis": _text(),
-            "decisive_factor_refs": _string_array(pattern=STABLE_IDENTITY_JSON_PATTERN),
+            "decisive_factor_refs": _citation_array(citation_description),
             "material_pressures": {"type": "array", "items": pressure},
             "autonomy_application": autonomy,
             "anticipated_immediate_effect": _text(),
@@ -196,9 +229,30 @@ def cognition_plan_json_schema(
             }
         )
     )
+    sequence_schema = sequence_draft_json_schema(reference_scope=reference_scope)
+    sequence_properties = cast(dict[str, object], sequence_schema["properties"])
+    sequence_items = cast(dict[str, object], sequence_properties["items"])
+    sequence_item = cast(dict[str, object], sequence_items["items"])
+    sequence_item_properties = cast(dict[str, object], sequence_item["properties"])
+    item_evidence_refs = (
+        context.turn.current_source_key,
+        *static_scope.citable_static_evidence_refs,
+    )
+    sequence_item_properties["evidence_keys"] = {
+        "type": "array",
+        "items": {"type": "string", "enum": list(item_evidence_refs)},
+        "description": (
+            "Hard sequence evidence may use only the current source ref or a ref "
+            "in citable_static_evidence_refs; context_only_static_evidence_refs "
+            "are forbidden. The exact static lists are "
+            + canonical_json(static_scope.to_payload())
+            + ". Draft-local sequence item keys remain causal_parent_item_key "
+            "or cognition citation refs, never item evidence_keys."
+        ),
+    }
     return _strict(
         {
-            "sequence": sequence_draft_json_schema(reference_scope=reference_scope),
+            "sequence": sequence_schema,
             "decision_records": {"type": "array", "items": decision_record},
             "decision_item_links": {
                 "type": "array",

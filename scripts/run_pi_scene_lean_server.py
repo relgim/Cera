@@ -552,7 +552,7 @@ def build_live_runtime(
             if backend.route.reasoning_effort != effort:
                 backend.route = replace(
                     backend.route,
-                    route_id=(f"cera_pi_scene_cognition_{backend.route.model_name}_{effort}_v3"),
+                    route_id=(f"cera_pi_scene_cognition_{backend.route.model_name}_{effort}_v5"),
                     reasoning_effort=effort,
                 )
             planner_backends[(session_id, effort)] = backend
@@ -681,7 +681,16 @@ def build_live_runtime(
             if controls is None:
                 raise StateConflictError("Planner Retry receipt lost request controls")
             backend = planner_backends.get((controls.session_id, controls.reasoning_effort))
-            result = None if backend is None else getattr(backend, "last_provider_result", None)
+            take_result = None if backend is None else getattr(
+                backend,
+                "take_last_provider_result",
+                None,
+            )
+            result = (
+                take_result()
+                if callable(take_result)
+                else None if backend is None else getattr(backend, "last_provider_result", None)
+            )
             if result is None:
                 raise StateConflictError("Planner Retry receipt is unavailable")
             return result
