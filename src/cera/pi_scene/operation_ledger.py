@@ -106,7 +106,7 @@ class PiProviderOperationLedger:
     ) -> str:
         with self._lock:
             if (
-                self.operation_count + self.maximum_operations_per_invocation
+                self.conservative_operation_count + self.maximum_operations_per_invocation
                 > self.maximum_operations
             ):
                 raise StateConflictError(
@@ -271,6 +271,40 @@ class PiProviderOperationLedger:
     @property
     def operation_count(self) -> int:
         return sum(value.get("event") == "provider_operation_started" for value in self.events)
+
+    @property
+    def conservative_operation_count(self) -> int:
+        """Count observed operations plus every unresolved durable reservation."""
+
+        events = self.events
+        observed = sum(1 for value in events if value.get("event") == "provider_operation_started")
+        prepared = {
+            str(value.get("invocation_id")): value
+            for value in events
+            if value.get("event") == "invocation_prepared"
+        }
+        terminal = {
+            str(value.get("invocation_id"))
+            for value in events
+            if value.get("event") in {"invocation_completed", "invocation_failed"}
+        }
+        remaining = 0
+        for invocation_id, event in prepared.items():
+            if invocation_id in terminal:
+                continue
+            reserved = event.get("reserved_operations")
+            if type(reserved) is not int or reserved < 1:
+                raise StateConflictError("Pi invocation reservation is invalid")
+            started = sum(
+                1
+                for value in events
+                if value.get("event") == "provider_operation_started"
+                and value.get("invocation_id") == invocation_id
+            )
+            if started > reserved:
+                raise StateConflictError("Pi invocation exceeded its durable reservation")
+            remaining += reserved - started
+        return observed + remaining
 
     def started_for(self, invocation_id: str) -> int:
         return sum(

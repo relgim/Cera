@@ -1683,7 +1683,7 @@ class AdultPiStageAttemptOwnerFactoryV1:
     def _assert_budget_available(self) -> None:
         ledger = self.pi_adapter.operation_ledger
         if (
-            ledger.operation_count + ledger.maximum_operations_per_invocation
+            ledger.conservative_operation_count + ledger.maximum_operations_per_invocation
             > ledger.maximum_operations
         ):
             raise ProviderTransportError(

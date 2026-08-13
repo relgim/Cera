@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -285,6 +286,104 @@ class PiSceneCompletionContractTests(unittest.TestCase):
             self.assertEqual(metrics.provider_operations_completed, 2)
             self.assertEqual(metrics.duration_ms, 125)
             self.assertEqual(metrics.failure_category, category.value)
+
+
+class PiProviderOperationLedgerTests(unittest.TestCase):
+    def test_concurrent_reservations_cannot_exceed_global_operation_ceiling(self) -> None:
+        with TemporaryDirectory() as temporary:
+            ledger = PiProviderOperationLedger(
+                (Path(temporary) / "provider_operations.jsonl").resolve(),
+                maximum_operations=48,
+                maximum_operations_per_invocation=2,
+            )
+
+            def reserve(index: int) -> str:
+                return ledger.begin(
+                    candidate_id=f"candidate-{index}",
+                    purpose="writer",
+                    route="ordinary",
+                    request_sha256=text_sha256(f"request-{index}"),
+                )
+
+            successes: list[str] = []
+            failures = 0
+            with ThreadPoolExecutor(max_workers=25) as pool:
+                futures = [pool.submit(reserve, index) for index in range(25)]
+                for future in futures:
+                    try:
+                        successes.append(future.result())
+                    except StateConflictError:
+                        failures += 1
+
+            self.assertEqual((len(successes), failures), (24, 1))
+            self.assertEqual(len(set(successes)), 24)
+            self.assertEqual(ledger.operation_count, 0)
+            self.assertEqual(ledger.conservative_operation_count, 48)
+
+    def test_unresolved_reservation_survives_restart_until_terminal_event(self) -> None:
+        with TemporaryDirectory() as temporary:
+            path = (Path(temporary) / "provider_operations.jsonl").resolve()
+            ledger = PiProviderOperationLedger(
+                path,
+                maximum_operations=4,
+                maximum_operations_per_invocation=2,
+            )
+            first = ledger.begin(
+                candidate_id="candidate-first",
+                purpose="writer",
+                route="ordinary",
+                request_sha256=text_sha256("request-first"),
+            )
+            self.assertEqual((ledger.operation_count, ledger.conservative_operation_count), (0, 2))
+
+            resumed = PiProviderOperationLedger(
+                path,
+                maximum_operations=4,
+                maximum_operations_per_invocation=2,
+            )
+            second = resumed.begin(
+                candidate_id="candidate-second",
+                purpose="writer",
+                route="ordinary",
+                request_sha256=text_sha256("request-second"),
+            )
+            with self.assertRaisesRegex(StateConflictError, "reservation would exceed"):
+                resumed.begin(
+                    candidate_id="candidate-blocked",
+                    purpose="writer",
+                    route="ordinary",
+                    request_sha256=text_sha256("request-blocked"),
+                )
+
+            resumed.observe_line(second, json.dumps({"type": "turn_start"}))
+            resumed.finish(second, status="failed", duration_ms=0)
+            restarted = PiProviderOperationLedger(
+                path,
+                maximum_operations=4,
+                maximum_operations_per_invocation=2,
+            )
+            self.assertEqual(
+                (restarted.operation_count, restarted.conservative_operation_count), (1, 3)
+            )
+            with self.assertRaisesRegex(StateConflictError, "reservation would exceed"):
+                restarted.begin(
+                    candidate_id="candidate-still-blocked",
+                    purpose="writer",
+                    route="ordinary",
+                    request_sha256=text_sha256("request-still-blocked"),
+                )
+
+            restarted.finish(first, status="failed", duration_ms=0)
+            third = restarted.begin(
+                candidate_id="candidate-third",
+                purpose="writer",
+                route="ordinary",
+                request_sha256=text_sha256("request-third"),
+            )
+            self.assertTrue(third.startswith("piop-"))
+            self.assertEqual(
+                (restarted.operation_count, restarted.conservative_operation_count), (1, 3)
+            )
 
 
 def _stream(*tool_events: dict[str, object]) -> str:

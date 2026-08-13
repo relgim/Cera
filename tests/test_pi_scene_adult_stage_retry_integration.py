@@ -20,6 +20,7 @@ from cera.errors import ErrorCode
 from cera.pi_scene.adult_operation_store import ProtectedAdultOperationStore
 from cera.pi_scene.adult_orchestration import PreparedAdultRouteOperationV1
 from cera.pi_scene.adult_stage_retry_integration import (
+    AdultPiStageAttemptOwnerFactoryV1,
     AdultStageRetryContinuationServiceV1,
     AdultStageRetryCoordinatorV1,
     AdultStageRetryExecutionInputV1,
@@ -313,6 +314,36 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
             operation_ledger=self.ledger,
             process_runner=runner,  # type: ignore[arg-type]
         )
+
+    def test_budget_precheck_counts_unresolved_durable_reservation(self) -> None:
+        ledger = PiProviderOperationLedger(
+            self.protected_root / "BUDGET_PRECHECK_LEDGER.jsonl",
+            maximum_operations=6,
+            maximum_operations_per_invocation=6,
+        )
+        ledger.begin(
+            candidate_id="candidate:adult-budget-reservation",
+            purpose=ProviderStage.ADULT_SCENE.value,
+            route="adult",
+            request_sha256=text_sha256("adult-budget-reservation"),
+        )
+        adapter = PiSceneAdapter(
+            pi_executable=self.executable,
+            extension_path=self.extension,
+            pi_version="0.50.2",
+            operation_ledger=ledger,
+        )
+        owner_factory = AdultPiStageAttemptOwnerFactoryV1(
+            stage=ProviderStage.ADULT_SCENE,
+            pi_adapter=adapter,
+            protected_runtime_root=self.protected_root / "budget-precheck",
+        )
+
+        with self.assertRaises(ProviderTransportError) as captured:
+            owner_factory._assert_budget_available()
+
+        self.assertEqual(captured.exception.code, ErrorCode.PROVIDER_BUDGET_EXCEEDED)
+        self.assertEqual(captured.exception.external_provider_calls_observed, 0)
 
     def _service(
         self,
