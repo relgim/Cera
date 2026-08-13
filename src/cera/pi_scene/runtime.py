@@ -3288,7 +3288,13 @@ def _writer_prompt(
     return (
         f"{base} This is the only complete repair attempt. The prior candidate "
         f"was rejected for {conflict.conflict_class.value} at {target}: "
-        f"{conflict.concise_explanation} Produce a fresh complete scene from "
+        f"{conflict.concise_explanation} The cited conflict is the repair target, not a "
+        "replacement for any other authority in the unchanged Writer view. Before returning, "
+        "silently re-audit the entire fresh scene: preserve every cast or capability "
+        "restriction and every continuously held boundary without a temporary breach, and "
+        "end the output immediately at the required final beat with no aftermath, waiting, "
+        "ambience, summary, or restatement. "
+        "Produce a fresh complete scene from "
         "the unchanged Writer view; do not quote, patch, or continue the rejected prose."
     )
 

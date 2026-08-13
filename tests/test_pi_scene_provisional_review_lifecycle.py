@@ -47,6 +47,18 @@ from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from tests.test_pi_scene_lean_v1 import FakePi, turn
 from tests.test_pi_scene_semantic_runtime import _CognitionPlanner
 
+_GENERIC_WRITER_PROMPT = (
+    "Call context exactly once, use its complete confined Writer view, "
+    "then produce the complete scene now without another tool call."
+)
+_REPAIR_WHOLE_SCENE_AUDIT = (
+    "The cited conflict is the repair target, not a replacement for any other authority "
+    "in the unchanged Writer view. Before returning, silently re-audit the entire fresh "
+    "scene: preserve every cast or capability restriction and every continuously held "
+    "boundary without a temporary breach, and end the output immediately at the required "
+    "final beat with no aftermath, waiting, ambience, summary, or restatement."
+)
+
 
 class _UnusedReader:
     def validate(self, _request: object, _custody: object) -> object:
@@ -871,13 +883,13 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 "The candidate omitted one planned decision.",
                 repair_prompt,
             )
+            self.assertEqual(repair_prompt.count(_REPAIR_WHOLE_SCENE_AUDIT), 1)
             self.assertEqual(retry.planner.calls, 1)
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "writer"])
+            self.assertEqual(retry.writer_occurrences, 2)
 
     def test_manual_pass_and_reader_only_regenerate_keep_generic_writer_prompt(self) -> None:
-        generic_prompt = (
-            "Call context exactly once, use its complete confined Writer view, "
-            "then produce the complete scene now without another tool call."
-        )
+        self.assertEqual(_writer_prompt(None), _GENERIC_WRITER_PROMPT)
         cases = (
             ("manual_pass", ReaderStatus.ACCEPTED),
             ("reader_only_reject", ReaderStatus.REJECTED),
@@ -901,8 +913,11 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
 
                 self.assertIsNotNone(regenerated.successor)
                 self.assertIsNone(prepare.call_args.kwargs["repair_validation"])
-                self.assertEqual(pi.calls[-1].prompt, generic_prompt)
+                self.assertEqual(pi.calls[-1].prompt, _GENERIC_WRITER_PROMPT)
+                self.assertNotIn(_REPAIR_WHOLE_SCENE_AUDIT, pi.calls[-1].prompt)
                 self.assertEqual(retry.planner.calls, 1)
+                self.assertEqual([call.purpose for call in pi.calls], ["writer", "writer"])
+                self.assertEqual(retry.writer_occurrences, 2)
 
     def test_writer_repair_prompt_supports_quote_and_decision_anchors(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -943,6 +958,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 "The candidate indirectly attributed dialogue to Ted.",
                 quote_prompt,
             )
+            self.assertEqual(quote_prompt.count(_REPAIR_WHOLE_SCENE_AUDIT), 1)
 
             decision_key = "sakura_verify_before_access"
             plan = validation.request.cognition_plan
@@ -987,6 +1003,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 "The candidate weakened the keep-door-closed decision.",
                 decision_prompt,
             )
+            self.assertEqual(decision_prompt.count(_REPAIR_WHOLE_SCENE_AUDIT), 1)
 
     def test_pending_and_technical_blocked_states_reject_all_semantic_actions(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

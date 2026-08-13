@@ -345,7 +345,13 @@ try {
                 + json.dumps("\\" * 1_000)
                 + ": "
                 + ("\\" * 2_000)
-                + " Produce a fresh complete scene from the unchanged Writer view; do "
+                + " The cited conflict is the repair target, not a replacement for any other "
+                "authority in the unchanged Writer view. Before returning, silently re-audit "
+                "the entire fresh scene: preserve every cast or capability restriction and "
+                "every continuously held boundary without a temporary breach, and end the "
+                "output immediately at the required final beat with no aftermath, waiting, "
+                "ambience, summary, or restatement. "
+                "Produce a fresh complete scene from the unchanged Writer view; do "
                 "not quote, patch, or continue the rejected prose."
             ),
             "CERA_TEST_MAX_OUTPUT_TOKENS": str(
