@@ -949,12 +949,10 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             decision_plan = replace(
                 plan,
                 decision_records=tuple(
-                    replace(record, decision_key=decision_key)
-                    for record in plan.decision_records
+                    replace(record, decision_key=decision_key) for record in plan.decision_records
                 ),
                 decision_item_links=tuple(
-                    replace(link, decision_key=decision_key)
-                    for link in plan.decision_item_links
+                    replace(link, decision_key=decision_key) for link in plan.decision_item_links
                 ),
             )
             decision_request = replace(
