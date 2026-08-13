@@ -858,6 +858,18 @@ class PiSceneLeanTests(unittest.TestCase):
             "Contradict or weaken no planned action, relation, boundary, or postcondition",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
+        capability_rule = (
+            "Obey every cast or capability restriction in the current source and Planner "
+            "authority exactly; those restrictions override presentation freedom. "
+            "Do not assign speech, action, private state, intention, or newly asserted "
+            "presence to a character whom current authority excludes from that capability "
+            "in this continuation. Static continuity facts may be retained, but supporting "
+            "continuity alone does not authorize speech, action, private state, intention, "
+            "or newly asserted presence for any excluded, offstage, or background character."
+        )
+        self.assertIn(capability_rule, ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertEqual(ORDINARY_WRITER_SYSTEM_PROMPT.count(capability_rule), 1)
+        self.assertNotIn(capability_rule, ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn(
             "termination constraint the final meaningful beat",
             ORDINARY_WRITER_SYSTEM_PROMPT,
