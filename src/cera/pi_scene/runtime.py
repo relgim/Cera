@@ -1230,9 +1230,15 @@ class LeanPiSceneCoordinator:
             failures = tuple(
                 failure for failure in updated.validation_failures if failure.owner is not owner
             )
+            reconciled_phase = (
+                OrdinaryReviewPhase.VALIDATING
+                if not failures
+                else OrdinaryReviewPhase.VALIDATION_BLOCKED
+            )
             if owner is OrdinaryValidationOwner.LUNA and type(value) is (BoundSemanticValidationV1):
                 updated = replace(
                     updated,
+                    review_phase=reconciled_phase,
                     semantic_validation=value,
                     luna_provider_stage_retry_status=None,
                     validation_failures=failures,
@@ -1241,6 +1247,7 @@ class LeanPiSceneCoordinator:
             if owner is OrdinaryValidationOwner.READER and type(value) is (BoundReaderValidationV1):
                 updated = replace(
                     updated,
+                    review_phase=reconciled_phase,
                     reader_validation=value,
                     reader_provider_stage_retry_status=None,
                     validation_failures=failures,
@@ -1269,6 +1276,7 @@ class LeanPiSceneCoordinator:
             )
             updated = replace(
                 updated,
+                review_phase=OrdinaryReviewPhase.VALIDATION_BLOCKED,
                 validation_failures=(*failures, failure),
                 luna_provider_stage_retry_status=(
                     envelope
@@ -1282,14 +1290,6 @@ class LeanPiSceneCoordinator:
                 ),
             )
         if updated != review:
-            updated = replace(
-                updated,
-                review_phase=(
-                    OrdinaryReviewPhase.VALIDATING
-                    if not updated.validation_failures
-                    else OrdinaryReviewPhase.VALIDATION_BLOCKED
-                ),
-            )
             self._replace_review_durably(review, updated)
         if (
             updated.semantic_validation is not None
@@ -1382,6 +1382,16 @@ class LeanPiSceneCoordinator:
         review_id = binding_payload["review_id"]
         with self._lock:
             current = self._current_review(review_id)
+            remaining_failures = tuple(
+                failure
+                for failure in current.validation_failures
+                if failure.owner is not owner
+            )
+            resumed_phase = (
+                OrdinaryReviewPhase.VALIDATING
+                if not remaining_failures
+                else OrdinaryReviewPhase.VALIDATION_BLOCKED
+            )
             if owner is OrdinaryValidationOwner.LUNA:
                 if type(result) is not BoundSemanticValidationV1:
                     raise ContractValidationError("Luna recovery returned another result type")
@@ -1392,15 +1402,14 @@ class LeanPiSceneCoordinator:
                             "ordinary validation verdict changed after binding"
                         )
                     return current
+                if current.state is LeanReviewState.ACCEPTED:
+                    raise StateConflictError("accepted ordinary review lacks its lane verdict")
                 updated = replace(
                     current,
+                    review_phase=resumed_phase,
                     semantic_validation=result,
                     luna_provider_stage_retry_status=None,
-                    validation_failures=tuple(
-                        failure
-                        for failure in current.validation_failures
-                        if failure.owner is not owner
-                    ),
+                    validation_failures=remaining_failures,
                 )
             else:
                 if type(result) is not BoundReaderValidationV1:
@@ -1412,26 +1421,15 @@ class LeanPiSceneCoordinator:
                             "ordinary validation verdict changed after binding"
                         )
                     return current
+                if current.state is LeanReviewState.ACCEPTED:
+                    raise StateConflictError("accepted ordinary review lacks its lane verdict")
                 updated = replace(
                     current,
+                    review_phase=resumed_phase,
                     reader_validation=result,
                     reader_provider_stage_retry_status=None,
-                    validation_failures=tuple(
-                        failure
-                        for failure in current.validation_failures
-                        if failure.owner is not owner
-                    ),
+                    validation_failures=remaining_failures,
                 )
-            if current.state is LeanReviewState.ACCEPTED:
-                raise StateConflictError("accepted ordinary review lacks its lane verdict")
-            updated = replace(
-                updated,
-                review_phase=(
-                    OrdinaryReviewPhase.VALIDATING
-                    if not updated.validation_failures
-                    else OrdinaryReviewPhase.VALIDATION_BLOCKED
-                ),
-            )
             self._replace_review_durably(current, updated)
             if (
                 updated.semantic_validation is not None

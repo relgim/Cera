@@ -1,0 +1,365 @@
+CERA PAUSED HANDOFF FOR CHATGPT PRO
+===================================
+
+Snapshot date: 2026-08-13 (Pacific time)
+Status: PAUSED BY TED
+Purpose: Git-tracked, self-contained review checkpoint. This is not a claim
+that CERA qualification has passed.
+
+To identify this exact checkpoint after opening the repository:
+
+  git rev-parse HEAD
+  git status --short
+  git show --stat --oneline HEAD
+
+The parent release-candidate identity before the paused diagnostic change was:
+
+  commit: 6e292aa5ce4ce0be4f3176c1f698157491ca2635
+  tree:   de828acfe5bcb4aa17271ce1595ee92376399685
+
+
+1. FINAL OBJECTIVE (STILL INCOMPLETE)
+=====================================
+
+CERA must complete one genuine live qualification with:
+
+  Backend ordinary:       10/10
+  Backend adult:          10/10
+  SillyTavern ordinary:    5/5
+  SillyTavern adult:       5/5
+  Total:                  30/30
+
+Completion also requires:
+
+  - no hidden Retry, Regenerate, fallback, or model substitution;
+  - exact provider accounting;
+  - no protected-data leakage;
+  - no accepted-state or branch corruption;
+  - separately measured user-to-visible and stage latency;
+  - exact source, prompts, fixture, manifest, and result identities;
+  - the intended DeepSeek-capable adult architecture.
+
+Current result is NOT 30/30. Root X is spent at backend 0/20, before adult or
+SillyTavern phases began.
+
+
+2. CURRENT PAUSED CODE CHECKPOINT
+=================================
+
+The paused checkpoint contains one localized work-in-progress correction and
+its focused regression tests:
+
+  src/cera/pi_scene/runtime.py
+  tests/test_pi_scene_provisional_review_lifecycle.py
+
+Intended correction:
+
+  - When a manually recovered Luna or Reader result replaces a blocking lane
+    failure, update review_phase, lane result, retry status, and failure list in
+    one valid dataclass transition.
+  - Apply the same atomic transition to restart/local reconciliation.
+  - Preserve exact idempotent replay behavior and provider-free custody.
+
+Important qualification of this checkpoint:
+
+  - The root cause was reproduced exactly before the change.
+  - The code and tests were written, but Ted asked to pause before the
+    post-change reproduction and focused tests ran.
+  - Therefore this commit is deliberately a WIP diagnostic checkpoint, not a
+    tested release candidate.
+  - No complete gate and no new live root should be launched from it without
+    first running the focused proof described in Section 9.
+
+
+3. ROOT X RELEASE AND LIVE EVIDENCE
+===================================
+
+Final clean Root X release candidate before the paused WIP:
+
+  source commit: 6e292aa5ce4ce0be4f3176c1f698157491ca2635
+  source tree:   de828acfe5bcb4aa17271ce1595ee92376399685
+  fixture:       evaluation/fixtures/pi_scene_full_model_qualification_v19.json
+  fixture SHA:   dab0d4a9921a68869af8b3e688fdd1f9d354eb812786525a7424b52623a6e407
+  novelty SHA:   239b8f3699b2473d8128f90a17b31eece6205a571019d25af46f0edc9ff7f8df
+  manifest:      V22
+
+Root X provider-free release gate:
+
+  evidence root:
+    D:\Cera\q\provider-free-gate-root-x-6e292aa5-replacement-20260813-083846
+  elapsed:       24,414.578 seconds (6h 46m 54.578s)
+  Python:        2,102 tests; 2,096 passed; 6 expected skips; 0 fail/error
+  Node:          84/84 passed
+  Ruff/mypy/generated contracts/compile: passed
+  final checkout: exact and clean
+
+Telemetry caveat: Windows PowerShell serialized the child ExitCode field as
+null. The pass is instead proven by the complete unittest terminal text
+"Ran 2102" and "OK (skipped=6)", completed process/marker, zero later traceback,
+and exact clean postflight. The first gate attempt was separately preserved as
+an infrastructure wrapper abort and was not counted.
+
+Root X frozen live root:
+
+  root:          D:\Cera\q\c78-20260813-x
+  qualification: c78-auto-accept-live-20260813-v24
+  manifest self SHA: e243601c...d255
+  fixture/novelty: exact V19 values above
+  spent closure: 17 manifests, 17 fixture sets, 510 novelty IDs, 510 sources
+  provider-free check: 30 fixtures, provider_calls=0, PASS
+
+Root X live terminal result:
+
+  backend:       FAILED 0/20 on backend-ordinary-01
+  adult:         not started
+  SillyTavern:   not started
+  failure type:  StateConflictError / state_conflict
+  accepted state: unchanged; no accepted turn or Recorder write
+  root status:   spent; must not be resumed
+
+
+4. ROOT X PROVIDER ACCOUNTING AND LATENCY
+=========================================
+
+Exact live operation counts before fail-closed termination:
+
+  Sol operations submitted/charged/observed: 4/4/4
+    Planner: 1
+    Reader:  1
+    Luna:    2 (initial attempt plus one authorized exact retry)
+
+  DeepSeek HTTP operations: 2
+    Writer invocation: 1
+
+  External manual actions:       1
+  Provider Retry/control actions: 1
+  Automatic actions:             0
+  Regenerate actions:            0
+  Repair actions:                0
+
+The one manual action was checkpoint-bound and consumed exactly once. It
+redispatched Luna only; Planner, Writer, and Reader were not rerun.
+
+Measured provider timing:
+
+  Planner cold transport:             60.536s
+  Writer full invocation:             23.107s
+  Writer provider operations total:   11.841s
+  Reader:                             11.844s
+  Luna two attempts total:            84.954s
+  Luna average per attempt:           42.477s
+  Luna maximum attempt:               43.951s
+  All provider transport total:      169.175s
+
+A successful final visible-response latency is unavailable because the route
+failed before a successful terminal response. Do not present provider-transport
+sum as user-to-visible latency.
+
+
+5. EXACT ROOT X FAILURE AND REPRODUCED ROOT CAUSE
+=================================================
+
+Initial Luna attempt:
+
+  - provider completed, but output was classified provider_output_invalid;
+  - the ordinary review entered validation_blocked with one Luna failure and
+    an eligible exact provider_retry action.
+
+Authorized Luna attempt 2:
+
+  - produced a custody-valid BoundSemanticValidationV1;
+  - typed verdict was reject;
+  - automatic_repair_eligible=true;
+  - review_flags=0;
+  - the retry action POST and subsequent GET both returned HTTP 422;
+  - durable REVIEW_STATE remained validation_blocked with the old Luna failure.
+
+Provider-free reconstruction exposed the exact exception:
+
+  ContractValidationError: blocked ordinary validation lacks a failure
+
+Exact deterministic cause:
+
+  runtime.py resume_ordinary_validation_lane first called dataclasses.replace
+  to remove the sole Luna failure and bind the recovered result while leaving
+  review_phase=VALIDATION_BLOCKED. LeanReviewRecordV1.__post_init__ correctly
+  rejects a blocked review with no failure. Execution never reached the later
+  replace that was supposed to set review_phase=VALIDATING.
+
+The same invalid transient transition existed in restart/local reconciliation.
+
+This proves the incident was:
+
+  - a deterministic review-lane state-transition defect;
+  - not a Planner failure;
+  - not a Writer failure;
+  - not a Reader failure;
+  - not a false Luna semantic rejection;
+  - not a fixture defect;
+  - not provider-accounting loss.
+
+Constructing the intended final state in memory succeeded: validation_rejected,
+Python qualification present, gate reject, review_ready, and Regenerate enabled.
+
+
+6. ERRORS THAT OCCURRED AND CORRECTIONS ALREADY COMMITTED
+=========================================================
+
+The relevant committed history immediately before this WIP is:
+
+  c58c46c Enforce ordinary Writer cast capability
+    Fixed Root U's successor animating inactive/offstage cast from static state.
+
+  905d2e0 Rotate full-model qualification fixtures to V17
+
+  ba35e92 Re-audit full Writer authority during repair
+    Added repair-local whole-scene re-audit after Root V repaired one cited
+    defect but introduced a boundary breach and aftermath.
+
+  a831ca1 Rotate full-model qualification fixtures to V18
+
+  547d9dc Audit ordered Writer actions during repair
+    Strengthened the repair-tail audit so required actions must occur rather
+    than be promised/deferred, communication keeps speaker/addressee/channel,
+    held boundaries are never temporarily breached, and the final beat truly
+    ends the output. This followed Root W's moved failure class.
+
+  6e292aa Rotate full-model qualification fixtures to V19
+    Added a fresh V19/V22 qualification generation and preserved spent closure.
+
+Root X infrastructure issues that were corrected before live:
+
+  - First complete-gate wrapper treated normal unittest stderr progress as a
+    PowerShell terminating error. The preserved attempt was classified as an
+    infrastructure abort. Start-Process redirection fixed the replacement run.
+  - Direct launch was initially blocked by PowerShell execution policy.
+  - Login preflights falsely rejected a valid ChatGPT login because of Windows
+    PowerShell .cmd/ExitCode capture behavior. The final packet used the proven
+    hidden Start-Process -Wait -PassThru + Refresh pattern.
+  - A monitor briefly misclassified process absence due to a malformed
+    PowerShell predicate, retracted it, and then required correctly formed
+    repeated checks. No duplicate root was launched.
+
+None of those infrastructure events counted as a provider qualification or
+changed accepted story state.
+
+
+7. CURRENT CONCERNS AND HONEST LIMITS
+=====================================
+
+1. The paused atomic-transition patch has not yet passed its post-change exact
+   reproduction or focused tests.
+
+2. Recent live roots U, V, W, and X each stopped on their first backend fixture,
+   but on different failure classes. That is 4/4 recent campaigns with an early
+   blocker; it is not a statistically valid claim that every fixture has a
+   100-percent defect rate.
+
+3. The exact Root X retry/rejoin path failed 1/1 time it was exercised. Because
+   the cause is deterministic, it should recur whenever the same last-blocking
+   lane recovery transition occurs on the unpatched code.
+
+4. No meaningful per-fixture bug probability can be inferred yet: each campaign
+   is censored at the first failure, so later fixtures were never observed.
+
+5. A provider-free green gate proves contracts and tests, not model-output
+   quality. A new live root is still required after focused proof and a final
+   release gate.
+
+6. Validators must not be weakened to obtain 30/30. The Root X typed Luna reject
+   must remain a real semantic rejection and should lead to governed Regenerate,
+   not be converted to a pass.
+
+7. DeepSeek remains the ordinary and protected adult Writer route. No fallback
+   or model substitution is authorized merely to improve pass rate.
+
+
+8. TIMING FOR EXISTING AND NEW SESSIONS
+=======================================
+
+These are observations/planning estimates, not service guarantees.
+
+Completed provider-free gates:
+
+  Root U:  92.5 minutes
+  Root V:  99.4 minutes
+  Root W: 169.8 minutes
+  Root X: 406.9 minutes
+
+  Four-gate average: about 192.2 minutes (3h 12m)
+  Range: 92.5 to 406.9 minutes
+
+Historical fresh freeze + provider-free check before live:
+
+  Root V:  7m 08s
+  Root W: 10m 39s
+  Average of V/W: 8m 53s
+
+Root X freeze/check was approximately 12 minutes based on monitor timestamps.
+
+Historical new initialized live root to first manual checkpoint, excluding
+freeze/check:
+
+  Root V: 4m 26s
+  Root W: 5m 17s
+  Average of V/W: about 4m 52s
+
+Root X took roughly eight minutes from live start to its Luna retry checkpoint;
+this is approximate because the monitor evidence was milestone-timestamped.
+
+Historical already-initialized session after exact approval to successor
+terminal result:
+
+  Root V: about 56s
+  Root W: about 61s
+  Average: about 58s
+
+Root X's Luna-only approved retry was also roughly one minute end-to-end. This
+does not authorize reuse of a spent root; it only shows the latency difference.
+
+ChatGPT Pro review-task planning estimates (not provider telemetry):
+
+  Existing task with prior context: approximately 5-15 minutes for first review.
+  New task using this file:         approximately 10-25 minutes for ingestion,
+                                    assessment, and follow-up questions.
+
+
+9. PRECISE RESUME PLAN
+======================
+
+Do not resume Root X. It is spent.
+
+First, on this paused WIP commit:
+
+  1. Run the exact frozen Root X attempt-2 typed result through the provider-free
+     resume path. It must no longer throw HTTP/contract 422.
+  2. Confirm final durable state is validation_rejected/review_ready with Python
+     qualification, exact Luna reject, Reader accepted, and Regenerate enabled.
+  3. Run both new focused lifecycle regressions for Luna and Reader direct resume.
+  4. Run both restart-reconciliation variants with zero provider dispatch.
+  5. Verify idempotent exact-result replay and remaining-peer-failure behavior.
+  6. Run compile, Ruff, mypy for changed files, then the retry/custody subsystem.
+
+Only if those pass:
+
+  7. Freeze the correction as a clean commit.
+  8. Run one complete provider-free release gate because this is a shared
+     runtime state-transition contract.
+  9. Rotate to one fresh fixture/manifest/root generation with spent closure.
+ 10. Run genuine live qualification and continue until exact 30/30 or diagnose
+     the next failure using the smallest responsible stage.
+
+
+10. PAUSE BOUNDARY
+==================
+
+At this checkpoint:
+
+  - active diagnostic and audit agents were interrupted;
+  - no qualification, provider, focused-test, or full-gate process remains;
+  - no new provider call was made during the Root X diagnosis;
+  - no new live root was created;
+  - no accepted story/canon state was changed;
+  - the WIP correction and this handoff are saved in Git for review.
+
+End of handoff.
