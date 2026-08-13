@@ -146,6 +146,10 @@ class SemanticValidationContractTests(unittest.TestCase):
         )
         rendered = repr(schema)
         self.assertIn("sakura_door_response", rendered)
+        exact_quote = branches[1]["properties"]["conflict"]["properties"]["exact_quote"]
+        self.assertIn("verbatim contiguous substring", exact_quote["description"])
+        self.assertIn("Never paraphrase", exact_quote["description"])
+        self.assertIn("add ellipses", exact_quote["description"])
         for forbidden in (
             "candidate_id",
             "world_id",
@@ -154,6 +158,25 @@ class SemanticValidationContractTests(unittest.TestCase):
             "automatic_repair_eligible",
         ):
             self.assertNotIn(forbidden, rendered)
+
+    def test_spliced_quote_with_ellipsis_still_fails_exact_binding(self) -> None:
+        request = _request()
+        verdict = SemanticValidationVerdictV1(
+            schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
+            verdict=SemanticVerdict.REJECT,
+            conflict=SemanticConflictV1(
+                conflict_class=SemanticConflictClass.PRESENCE_VIOLATION,
+                concise_explanation="Two real fragments were incorrectly joined.",
+                exact_quote='Sakura kept one hand off the latch. ... "Who is outside?"',
+                decision_key="sakura_door_response",
+            ),
+        )
+        with self.assertRaisesRegex(ContractValidationError, "quote is not exact"):
+            BoundSemanticValidationV1(
+                request=request,
+                custody=_custody(request),
+                verdict=verdict,
+            )
 
     def test_closed_decoder_rejects_coercion_and_unknown_fields(self) -> None:
         payload = {

@@ -32,7 +32,15 @@ def semantic_verdict_json_schema(*, decision_keys: tuple[str, ...]) -> dict[str,
                 "enum": [value.value for value in SemanticConflictClass],
             },
             "concise_explanation": {"type": "string", "minLength": 1},
-            "exact_quote": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+            "exact_quote": {
+                "description": (
+                    "When non-null, copy one shortest verbatim contiguous substring "
+                    "byte-for-byte from exact_candidate_prose. Never paraphrase, join "
+                    "fragments, normalize, abridge, or add ellipses; use null when a "
+                    "valid decision_key alone truthfully anchors the conflict."
+                ),
+                "oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}],
+            },
             "decision_key": decision_key,
         }
     )

@@ -21,7 +21,10 @@ from cera.semantic_validation import (
     SemanticValidationVerdictV1,
     SemanticVerdict,
 )
-from cera.semantic_validation.prompting import LUNA_VALIDATOR_PROFILE
+from cera.semantic_validation.prompting import (
+    LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+    LUNA_VALIDATOR_PROFILE,
+)
 from cera.semantic_validation.provider import (
     FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS,
     FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID,
@@ -113,20 +116,27 @@ class SemanticValidationProviderTests(unittest.TestCase):
         route = luna_validator_route()
         self.assertEqual(
             LUNA_VALIDATOR_ADAPTER,
-            "cera.semantic_validation.luna_adapter.v3",
+            "cera.semantic_validation.luna_adapter.v4",
         )
-        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v1")
-        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v1")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v3")
+        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v2")
+        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v2")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v4")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
         self.assertEqual(route.maximum_output_tokens, 4_096)
+        self.assertIn("verbatim contiguous substring", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn("never paraphrase", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn("add ellipses", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
 
     def test_full_model_qualification_route_changes_only_identity_and_output_budget(self) -> None:
         production_route = luna_validator_route()
         qualification_route = full_model_qualification_luna_validator_route()
 
         self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
+        self.assertEqual(
+            qualification_route.route_id,
+            "cera_full_model_qualification_semantic_validator_luna_xhigh_v2",
+        )
         self.assertEqual(
             qualification_route,
             replace(
