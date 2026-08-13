@@ -2119,6 +2119,12 @@ class LeanPiSceneCoordinator:
             if review.candidate.route is SceneRoute.ORDINARY:
                 replacement_base = self._replacement_base_for_candidate(review.candidate)
                 authority, validation_evidence = self._regeneration_authority_and_evidence(review)
+                repair_validation = (
+                    review.semantic_validation
+                    if review.semantic_validation is not None
+                    and review.semantic_validation.verdict.automatic_repair_eligible
+                    else None
+                )
                 successor = self._prepare_review(
                     replacement_turn,
                     route=SceneRoute.ORDINARY,
@@ -2127,6 +2133,7 @@ class LeanPiSceneCoordinator:
                     regenerated_from_candidate_id=review.candidate.candidate_id,
                     creator_guidance=guidance,
                     force_rehydrate=force_rehydrate,
+                    repair_validation=repair_validation,
                     replacement_base=replacement_base,
                 )
                 successor = (

@@ -852,6 +852,23 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("Requested scene development:", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Presentation freedom:", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Ted autonomy and output:", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Final silent invariant audit:", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Realize every surface item", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "Contradict or weaken no planned action, relation, boundary, or postcondition",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "termination constraint the final meaningful beat",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertIn("pronoun or unnamed description", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("indirect attribution", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "may not substitute a near-equivalent that changes an authorized boundary",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertNotIn("Final silent invariant audit:", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertEqual(
             ORDINARY_WRITER_SYSTEM_PROMPT.count("unplanned relation change"),
             1,

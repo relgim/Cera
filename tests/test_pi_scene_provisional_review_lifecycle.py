@@ -26,6 +26,7 @@ from cera.pi_scene.review_lifecycle import (
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
     OrdinaryWriterCandidateOccurrenceV1,
+    _writer_prompt,
 )
 from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.writer_view import WriterViewMaterializer
@@ -841,6 +842,153 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             accepted = coordinator.accept(review.review_id, acceptance_action="accept")
             self.assertEqual(accepted.review.state, "accepted")
             self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
+
+    def test_rejected_manual_regenerate_carries_exact_bound_conflict_to_writer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, pi, retry = self._runtime(
+                Path(temporary),
+                luna=SemanticVerdict.REJECT,
+            )
+            frozen = coordinator.start_ordinary(_turn(mode="manual"))
+            rejected = coordinator.begin_ordinary_validation(frozen.review_id)
+            validation = rejected.semantic_validation
+            self.assertIsNotNone(validation)
+            assert validation is not None
+
+            with patch.object(
+                coordinator,
+                "_prepare_review",
+                wraps=coordinator._prepare_review,
+            ) as prepare:
+                regenerated = coordinator.regenerate(rejected.review_id)
+
+            self.assertIsNotNone(regenerated.successor)
+            self.assertIs(prepare.call_args.kwargs["repair_validation"], validation)
+            repair_prompt = pi.calls[-1].prompt
+            self.assertIn("rejected for omitted_decision", repair_prompt)
+            self.assertIn("decision sakura_door_response", repair_prompt)
+            self.assertIn(
+                "The candidate omitted one planned decision.",
+                repair_prompt,
+            )
+            self.assertEqual(retry.planner.calls, 1)
+
+    def test_manual_pass_and_reader_only_regenerate_keep_generic_writer_prompt(self) -> None:
+        generic_prompt = (
+            "Call context exactly once, use its complete confined Writer view, "
+            "then produce the complete scene now without another tool call."
+        )
+        cases = (
+            ("manual_pass", ReaderStatus.ACCEPTED),
+            ("reader_only_reject", ReaderStatus.REJECTED),
+        )
+        for label, reader_status in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                coordinator, _store, pi, retry = self._runtime(
+                    Path(temporary),
+                    luna=SemanticVerdict.PASS,
+                    reader=reader_status,
+                )
+                frozen = coordinator.start_ordinary(_turn(mode="manual"))
+                review = coordinator.begin_ordinary_validation(frozen.review_id)
+
+                with patch.object(
+                    coordinator,
+                    "_prepare_review",
+                    wraps=coordinator._prepare_review,
+                ) as prepare:
+                    regenerated = coordinator.regenerate(review.review_id)
+
+                self.assertIsNotNone(regenerated.successor)
+                self.assertIsNone(prepare.call_args.kwargs["repair_validation"])
+                self.assertEqual(pi.calls[-1].prompt, generic_prompt)
+                self.assertEqual(retry.planner.calls, 1)
+
+    def test_writer_repair_prompt_supports_quote_and_decision_anchors(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, pi, _retry = self._runtime(
+                Path(temporary),
+                luna=SemanticVerdict.REJECT,
+            )
+            pi.writer_outputs.append("ROOT_T_QUOTE_SENTINEL")
+            frozen = coordinator.start_ordinary(_turn(mode="manual"))
+            rejected = coordinator.begin_ordinary_validation(frozen.review_id)
+            validation = rejected.semantic_validation
+            self.assertIsNotNone(validation)
+            assert validation is not None
+
+            quote_validation = BoundSemanticValidationV1(
+                request=validation.request,
+                custody=validation.custody,
+                verdict=SemanticValidationVerdictV1(
+                    schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
+                    verdict=SemanticVerdict.REJECT,
+                    conflict=SemanticConflictV1(
+                        conflict_class=SemanticConflictClass.PROTECTED_USER_DIALOGUE,
+                        concise_explanation=(
+                            "The candidate indirectly attributed dialogue to Ted."
+                        ),
+                        exact_quote="ROOT_T_QUOTE_SENTINEL",
+                        decision_key=None,
+                    ),
+                ),
+            )
+            quote_prompt = _writer_prompt(quote_validation)
+            self.assertIn("rejected for protected_user_dialogue", quote_prompt)
+            self.assertIn(
+                'the exact candidate phrase "ROOT_T_QUOTE_SENTINEL"',
+                quote_prompt,
+            )
+            self.assertIn(
+                "The candidate indirectly attributed dialogue to Ted.",
+                quote_prompt,
+            )
+
+            decision_key = "sakura_verify_before_access"
+            plan = validation.request.cognition_plan
+            decision_plan = replace(
+                plan,
+                decision_records=tuple(
+                    replace(record, decision_key=decision_key)
+                    for record in plan.decision_records
+                ),
+                decision_item_links=tuple(
+                    replace(link, decision_key=decision_key)
+                    for link in plan.decision_item_links
+                ),
+            )
+            decision_request = replace(
+                validation.request,
+                cognition_plan=decision_plan,
+            )
+            decision_custody = replace(
+                validation.custody,
+                cognition_plan_sha256=canonical_sha256(decision_plan),
+                validation_request_sha256=canonical_sha256(decision_request),
+            )
+            decision_validation = BoundSemanticValidationV1(
+                request=decision_request,
+                custody=decision_custody,
+                verdict=SemanticValidationVerdictV1(
+                    schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
+                    verdict=SemanticVerdict.REJECT,
+                    conflict=SemanticConflictV1(
+                        conflict_class=SemanticConflictClass.CONTRADICTED_DECISION,
+                        concise_explanation=(
+                            "The candidate weakened the keep-door-closed decision."
+                        ),
+                        exact_quote=None,
+                        decision_key=decision_key,
+                    ),
+                ),
+            )
+            decision_prompt = _writer_prompt(decision_validation)
+            self.assertIn("rejected for contradicted_decision", decision_prompt)
+            self.assertIn(f"decision {decision_key}", decision_prompt)
+            self.assertIn(
+                "The candidate weakened the keep-door-closed decision.",
+                decision_prompt,
+            )
 
     def test_pending_and_technical_blocked_states_reject_all_semantic_actions(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
