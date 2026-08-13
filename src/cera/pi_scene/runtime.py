@@ -1383,9 +1383,7 @@ class LeanPiSceneCoordinator:
         with self._lock:
             current = self._current_review(review_id)
             remaining_failures = tuple(
-                failure
-                for failure in current.validation_failures
-                if failure.owner is not owner
+                failure for failure in current.validation_failures if failure.owner is not owner
             )
             resumed_phase = (
                 OrdinaryReviewPhase.VALIDATING

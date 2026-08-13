@@ -106,7 +106,7 @@ class _LifecycleRetryPort:
         self.entered = {"luna": Event(), "reader": Event()}
         self.release_reader = Event()
         self.release_reader.set()
-        self.fail_lane: str | None = None
+        self.fail_lane: str | set[str] | None = None
         self.writer_occurrences = 0
         self.next_provider_operations = {"luna": 1, "reader": 1}
         self.provider_operations_by_chain: dict[str, int] = {}
@@ -235,7 +235,9 @@ class _LifecycleRetryPort:
         if prepared.lane == "reader":
             if not self.release_reader.wait(timeout=5):
                 raise AssertionError("test did not release the Reader lane")
-        if self.fail_lane == prepared.lane:
+        if self.fail_lane == prepared.lane or (
+            isinstance(self.fail_lane, set) and prepared.lane in self.fail_lane
+        ):
             raise RuntimeError("injected validation runtime failure")
 
     def dispatch_prepared_semantic_validator(
@@ -296,10 +298,10 @@ class _LifecycleRetryPort:
         return self.dispatch_prepared_semantic_validator(self._prepare("luna", request, custody))
 
     def reconcile_semantic_validator(self, chain_id: str) -> object:
-        return self.results[chain_id]
+        return self.results.get(chain_id, self.status(chain_id))
 
     def reconcile_reader(self, chain_id: str) -> object:
-        return self.results[chain_id]
+        return self.results.get(chain_id, self.status(chain_id))
 
 
 class _ActiveRecorderReviewPort:
@@ -1176,6 +1178,92 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 self.assertEqual(tuple(retry.dispatch_order), dispatch_order)
                 self.assertEqual(restarted_pi.calls, [])
                 self.assertEqual([call.purpose for call in pi.calls], ["writer"])
+
+    def test_lane_recovery_preserves_a_remaining_peer_failure(self) -> None:
+        for recovery_path in ("resume", "restart"):
+            for recovered_lane in (
+                OrdinaryValidationOwner.LUNA.value,
+                OrdinaryValidationOwner.READER.value,
+            ):
+                with (
+                    self.subTest(
+                        recovery_path=recovery_path,
+                        recovered_lane=recovered_lane,
+                    ),
+                    tempfile.TemporaryDirectory() as temporary,
+                ):
+                    root = Path(temporary)
+                    coordinator, _store, pi, retry = self._runtime(
+                        root,
+                        luna=SemanticVerdict.REJECT,
+                    )
+                    retry.fail_lane = {
+                        OrdinaryValidationOwner.LUNA.value,
+                        OrdinaryValidationOwner.READER.value,
+                    }
+                    frozen = coordinator.start_ordinary(_turn())
+                    blocked = coordinator.begin_ordinary_validation(frozen.review_id)
+                    self.assertEqual(
+                        {failure.owner.value for failure in blocked.validation_failures},
+                        {
+                            OrdinaryValidationOwner.LUNA.value,
+                            OrdinaryValidationOwner.READER.value,
+                        },
+                    )
+
+                    result = self._recovered_lane_result(retry, recovered_lane)
+                    chain_id = retry.prepared[recovered_lane].scope.identity.chain_id
+                    dispatch_order = tuple(retry.dispatch_order)
+                    restarted_pi = None
+                    if recovery_path == "resume":
+                        active = coordinator
+                        recovered = active.resume_ordinary_validation_lane(
+                            chain_id=chain_id,
+                            lane=recovered_lane,
+                            result=result,
+                        )
+                        replay = active.resume_ordinary_validation_lane(
+                            chain_id=chain_id,
+                            lane=recovered_lane,
+                            result=result,
+                        )
+                    else:
+                        retry.results[chain_id] = result
+                        active, _store, restarted_pi, _unused_retry = self._runtime(
+                            root,
+                            luna=SemanticVerdict.REJECT,
+                        )
+                        active.ordinary_stage_retry = retry  # type: ignore[assignment]
+                        recovered = active.reconcile_ordinary_review(frozen.review_id)
+                        replay = active.reconcile_ordinary_review(frozen.review_id)
+
+                    peer_lane = (
+                        OrdinaryValidationOwner.READER.value
+                        if recovered_lane == OrdinaryValidationOwner.LUNA.value
+                        else OrdinaryValidationOwner.LUNA.value
+                    )
+                    self.assertEqual(replay, recovered)
+                    self.assertIs(
+                        recovered.review_phase,
+                        OrdinaryReviewPhase.VALIDATION_BLOCKED,
+                    )
+                    self.assertEqual(
+                        tuple(failure.owner.value for failure in recovered.validation_failures),
+                        (peer_lane,),
+                    )
+                    self.assertIsNone(recovered.python_qualification)
+                    if recovered_lane == OrdinaryValidationOwner.LUNA.value:
+                        self.assertEqual(recovered.semantic_validation, result)
+                        self.assertIsNone(recovered.reader_validation)
+                        self.assertIsNone(recovered.luna_provider_stage_retry_status)
+                    else:
+                        self.assertEqual(recovered.reader_validation, result)
+                        self.assertIsNone(recovered.semantic_validation)
+                        self.assertIsNone(recovered.reader_provider_stage_retry_status)
+                    self.assertEqual(tuple(retry.dispatch_order), dispatch_order)
+                    self.assertEqual([call.purpose for call in pi.calls], ["writer"])
+                    if restarted_pi is not None:
+                        self.assertEqual(restarted_pi.calls, [])
 
     def test_v2_creator_guidance_is_hash_only(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
