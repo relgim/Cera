@@ -53,10 +53,15 @@ _GENERIC_WRITER_PROMPT = (
 )
 _REPAIR_WHOLE_SCENE_AUDIT = (
     "The cited conflict is the repair target, not a replacement for any other authority "
-    "in the unchanged Writer view. Before returning, silently re-audit the entire fresh "
-    "scene: preserve every cast or capability restriction and every continuously held "
-    "boundary without a temporary breach, and end the output immediately at the required "
-    "final beat with no aftermath, waiting, ambience, summary, or restatement."
+    "in the unchanged Writer view. Produce a fresh complete scene from the unchanged Writer "
+    "view; do not quote, patch, or continue the rejected prose. Before returning, silently "
+    "re-audit the entire fresh scene against every ordered surface_realization_item: each "
+    "required action must actually occur rather than be promised, intended, summarized, or "
+    "deferred; every required communication must preserve its authorized speaker, addressee, "
+    "and channel; preserve every cast or capability restriction and every continuously held "
+    "boundary without a temporary breach; and make the required final beat the output's final "
+    "sentence or paragraph, with no aftermath, waiting, ambience, summary, restatement, or "
+    "other content after it."
 )
 
 
@@ -890,6 +895,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
 
     def test_manual_pass_and_reader_only_regenerate_keep_generic_writer_prompt(self) -> None:
         self.assertEqual(_writer_prompt(None), _GENERIC_WRITER_PROMPT)
+        self.assertNotIn(_REPAIR_WHOLE_SCENE_AUDIT, _writer_prompt(None))
         cases = (
             ("manual_pass", ReaderStatus.ACCEPTED),
             ("reader_only_reject", ReaderStatus.REJECTED),
@@ -959,6 +965,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 quote_prompt,
             )
             self.assertEqual(quote_prompt.count(_REPAIR_WHOLE_SCENE_AUDIT), 1)
+            self.assertTrue(quote_prompt.endswith(_REPAIR_WHOLE_SCENE_AUDIT))
 
             decision_key = "sakura_verify_before_access"
             plan = validation.request.cognition_plan
@@ -1004,6 +1011,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 decision_prompt,
             )
             self.assertEqual(decision_prompt.count(_REPAIR_WHOLE_SCENE_AUDIT), 1)
+            self.assertTrue(decision_prompt.endswith(_REPAIR_WHOLE_SCENE_AUDIT))
 
     def test_pending_and_technical_blocked_states_reject_all_semantic_actions(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

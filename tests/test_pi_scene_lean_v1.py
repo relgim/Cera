@@ -346,13 +346,16 @@ try {
                 + ": "
                 + ("\\" * 2_000)
                 + " The cited conflict is the repair target, not a replacement for any other "
-                "authority in the unchanged Writer view. Before returning, silently re-audit "
-                "the entire fresh scene: preserve every cast or capability restriction and "
-                "every continuously held boundary without a temporary breach, and end the "
-                "output immediately at the required final beat with no aftermath, waiting, "
-                "ambience, summary, or restatement. "
-                "Produce a fresh complete scene from the unchanged Writer view; do "
-                "not quote, patch, or continue the rejected prose."
+                "authority in the unchanged Writer view. Produce a fresh complete scene from "
+                "the unchanged Writer view; do not quote, patch, or continue the rejected "
+                "prose. Before returning, silently re-audit the entire fresh scene against "
+                "every ordered surface_realization_item: each required action must actually "
+                "occur rather than be promised, intended, summarized, or deferred; every "
+                "required communication must preserve its authorized speaker, addressee, and "
+                "channel; preserve every cast or capability restriction and every continuously "
+                "held boundary without a temporary breach; and make the required final beat "
+                "the output's final sentence or paragraph, with no aftermath, waiting, "
+                "ambience, summary, restatement, or other content after it."
             ),
             "CERA_TEST_MAX_OUTPUT_TOKENS": str(
                 deepseek_composer_candidate().maximum_output_tokens
