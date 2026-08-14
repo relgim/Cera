@@ -5977,6 +5977,8 @@ class FullModelQualificationTests(unittest.TestCase):
             historical_v29.write_bytes(HISTORICAL_FIXTURES_V29.read_bytes())
             historical_v30 = root / HISTORICAL_FIXTURES_V30.name
             historical_v30.write_bytes(HISTORICAL_FIXTURES_V30.read_bytes())
+            historical_v31 = root / HISTORICAL_FIXTURES_V31.name
+            historical_v31.write_bytes(HISTORICAL_FIXTURES_V31.read_bytes())
             manifest = build_qualification_manifest(
                 repository_root=root,
                 qualification_id="qualification-test-20260809",
@@ -6017,6 +6019,7 @@ class FullModelQualificationTests(unittest.TestCase):
                         Path(HISTORICAL_FIXTURES_V28.name),
                         Path(HISTORICAL_FIXTURES_V29.name),
                         Path(HISTORICAL_FIXTURES_V30.name),
+                        Path(HISTORICAL_FIXTURES_V31.name),
                     )
                 },
                 external_artifacts={"external": (artifact,)},
