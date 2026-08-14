@@ -55,6 +55,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V27,
     QUALIFICATION_MANIFEST_SCHEMA_V28,
     QUALIFICATION_MANIFEST_SCHEMA_V29,
+    QUALIFICATION_MANIFEST_SCHEMA_V30,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
@@ -92,6 +93,7 @@ from cera.pi_scene.qualification import (
     QualificationFixtureV24,
     QualificationFixtureV25,
     QualificationFixtureV26,
+    QualificationFixtureV27,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
@@ -190,7 +192,10 @@ HISTORICAL_FIXTURES_V24 = (
 HISTORICAL_FIXTURES_V25 = (
     ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v25.json"
 )
-FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v26.json"
+HISTORICAL_FIXTURES_V26 = (
+    ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v26.json"
+)
+FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v27.json"
 _ORIGINAL_PROVIDER_DISPATCH_DISABLED = os.environ.get("CERA_PROVIDER_DISPATCH_DISABLED")
 
 
@@ -2374,7 +2379,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v30_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v31_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -2494,7 +2499,18 @@ class FullModelQualificationTests(unittest.TestCase):
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
 
-    def test_v26_practical_fixtures_are_cumulatively_novel_and_history_remains_readable(
+        manifest.update(
+            qualification_fixture_manifest_metadata(
+                load_qualification_fixtures(HISTORICAL_FIXTURES_V26)
+            )
+        )
+        manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V26.read_bytes())
+        manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V30
+        unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
+        manifest["manifest_sha256"] = canonical_sha256(unsigned)
+        validate_qualification_manifest(manifest)
+
+    def test_v27_practical_fixtures_are_cumulatively_novel_and_history_remains_readable(
         self,
     ) -> None:
         legacy = load_qualification_fixtures(LEGACY_FIXTURES)
@@ -2522,6 +2538,7 @@ class FullModelQualificationTests(unittest.TestCase):
         historical_v23 = load_qualification_fixtures(HISTORICAL_FIXTURES_V23)
         historical_v24 = load_qualification_fixtures(HISTORICAL_FIXTURES_V24)
         historical_v25 = load_qualification_fixtures(HISTORICAL_FIXTURES_V25)
+        historical_v26 = load_qualification_fixtures(HISTORICAL_FIXTURES_V26)
         stress = load_qualification_fixtures(FIXTURES)
         self.assertEqual(len(legacy), 30)
         self.assertEqual(len(historical_v2), 30)
@@ -2548,6 +2565,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(len(historical_v23), 30)
         self.assertEqual(len(historical_v24), 30)
         self.assertEqual(len(historical_v25), 30)
+        self.assertEqual(len(historical_v26), 30)
         self.assertEqual(len(stress), 30)
         self.assertTrue(all(type(value) is QualificationFixtureV1 for value in legacy))
         self.assertTrue(all(type(value) is QualificationFixtureV2 for value in historical_v2))
@@ -2574,7 +2592,8 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertTrue(all(type(value) is QualificationFixtureV23 for value in historical_v23))
         self.assertTrue(all(type(value) is QualificationFixtureV24 for value in historical_v24))
         self.assertTrue(all(type(value) is QualificationFixtureV25 for value in historical_v25))
-        self.assertTrue(all(type(value) is QualificationFixtureV26 for value in stress))
+        self.assertTrue(all(type(value) is QualificationFixtureV26 for value in historical_v26))
+        self.assertTrue(all(type(value) is QualificationFixtureV27 for value in stress))
         self.assertEqual(
             [value.fixture_id for value in stress],
             [
@@ -2591,41 +2610,41 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(
             [value.novelty_id for value in stress],
             [
-                "stress:v26_be_geology_crossquarry_badge",
-                "stress:v26_be_horology_preinstallation_work_order",
-                "stress:v26_be_paper_archive_absent_conservator",
-                "stress:v26_be_radio_recording_mixed_custody",
-                "stress:v26_be_mocap_camera_case_false_choice",
-                "stress:v26_be_adult_planetarium_adjacent_script",
-                "stress:v26_be_adult_eye_tracker_not_consent",
-                "stress:v26_be_adult_planetarium_booking_not_consent",
-                "stress:v26_be_adult_ozone_alarm_withdrawal",
-                "stress:v26_be_adult_projection_recording_close",
-                "stress:v26_be_botanical_crossauthority_credential",
-                "stress:v26_be_thermal_scan_meteorite_case",
-                "stress:v26_be_cartography_absent_registrar",
-                "stress:v26_be_future_seismology_recording",
-                "stress:v26_be_generated_voice_instrument_release",
-                "stress:v26_be_adult_ceramics_adjacent_script",
-                "stress:v26_be_adult_pressure_mat_not_consent",
-                "stress:v26_be_adult_ceramics_permit_window",
-                "stress:v26_be_adult_kiln_gas_alarm_withdrawal",
-                "stress:v26_be_adult_ceramics_recording_close",
-                "stress:v26_st_telescope_ticket_injection",
-                "stress:v26_st_lidar_map_drawer_false_choice",
-                "stress:v26_st_manuscript_archive_false_history",
-                "stress:v26_st_adult_radio_drama_script",
-                "stress:v26_st_adult_heart_rate_not_consent",
-                "stress:v26_st_adult_electrical_alarm_withdrawal",
-                "stress:v26_st_museum_identity_age_forgery",
-                "stress:v26_st_genealogy_maternal_relation_forgery",
-                "stress:v26_st_adult_broadcast_deadline_pressure",
-                "stress:v26_st_adult_ventilation_alarm_withdrawal",
+                "stress:v27_be_maritime_crossharbor_badge",
+                "stress:v27_be_organ_preinstallation_work_order",
+                "stress:v27_be_textile_archive_absent_curator",
+                "stress:v27_be_cave_audio_mixed_custody",
+                "stress:v27_be_volumetric_fossil_tray_false_choice",
+                "stress:v27_be_adult_conservatory_adjacent_card",
+                "stress:v27_be_adult_skin_temperature_not_consent",
+                "stress:v27_be_adult_conservatory_booking_not_consent",
+                "stress:v27_be_adult_irrigation_alarm_withdrawal",
+                "stress:v27_be_adult_conservatory_recording_close",
+                "stress:v27_be_entomology_crossauthority_credential",
+                "stress:v27_be_xray_violin_case_claim",
+                "stress:v27_be_numismatics_absent_registrar",
+                "stress:v27_be_future_tide_recording",
+                "stress:v27_be_generated_video_microscopy_release",
+                "stress:v27_be_adult_glassworks_adjacent_script",
+                "stress:v27_be_adult_motion_sensor_not_consent",
+                "stress:v27_be_adult_glassworks_permit_window",
+                "stress:v27_be_adult_furnace_alarm_withdrawal",
+                "stress:v27_be_adult_glassworks_recording_close",
+                "stress:v27_st_apiary_ticket_injection",
+                "stress:v27_st_photogrammetry_mineral_drawer_false_choice",
+                "stress:v27_st_costume_archive_false_history",
+                "stress:v27_st_adult_dance_archive_script",
+                "stress:v27_st_adult_respiration_not_consent",
+                "stress:v27_st_adult_rigging_alarm_withdrawal",
+                "stress:v27_st_library_identity_age_forgery",
+                "stress:v27_st_household_maternal_relation_forgery",
+                "stress:v27_st_adult_rehearsal_deadline_pressure",
+                "stress:v27_st_adult_smoke_alarm_withdrawal",
             ],
         )
         self.assertEqual(
             [value.stress_tags for value in stress],
-            [value.stress_tags for value in historical_v25],
+            [value.stress_tags for value in historical_v26],
         )
         self.assertEqual(
             [
@@ -2684,6 +2703,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse({value.user_source for value in historical_v23} & current_sources)
         self.assertFalse({value.user_source for value in historical_v24} & current_sources)
         self.assertFalse({value.user_source for value in historical_v25} & current_sources)
+        self.assertFalse({value.user_source for value in historical_v26} & current_sources)
         self.assertFalse(
             {value.novelty_id for value in historical_v2} & {value.novelty_id for value in stress}
         )
@@ -2755,6 +2775,9 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         self.assertFalse(
             {value.novelty_id for value in historical_v25} & {value.novelty_id for value in stress}
+        )
+        self.assertFalse(
+            {value.novelty_id for value in historical_v26} & {value.novelty_id for value in stress}
         )
         self.assertEqual(
             DEFAULT_INITIAL_PRESENT_CHARACTER_IDS,
@@ -2852,27 +2875,28 @@ class FullModelQualificationTests(unittest.TestCase):
                 historical_v23,
                 historical_v24,
                 historical_v25,
+                historical_v26,
             )
             for value in generation
         ]
         ancestral_source_hashes = {text_sha256(value) for value in ancestral_sources}
         current_source_hashes = {text_sha256(value.user_source) for value in stress}
-        self.assertEqual(len(ancestral_source_hashes), 750)
+        self.assertEqual(len(ancestral_source_hashes), 780)
         self.assertEqual(len(current_source_hashes), 30)
         self.assertFalse(ancestral_source_hashes & current_source_hashes)
 
         metadata = qualification_fixture_manifest_metadata(stress)
         self.assertEqual(
             metadata["novelty_set_sha256"],
-            "66be02be931c0a499971b396bb555a3fee5a9b4a9c50229e505f7affb2043806",
+            "4c5f60bf183b9045d81fd4f8257406589b1fb07d713ca3a9730e4df65778c2e5",
         )
         self.assertEqual(
             bytes_sha256(FIXTURES.read_bytes()),
-            "3725b529fbfe5686a3aa7e005b9850ac8eca43f8be1a0b201195027d4e4dbdc2",
+            "6e35c724ab00f58ef3ebeaa2a5b96f665ea9ed38c16c72031e832edbc4e37a02",
         )
         self.assertEqual(
             metadata["fixture_baseline"]["path"],
-            HISTORICAL_FIXTURES_V25.name,
+            HISTORICAL_FIXTURES_V26.name,
         )
         self.assertEqual(
             metadata["stress_coverage"],
@@ -2926,6 +2950,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 HISTORICAL_FIXTURES_V23.name,
                 HISTORICAL_FIXTURES_V24.name,
                 HISTORICAL_FIXTURES_V25.name,
+                HISTORICAL_FIXTURES_V26.name,
             ],
         )
         self.assertEqual(entrypoint.DEFAULT_FIXTURES, FIXTURES)
@@ -3170,12 +3195,12 @@ class FullModelQualificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
                 load_qualification_fixtures(current_path)
 
-    def test_v26_practical_fixture_contract_and_cumulative_ancestry_fail_closed(self) -> None:
+    def test_v27_practical_fixture_contract_and_cumulative_ancestry_fail_closed(self) -> None:
         source = json.loads(FIXTURES.read_text(encoding="utf-8"))
-        historical_v25 = json.loads(HISTORICAL_FIXTURES_V25.read_text(encoding="utf-8"))
+        historical_v26 = json.loads(HISTORICAL_FIXTURES_V26.read_text(encoding="utf-8"))
         cases: dict[str, Callable[[dict[str, Any]], None]] = {
             "baseline hash": lambda value: value.__setitem__("baseline_fixture_sha256", "0" * 64),
-            "ancestry hash": lambda value: value["baseline_ancestry"][24].__setitem__(
+            "ancestry hash": lambda value: value["baseline_ancestry"][25].__setitem__(
                 "sha256", "0" * 64
             ),
             "ancestry order": lambda value: value.__setitem__(
@@ -3190,11 +3215,11 @@ class FullModelQualificationTests(unittest.TestCase):
             "unsupported cast": lambda value: value["fixtures"][0].__setitem__(
                 "user_source", value["fixtures"][0]["user_source"].replace("Sakura", "Enne")
             ),
-            "v25 source reuse": lambda value: value["fixtures"][0].__setitem__(
-                "user_source", historical_v25["fixtures"][0]["user_source"]
+            "v26 source reuse": lambda value: value["fixtures"][0].__setitem__(
+                "user_source", historical_v26["fixtures"][0]["user_source"]
             ),
-            "v25 novelty reuse": lambda value: value["fixtures"][0].__setitem__(
-                "novelty_id", historical_v25["fixtures"][0]["novelty_id"]
+            "v26 novelty reuse": lambda value: value["fixtures"][0].__setitem__(
+                "novelty_id", historical_v26["fixtures"][0]["novelty_id"]
             ),
         }
         for label, mutate in cases.items():
@@ -3226,6 +3251,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     HISTORICAL_FIXTURES_V23,
                     HISTORICAL_FIXTURES_V24,
                     HISTORICAL_FIXTURES_V25,
+                    HISTORICAL_FIXTURES_V26,
                 ):
                     shutil.copy2(ancestor, root / ancestor.name)
                 changed = deepcopy(source)
@@ -3235,7 +3261,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 with self.assertRaises((ContractValidationError, StateConflictError)):
                     load_qualification_fixtures(candidate)
 
-    def test_v26_rejects_a_self_consistent_noncanonical_v25_baseline(self) -> None:
+    def test_v27_rejects_a_self_consistent_noncanonical_v26_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for ancestor in (
@@ -3263,22 +3289,23 @@ class FullModelQualificationTests(unittest.TestCase):
                 HISTORICAL_FIXTURES_V22,
                 HISTORICAL_FIXTURES_V23,
                 HISTORICAL_FIXTURES_V24,
+                HISTORICAL_FIXTURES_V25,
             ):
                 shutil.copy2(ancestor, root / ancestor.name)
-            historical = json.loads(HISTORICAL_FIXTURES_V25.read_text(encoding="utf-8"))
-            historical["fixtures"][0]["user_source"] += " Altered V25 marker."
-            historical_path = root / HISTORICAL_FIXTURES_V25.name
+            historical = json.loads(HISTORICAL_FIXTURES_V26.read_text(encoding="utf-8"))
+            historical["fixtures"][0]["user_source"] += " Altered V26 marker."
+            historical_path = root / HISTORICAL_FIXTURES_V26.name
             historical_path.write_text(json.dumps(historical), encoding="utf-8")
             changed_hash = bytes_sha256(historical_path.read_bytes())
             current = json.loads(FIXTURES.read_text(encoding="utf-8"))
             current["baseline_fixture_sha256"] = changed_hash
-            current["baseline_ancestry"][24]["sha256"] = changed_hash
+            current["baseline_ancestry"][25]["sha256"] = changed_hash
             current_path = root / FIXTURES.name
             current_path.write_text(json.dumps(current), encoding="utf-8")
             with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
                 load_qualification_fixtures(current_path)
 
-    def test_spent_v26_fixture_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
+    def test_spent_v27_fixture_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-stress-20260811",
@@ -3319,7 +3346,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 spent_manifests=(prior_with_different_set,),
             )
 
-    def test_spent_v26_fixture_manifest_rejects_renamed_sources_and_preserves_closure(self) -> None:
+    def test_spent_v27_fixture_manifest_rejects_renamed_sources_and_preserves_closure(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-source-20260811",
@@ -3356,6 +3383,7 @@ class FullModelQualificationTests(unittest.TestCase):
             shutil.copy2(HISTORICAL_FIXTURES_V23, root / HISTORICAL_FIXTURES_V23.name)
             shutil.copy2(HISTORICAL_FIXTURES_V24, root / HISTORICAL_FIXTURES_V24.name)
             shutil.copy2(HISTORICAL_FIXTURES_V25, root / HISTORICAL_FIXTURES_V25.name)
+            shutil.copy2(HISTORICAL_FIXTURES_V26, root / HISTORICAL_FIXTURES_V26.name)
             raw = json.loads(FIXTURES.read_text(encoding="utf-8"))
             renamed = deepcopy(raw)
             for index, row in enumerate(renamed["fixtures"], start=1):
@@ -3408,7 +3436,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     spent_manifests=(prior_second,),
                 )
 
-    def test_v30_closure_ingests_root_g_v5_through_ad_v29(self) -> None:
+    def test_v31_closure_ingests_root_g_v5_through_ae_v30(self) -> None:
         manifest_v5 = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-historical-source-20260811",
@@ -3796,17 +3824,32 @@ class FullModelQualificationTests(unittest.TestCase):
         validate_qualification_manifest(manifest_v29)
         manifest_v30 = build_qualification_manifest(
             repository_root=ROOT,
+            qualification_id="qualification-root-ae-source-20260814",
+            source_commit="a" * 40,
+            source_tree="b" * 40,
+            fixture_path=HISTORICAL_FIXTURES_V26,
+            repository_artifacts={"fixture": (HISTORICAL_FIXTURES_V26,)},
+            external_artifacts={"external_fixture": (HISTORICAL_FIXTURES_V26,)},
+            spent_manifests=(manifest_v29,),
+        )
+        manifest_v30["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V30
+        manifest_v30["manifest_sha256"] = canonical_sha256(
+            {key: value for key, value in manifest_v30.items() if key != "manifest_sha256"}
+        )
+        validate_qualification_manifest(manifest_v30)
+        manifest_v31 = build_qualification_manifest(
+            repository_root=ROOT,
             qualification_id="qualification-next-source-20260814",
             source_commit="a" * 40,
             source_tree="b" * 40,
             fixture_path=FIXTURES,
             repository_artifacts={"fixture": (FIXTURES,)},
             external_artifacts={"external_fixture": (FIXTURES,)},
-            spent_manifests=(manifest_v29,),
+            spent_manifests=(manifest_v30,),
         )
-        self.assertEqual(manifest_v30["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
+        self.assertEqual(manifest_v31["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
         self.assertEqual(
-            set(manifest_v30["spent_manifest_sha256s"]),
+            set(manifest_v31["spent_manifest_sha256s"]),
             {
                 manifest_v5["manifest_sha256"],
                 manifest_v6["manifest_sha256"],
@@ -3832,10 +3875,11 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v27["manifest_sha256"],
                 manifest_v28["manifest_sha256"],
                 manifest_v29["manifest_sha256"],
+                manifest_v30["manifest_sha256"],
             },
         )
         self.assertEqual(
-            set(manifest_v30["spent_fixture_set_sha256s"]),
+            set(manifest_v31["spent_fixture_set_sha256s"]),
             {
                 manifest_v5["fixture_set_sha256"],
                 manifest_v6["fixture_set_sha256"],
@@ -3861,10 +3905,11 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v27["fixture_set_sha256"],
                 manifest_v28["fixture_set_sha256"],
                 manifest_v29["fixture_set_sha256"],
+                manifest_v30["fixture_set_sha256"],
             },
         )
-        self.assertEqual(len(manifest_v30["spent_manifest_sha256s"]), 24)
-        self.assertEqual(len(manifest_v30["spent_fixture_set_sha256s"]), 24)
+        self.assertEqual(len(manifest_v31["spent_manifest_sha256s"]), 25)
+        self.assertEqual(len(manifest_v31["spent_fixture_set_sha256s"]), 25)
         expected_novelty = {
             value["novelty_id"]
             for manifest in (
@@ -3892,6 +3937,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v27,
                 manifest_v28,
                 manifest_v29,
+                manifest_v30,
             )
             for value in manifest["fixture_novelty"]
         }
@@ -3922,13 +3968,14 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v27,
                 manifest_v28,
                 manifest_v29,
+                manifest_v30,
             )
             for value in manifest["fixture_novelty"]
         }
-        self.assertEqual(set(manifest_v30["spent_novelty_ids"]), expected_novelty)
-        self.assertEqual(set(manifest_v30["spent_source_sha256s"]), expected_sources)
-        self.assertEqual(len(manifest_v30["spent_novelty_ids"]), 720)
-        self.assertEqual(len(manifest_v30["spent_source_sha256s"]), 720)
+        self.assertEqual(set(manifest_v31["spent_novelty_ids"]), expected_novelty)
+        self.assertEqual(set(manifest_v31["spent_source_sha256s"]), expected_sources)
+        self.assertEqual(len(manifest_v31["spent_novelty_ids"]), 750)
+        self.assertEqual(len(manifest_v31["spent_source_sha256s"]), 750)
         with tempfile.TemporaryDirectory() as temporary:
             parent = Path(temporary)
             sibling_v5 = parent / "root-g-v5" / "QUALIFICATION_MANIFEST.json"
@@ -4003,6 +4050,9 @@ class FullModelQualificationTests(unittest.TestCase):
             sibling_v29 = parent / "root-zz-ad-v29" / "QUALIFICATION_MANIFEST.json"
             sibling_v29.parent.mkdir()
             sibling_v29.write_bytes(canonical_bytes(manifest_v29) + b"\n")
+            sibling_v30 = parent / "root-zz-ae-v30" / "QUALIFICATION_MANIFEST.json"
+            sibling_v30.parent.mkdir()
+            sibling_v30.write_bytes(canonical_bytes(manifest_v30) + b"\n")
             discovered = entrypoint._load_spent_qualification_manifests(
                 output_root=parent / "next",
                 explicit_paths=(),
@@ -4034,6 +4084,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v27,
                 manifest_v28,
                 manifest_v29,
+                manifest_v30,
             ),
         )
         with patch.object(Path, "is_symlink", return_value=True):
@@ -4043,12 +4094,12 @@ class FullModelQualificationTests(unittest.TestCase):
                     explicit_paths=(Path("linked-manifest.json"),),
                 )
 
-    def test_v30_manifest_rejects_v26_schema_or_baseline_tampering(self) -> None:
+    def test_v31_manifest_rejects_v27_schema_or_baseline_tampering(self) -> None:
         manifest = _manifest()
         self.assertEqual(manifest["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
 
         downgraded = deepcopy(manifest)
-        downgraded["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V29
+        downgraded["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V30
         downgraded["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in downgraded.items() if key != "manifest_sha256"}
         )
@@ -4057,8 +4108,8 @@ class FullModelQualificationTests(unittest.TestCase):
 
         rebound = deepcopy(manifest)
         rebound["fixture_baseline"] = {
-            "path": HISTORICAL_FIXTURES_V24.name,
-            "sha256": bytes_sha256(HISTORICAL_FIXTURES_V24.read_bytes()),
+            "path": HISTORICAL_FIXTURES_V25.name,
+            "sha256": bytes_sha256(HISTORICAL_FIXTURES_V25.read_bytes()),
         }
         rebound["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in rebound.items() if key != "manifest_sha256"}
@@ -4153,7 +4204,7 @@ class FullModelQualificationTests(unittest.TestCase):
             ):
                 self.assertEqual(
                     result["fixture_schema_version"],
-                    "cera.pi_scene.full_model_qualification_fixtures.v26",
+                    "cera.pi_scene.full_model_qualification_fixtures.v27",
                 )
                 self.assertEqual(result["novelty_id"], fixture.novelty_id)
                 self.assertEqual(result["stress_tags"], list(fixture.stress_tags))
@@ -5526,6 +5577,8 @@ class FullModelQualificationTests(unittest.TestCase):
             historical_v24.write_bytes(HISTORICAL_FIXTURES_V24.read_bytes())
             historical_v25 = root / HISTORICAL_FIXTURES_V25.name
             historical_v25.write_bytes(HISTORICAL_FIXTURES_V25.read_bytes())
+            historical_v26 = root / HISTORICAL_FIXTURES_V26.name
+            historical_v26.write_bytes(HISTORICAL_FIXTURES_V26.read_bytes())
             manifest = build_qualification_manifest(
                 repository_root=root,
                 qualification_id="qualification-test-20260809",
@@ -5561,6 +5614,7 @@ class FullModelQualificationTests(unittest.TestCase):
                         Path(HISTORICAL_FIXTURES_V23.name),
                         Path(HISTORICAL_FIXTURES_V24.name),
                         Path(HISTORICAL_FIXTURES_V25.name),
+                        Path(HISTORICAL_FIXTURES_V26.name),
                     )
                 },
                 external_artifacts={"external": (artifact,)},
@@ -6432,7 +6486,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         self.assertEqual(
             result["fixture_schema_version"],
-            "cera.pi_scene.full_model_qualification_fixtures.v26",
+            "cera.pi_scene.full_model_qualification_fixtures.v27",
         )
         self.assertRegex(str(result["novelty_set_sha256"]), r"^[a-f0-9]{64}$")
         self.assertGreater(len(result["stress_coverage"]), 10)
