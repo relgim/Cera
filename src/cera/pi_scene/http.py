@@ -2589,17 +2589,48 @@ class PiSceneHttpAdapter:
                 }
         terminal_decision = None
         if include_terminal_decision:
-            replay = self.coordinator.terminal_decision_replay(review.review_id)
-            if replay is not None:
-                decision = self._decision_payload(
-                    replay.action,
-                    replay.result,
-                    include_terminal_decision=False,
+            exact_action_response = None
+            ordinary_retry = self.ordinary_stage_retry_runtime
+            if ordinary_retry is not None:
+                exact_action_response = (
+                    ordinary_retry.reconcile_finalized_review_action_response_for_review_optional(
+                        review.review_id
+                    )
                 )
-                terminal_decision = {
-                    "decision_sha256": canonical_sha256(decision),
-                    "url": (f"/v1/cera/reviews/{review.review_id}/terminal-decision"),
-                }
+            if exact_action_response is not None:
+                response, receipt = exact_action_response
+                if canonical_sha256(response) != receipt.response_sha256:
+                    raise StateConflictError(
+                        "Pi Scene terminal review link changed protected response custody"
+                    )
+                validated = validate_ordinary_review_decision_v3(
+                    response,
+                    successor_validator=validate_ordinary_successor_completion,
+                )
+                projected_review_value = validated["review"]
+                if not isinstance(projected_review_value, Mapping):
+                    raise StateConflictError("Pi Scene finalized action changed review shape")
+                projected_review = projected_review_value
+                projected_terminal = projected_review.get("terminal_decision")
+                if projected_review.get("review_id") != review.review_id or not isinstance(
+                    projected_terminal, Mapping
+                ):
+                    raise StateConflictError(
+                        "Pi Scene finalized action changed its terminal review link"
+                    )
+                terminal_decision = dict(projected_terminal)
+            else:
+                replay = self.coordinator.terminal_decision_replay(review.review_id)
+                if replay is not None:
+                    decision = self._decision_payload(
+                        replay.action,
+                        replay.result,
+                        include_terminal_decision=False,
+                    )
+                    terminal_decision = {
+                        "decision_sha256": canonical_sha256(decision),
+                        "url": (f"/v1/cera/reviews/{review.review_id}/terminal-decision"),
+                    }
         projector = (
             _ordinary_review_payload_for_detached_hash
             if detached_hash_basis and review.review_phase is not OrdinaryReviewPhase.LEGACY
@@ -2655,10 +2686,11 @@ class PiSceneHttpAdapter:
         *,
         include_terminal_decision: bool,
     ) -> dict[str, Any]:
+        current_review = decision.review.review_phase is not OrdinaryReviewPhase.LEGACY
         body = {
             "schema_version": (
                 "cera.pi_scene.review_decision.v3"
-                if decision.review.review_phase is not OrdinaryReviewPhase.LEGACY
+                if current_review
                 else "cera.pi_scene.review_decision.v1"
             ),
             "status": (
@@ -2671,8 +2703,8 @@ class PiSceneHttpAdapter:
             "retry_mode": "not_applicable",
             "review": self._review_payload(
                 decision.review,
-                include_terminal_decision=include_terminal_decision,
-                detached_hash_basis=not include_terminal_decision,
+                include_terminal_decision=(include_terminal_decision and not current_review),
+                detached_hash_basis=current_review or not include_terminal_decision,
             ),
             "successor": (
                 None
@@ -2697,6 +2729,18 @@ class PiSceneHttpAdapter:
                 # This exact non-public intermediate is used solely to derive
                 # the detached terminal-decision hash.
                 return body
+            projected_review_value = body["review"]
+            if not isinstance(projected_review_value, dict):
+                raise StateConflictError("Pi Scene decision review changed shape")
+            projected_review = projected_review_value
+            if projected_review.get("terminal_decision") is not None:
+                raise StateConflictError(
+                    "Pi Scene detached decision already contains a terminal link"
+                )
+            projected_review["terminal_decision"] = {
+                "decision_sha256": canonical_sha256(body),
+                "url": f"/v1/cera/reviews/{decision.review.review_id}/terminal-decision",
+            }
             return dict(
                 validate_ordinary_review_decision_v3(
                     body,

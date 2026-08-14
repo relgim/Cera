@@ -369,6 +369,12 @@ class _ActiveRecorderReviewPort:
         self.resolutions += 1
         return SimpleNamespace(kind="chain_active", envelope=self.envelope)
 
+    def reconcile_finalized_review_action_response_for_review_optional(
+        self,
+        _review_id: str,
+    ) -> None:
+        return None
+
     def bind_review_action(self, **_kwargs: object) -> object:
         self.bind_attempts += 1
         raise AssertionError("active Recorder chain minted a sibling action")
@@ -398,6 +404,12 @@ class _HttpReviewCustody:
 
     def recorder_review_resolution(self, **_kwargs: object) -> object:
         return SimpleNamespace(kind="initial_start")
+
+    def reconcile_finalized_review_action_response_for_review_optional(
+        self,
+        _review_id: str,
+    ) -> None:
+        return None
 
 
 class _ExactTerminalResponseCustody:
@@ -1576,6 +1588,45 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 worker.join(timeout=5)
             self.assertFalse(worker.is_alive())
             self.assertEqual(failures, [])
+
+    def test_recording_repair_decision_binds_its_own_terminal_link(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, _pi, _retry = self._runtime(Path(temporary))
+            frozen = coordinator.start_ordinary(_turn(mode="manual"))
+            validated = coordinator.begin_ordinary_validation(frozen.review_id)
+            accepted = coordinator.accept(
+                validated.review_id,
+                acceptance_action="accept",
+                dispatch_recorder=False,
+            )
+            repaired = coordinator.repair_recording(accepted.review.review_id)
+            adapter = self._adapter(coordinator)
+
+            decision = adapter.decision_payload("repair_recording", repaired)
+            terminal = decision["review"]["terminal_decision"]
+            detached = deepcopy(decision)
+            detached["review"]["terminal_decision"] = None
+            self.assertEqual(
+                terminal["decision_sha256"],
+                canonical_sha256(detached),
+            )
+            self.assertEqual(decision["creator_action"], "repair_recording")
+            self.assertEqual(decision["review"]["recording_status"], "complete")
+
+            adapter.ordinary_stage_retry_runtime = (  # type: ignore[assignment]
+                _ExactTerminalResponseCustody(
+                    repaired.review.review_id,
+                    decision,
+                )
+            )
+            self.assertEqual(
+                adapter.terminal_decision_payload(repaired.review.review_id),
+                decision,
+            )
+            self.assertEqual(
+                adapter.review_payload(repaired.review)["terminal_decision"],
+                terminal,
+            )
 
     def test_regenerate_http_accounting_aligns_each_candidate_retry_chain(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
