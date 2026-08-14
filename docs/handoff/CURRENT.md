@@ -2,6 +2,28 @@
 
 **Updated:** 2026-08-14
 
+## 2026-08-14 Root AG provider-retry validation-lane correction
+
+Root AG spent fixture V28/manifest V32. Backend ordinary fixture 1 passed after
+one exact Regenerate. On fixture 2, one externally authorized Planner Retry
+recovered successfully and Writer completed, but both Luna and Reader remained
+prepared without dispatch. Exact frozen-state replay reproduced
+`provider-stage terminal request cannot gain a validation lane`: the recovered
+Planner terminalized the request-level HTTP cursor before the sibling
+validation chains were registered, and request-terminal lookup then masked the
+lane-specific state.
+
+The smallest correction registers both pending validation envelopes before
+the recovered Planner continuation can terminalize the parent request. The
+provider-stage controller now admits those exact authenticated lanes only
+while the unresolved branch barrier remains active and does not apply the
+parent terminal marker to a validation-lane GET or POST. Exact Root AG replay
+now exposes Luna and Reader as `in_progress/resume_prepared` with zero provider
+dispatch. Focused lifecycle, provider-stage HTTP/assembly, V29 ancestry,
+V33 closure, provider-free count, Ruff, strict mypy, and compile checks pass.
+Fresh V29/manifest V33 is the release candidate; one complete provider-free
+gate and the fresh genuine live 30/30 remain pending.
+
 ## 2026-08-14 D-222 Root AF qualification correction
 
 Root AF spent fixture V27/manifest V31 on backend ordinary fixture 1. Its first

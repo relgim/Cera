@@ -11,8 +11,13 @@ pass and only D-220-soft signals, accept it provisionally and stop. Preserve
 the original hard rejection and Regenerate receipt, report the distinct
 successor-policy event, and never make a third Writer call. Root AF exposed the
 qualification-only assertion defect after runtime and Recorder had already
-accepted the successor correctly. The focused correction and V28/V32 checks
-pass; the complete provider-free gate and fresh live qualification remain
+accepted the successor correctly. Root AG then passed fixture 1 and exposed a
+separate provider-retry ordering defect on fixture 2: recovered Planner output
+terminalized the parent request before its prepared Luna and Reader lanes were
+controllable. The correction registers both validation lanes before the parent
+terminal marker and keeps them controllable while the provisional branch
+barrier remains active. Exact replay, focused tests, and V29/V33 closure checks
+pass; the one complete provider-free gate and fresh live qualification remain
 pending.
 
 ## 2026-08-14 D-221 practical validation boundary
