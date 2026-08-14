@@ -23,6 +23,7 @@ from cera.pi_scene.provider_stage_retry_adapters import (
     ProviderStageNonRetryableClassifierPort,
     ProviderStageOwnerRetirementV1,
     ProviderStageReceiptMetricsV1,
+    ProviderStageResultContractError,
     codex_provider_result_receipt_metrics,
     pi_provider_result_receipt_metrics,
 )
@@ -146,6 +147,7 @@ def _owner[ResultT](
     result_receipt_metrics: (Callable[[ResultT], ProviderStageReceiptMetricsV1] | None) = None,
     semantic_disposition: (Callable[[ResultT], ProviderStageSemanticDisposition] | None) = None,
     classify_non_retryable: (ProviderStageNonRetryableClassifierPort | None) = None,
+    validate_result: Callable[[ResultT], None] | None = None,
     read_session_scope_sha256: Callable[[], str] | None = None,
     read_ledger_snapshot: Callable[[], ProviderStageLedgerSnapshotV1] | None = None,
     clock_ns: Callable[[], int] | None = None,
@@ -198,6 +200,7 @@ def _owner[ResultT](
             semantic_disposition or (lambda _result: ProviderStageSemanticDisposition.ACCEPTED)
         ),
         retire_owner=retire,
+        validate_result=validate_result,
         classify_non_retryable=classify_non_retryable,
         clock_ns=clock_ns,
     )
@@ -227,6 +230,74 @@ def _invoke_prepared[ResultT](
 
 
 class ProviderStageRetryAdapterTests(unittest.TestCase):
+    def test_stage_owned_result_contract_failure_is_closed_and_retryable(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> str:
+            boundary.provider_calls += 1
+            boundary.advance(2)
+            return "completed but malformed"
+
+        def reject_result(_result: str) -> None:
+            raise ProviderStageResultContractError("opaque provider output failure")
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                stage=ProviderStage.RECORDER,
+                maximum_provider_operations=6,
+                validate_result=reject_result,
+                result_receipt_metrics=lambda _result: ProviderStageReceiptMetricsV1(
+                    receipt_evidence_sha256=_sha("Recorder receipt"),
+                    provider_operations=2,
+                    duration_ms=23,
+                    input_tokens=100,
+                    cached_input_tokens=20,
+                    output_tokens=30,
+                    reasoning_tokens=0,
+                ),
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageClosedFailureV1)
+        assert isinstance(outcome, ProviderStageClosedFailureV1)
+        self.assertIs(
+            outcome.failure_class,
+            ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+        )
+        self.assertEqual(outcome.metrics.provider_operations_observed, 2)
+        self.assertEqual(outcome.metrics.provider_operations_conservative, 2)
+        self.assertEqual(outcome.metrics.output_tokens, 30)
+        self.assertEqual(boundary.provider_calls, 1)
+
+    def test_untyped_result_validator_defect_is_not_retryable(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> str:
+            boundary.provider_calls += 1
+            boundary.advance(1)
+            return "completed"
+
+        def broken_validator(_result: str) -> None:
+            raise ContractValidationError("local validator defect")
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                validate_result=broken_validator,
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageNonRetryableFailureV1)
+        assert isinstance(outcome, ProviderStageNonRetryableFailureV1)
+        self.assertIs(
+            outcome.failure_class,
+            ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+        )
+        self.assertEqual(boundary.provider_calls, 1)
+
     def test_reader_is_closed_to_the_codex_boundary(self) -> None:
         binding = _owner(
             _Boundary(),

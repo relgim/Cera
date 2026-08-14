@@ -24,11 +24,16 @@ from cera.pi_scene.http import PiSceneHttpAdapter
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV2
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
-from cera.pi_scene.provider_stage_retry import ProviderStage, ProviderStageAttemptPhase
+from cera.pi_scene.provider_stage_retry import (
+    ProviderStage,
+    ProviderStageAttemptPhase,
+    ProviderStageFailureClass,
+)
 from cera.pi_scene.provider_stage_retry_adapters import (
     ProviderStageBoundaryKind,
     ProviderStageLedgerSnapshotV1,
     ProviderStageReceiptMetricsV1,
+    ProviderStageResultContractError,
 )
 from cera.pi_scene.provider_stage_retry_assembly import (
     OrdinaryProviderStageAttemptOwnerFactoryV1,
@@ -42,6 +47,7 @@ from cera.pi_scene.provider_stage_retry_assembly import (
 )
 from cera.pi_scene.provider_stage_retry_executor import (
     PreparedProviderStageDispatchPort,
+    ProviderStageClosedFailureV1,
     ProviderStageSemanticDisposition,
     ProviderStageSuccessfulResultV1,
 )
@@ -613,6 +619,93 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
             self.assertIsInstance(outcome, ProviderStageSuccessfulResultV1)
             self.assertEqual(calls, ["build", "provider"])
             self.assertEqual(ledger_events, ["provider_operation_started"])
+
+    def test_ordinary_owner_factory_closes_stage_owned_result_contract_failure(self) -> None:
+        ledger_events: list[str] = []
+        validated_inputs: list[bytes] = []
+
+        def ledger_snapshot() -> ProviderStageLedgerSnapshotV1:
+            return ProviderStageLedgerSnapshotV1(
+                prefix_sha256=canonical_sha256(tuple(ledger_events)),
+                provider_operations_total=len(ledger_events),
+            )
+
+        def validate(exact_input: bytes, _result: object) -> None:
+            validated_inputs.append(exact_input)
+            raise ProviderStageResultContractError("opaque Recorder contract failure")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            exact_input = canonical_bytes(
+                {
+                    "schema_version": ProviderStageFrozenPacketV1.SCHEMA_VERSION,
+                    "stage": ProviderStage.RECORDER.value,
+                    "packet_kind": "assembly_result_contract_test",
+                }
+            )
+            packet = ProviderStageFrozenPacketV1(
+                schema_version=ProviderStageFrozenPacketV1.SCHEMA_VERSION,
+                stage=ProviderStage.RECORDER,
+                packet_kind="assembly_result_contract_test",
+                exact_bytes=exact_input,
+                stage_input_sha256=bytes_sha256(exact_input),
+            )
+            scope = ProviderStageRetryOccurrenceScopeV1.create(
+                world_id="world:test",
+                branch_id="branch:test",
+                request_id="request:test",
+                generation_id="generation:test",
+                stage=ProviderStage.RECORDER,
+                stage_ordinal=1,
+                accepted_state_sha256=canonical_sha256({"generation": 1}),
+                exact_input=exact_input,
+                authority_binding={"test": "Recorder contract"},
+            )
+            factory = OrdinaryProviderStageAttemptOwnerFactoryV1(
+                stage=ProviderStage.RECORDER,
+                lifecycle=ProviderStageOwnerLifecycleClass.ONE_SHOT_PROCESS,
+                boundary_kind=ProviderStageBoundaryKind.PI_DEEPSEEK,
+                maximum_provider_operations=6,
+                protected_root=Path(temporary) / "owners",
+                read_current_ledger=ledger_snapshot,
+                read_ledger_prefix=lambda prefix: (
+                    ledger_snapshot()
+                    if ledger_snapshot().prefix_sha256 == prefix
+                    else (_ for _ in ()).throw(AssertionError("unknown ledger prefix"))
+                ),
+                build_request=lambda value: value,
+                invoke_provider=lambda *_args: (
+                    ledger_events.extend(("operation-1", "operation-2")) or {"result": "bad"}
+                ),
+                serialize_result=lambda _result: canonical_bytes({"result": "bad"}),
+                result_receipt_metrics=lambda _result: ProviderStageReceiptMetricsV1(
+                    receipt_evidence_sha256=canonical_sha256({"receipt": "Recorder"}),
+                    provider_operations=2,
+                    duration_ms=10,
+                ),
+                semantic_disposition=lambda _result: (
+                    ProviderStageSemanticDisposition.NOT_APPLICABLE
+                ),
+                retire_failed_owner=lambda *_args: canonical_sha256({"retired": True}),
+                validate_result=validate,
+            )
+
+            owner = factory.create_initial_owner(scope=scope, packet=packet)
+            prepared = owner.prepare(
+                chain_id=scope.identity.chain_id,
+                attempt_number=1,
+                exact_input=exact_input,
+            )
+            self.assertTrue(callable(getattr(prepared, "invoke", None)))
+            outcome = cast(PreparedProviderStageDispatchPort, prepared).invoke()
+
+            self.assertIsInstance(outcome, ProviderStageClosedFailureV1)
+            assert isinstance(outcome, ProviderStageClosedFailureV1)
+            self.assertIs(
+                outcome.failure_class,
+                ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+            )
+            self.assertEqual(outcome.metrics.provider_operations_observed, 2)
+            self.assertEqual(validated_inputs, [exact_input])
 
     def test_construction_and_unknown_get_are_provider_free_and_exhaustive(self) -> None:
         lifecycle_calls: list[str] = []

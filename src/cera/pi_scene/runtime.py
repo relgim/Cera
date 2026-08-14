@@ -44,6 +44,7 @@ from .contracts import (
     LeanCandidateV1,
     LeanRecordingAttemptV1,
     LeanRunResultV1,
+    OrdinarySceneRecordV1,
     RecordingStatus,
     SceneRoute,
     advisory_ted_warnings,
@@ -3228,6 +3229,21 @@ def _attach_ordinary_payload(
     recorder_output_sha256: str,
     provider_operations: int,
 ) -> LeanRecordingAttemptV1:
+    record = _ordinary_record_from_payload(accepted=accepted, payload=payload)
+    return store.attach_ordinary_record(
+        accepted,
+        record,
+        recorder_request_sha256=recorder_request_sha256,
+        recorder_output_sha256=recorder_output_sha256,
+        provider_operations=provider_operations,
+    )
+
+
+def _ordinary_record_from_payload(
+    *,
+    accepted: LeanAcceptedTurnReceiptV1,
+    payload: Mapping[str, Any],
+) -> OrdinarySceneRecordV1:
     _require_exact_keys(
         payload,
         {
@@ -3244,7 +3260,7 @@ def _attach_ordinary_payload(
     resulting_public_state = payload["resulting_public_state"]
     if not isinstance(resulting_public_state, str) or not resulting_public_state.strip():
         raise ContractValidationError("resulting_public_state must be non-empty text")
-    record = ordinary_record_from_mapping(
+    return ordinary_record_from_mapping(
         {
             "schema_version": "cera.pi_scene.ordinary_record.v1",
             "primary_sequence_sha256": accepted.primary_authority_sha256,
@@ -3260,13 +3276,6 @@ def _attach_ordinary_payload(
                 payload["unresolved_threads"], "unresolved_threads"
             ),
         }
-    )
-    return store.attach_ordinary_record(
-        accepted,
-        record,
-        recorder_request_sha256=recorder_request_sha256,
-        recorder_output_sha256=recorder_output_sha256,
-        provider_operations=provider_operations,
     )
 
 
@@ -3413,3 +3422,18 @@ def _parse_recorder_payload(output_text: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ContractValidationError("Recorder result is not a JSON object")
     return payload
+
+
+def ordinary_record_from_recorder_output(
+    *,
+    output_text: str,
+    accepted: LeanAcceptedTurnReceiptV1,
+) -> OrdinarySceneRecordV1:
+    """Build the exact ordinary record without writing accepted state."""
+
+    if type(accepted) is not LeanAcceptedTurnReceiptV1 or accepted.route is not SceneRoute.ORDINARY:
+        raise ContractValidationError("Recorder validation requires an ordinary accepted turn")
+    return _ordinary_record_from_payload(
+        accepted=accepted,
+        payload=_parse_recorder_payload(output_text),
+    )

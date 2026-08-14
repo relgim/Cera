@@ -31,6 +31,7 @@ from cera.pi_scene.provider_stage_retry import (
     ProviderStageRetryChainV1,
     ProviderStageRetryPhase,
 )
+from cera.pi_scene.provider_stage_retry_adapters import ProviderStageResultContractError
 from cera.pi_scene.provider_stage_retry_blob import TrustedLocalProtectedStageBlobStore
 from cera.pi_scene.provider_stage_retry_executor import (
     ProviderStageAttemptMetricsV1,
@@ -46,6 +47,7 @@ from cera.pi_scene.provider_stage_retry_ordinary import (
     PlannerFrozenRetrievalV1,
     deserialize_pi_result,
     deserialize_reader_validation_result,
+    pi_invocation_to_payload,
     planner_request_from_frozen_input,
     reader_validation_disposition,
     reader_validation_input_from_frozen_input,
@@ -56,6 +58,7 @@ from cera.pi_scene.provider_stage_retry_ordinary import (
     serialize_planner_result,
     serialize_reader_validation_result,
     serialize_semantic_validation_result,
+    validate_recorder_result_from_frozen_input,
     writer_invocation_from_frozen_input,
 )
 from cera.pi_scene.provider_stage_retry_ordinary_custody import (
@@ -65,6 +68,7 @@ from cera.pi_scene.provider_stage_retry_packets import (
     ImmutableRetrievalSnapshotIdentityV1,
     ProviderStageConfigurationV1,
     ProviderStageFrozenPacketV1,
+    freeze_recorder_stage_packet,
 )
 from cera.pi_scene.provider_stage_retry_runtime import (
     ProviderStageRetryRuntimeServiceV1,
@@ -664,6 +668,102 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def test_recorder_result_validator_rejects_malformed_completed_output(self) -> None:
+        writer_invocation = _writer_invocation(self.root, "recorder-contract-writer")
+        writer_result = _pi_result(writer_invocation, "recorder-contract-writer")
+        authority_json = canonical_bytes(sequence()).decode("utf-8")
+        accepted = LeanAcceptedTurnReceiptV1(
+            schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,
+            accepted_turn_id="accepted-recorder-contract",
+            parent_accepted_turn_id=None,
+            parent_accepted_head_sha256=None,
+            world_id="world-ordinary-retry",
+            branch_id="branch-main",
+            scene_id="scene-test",
+            generation=1,
+            route=SceneRoute.ORDINARY,
+            exact_user_source="Continue the ordinary scene.",
+            exact_user_source_sha256=text_sha256("Continue the ordinary scene."),
+            exact_accepted_prose=writer_result.output_text,
+            exact_accepted_prose_sha256=text_sha256(writer_result.output_text),
+            primary_authority_kind="codex_sequence",
+            primary_authority_json=authority_json,
+            primary_authority_sha256=text_sha256(authority_json),
+            writer_view_manifest_sha256=_sha("recorder-contract-view"),
+            writer_receipt=writer_result.writer_receipt,
+            creator_action="automatic_accept",
+            warnings=(),
+            initial_recording_status=RecordingStatus.PROJECTION_PENDING,
+            candidate_sha256=_sha("recorder-contract-candidate"),
+        )
+        recorder_view = WriterViewMaterializer(self.root / "recorder-contract-views").materialize(
+            WriterViewInputV1(
+                world_id=accepted.world_id,
+                branch_id=accepted.branch_id,
+                scene_id=accepted.scene_id,
+                turn_id="turn-recorder-contract",
+                candidate_id="recorder-contract",
+                route=SceneRoute.ORDINARY,
+                user_prompt=accepted.exact_user_source,
+                primary_authority=sequence(),
+                current_state={"public_scene_state": "The conversation remains open."},
+                characters={},
+                relationships={},
+                recent_prose=(),
+                relevant_memories={},
+                voice_examples={},
+                craft_index={},
+                accepted_records=(),
+                purpose="recorder",
+            )
+        )
+        recorder_invocation = PiSceneInvocationV1(
+            route=SceneRoute.ORDINARY,
+            purpose="recorder",
+            view=recorder_view,
+            prompt="Record the accepted scene.",
+            candidate_id="recorder-contract",
+            session_dir=self.root / "recorder-contract-sessions",
+        )
+        packet = freeze_recorder_stage_packet(
+            accepted_story=accepted.exact_accepted_prose,
+            accepted_story_receipt=accepted,
+            recording_context={"invocation": pi_invocation_to_payload(recorder_invocation)},
+            configuration=_configuration(ProviderStage.RECORDER),
+        )
+        malformed = replace(
+            writer_result,
+            output_text='{"secondary_canon": [',
+            writer_receipt=replace(
+                writer_result.writer_receipt,
+                output_sha256=text_sha256('{"secondary_canon": ['),
+            ),
+        )
+
+        with self.assertRaises(ProviderStageResultContractError):
+            validate_recorder_result_from_frozen_input(packet.exact_bytes, malformed)
+
+        valid_output = json.dumps(
+            {
+                "secondary_canon": [],
+                "resulting_public_state": "The accepted conversation remains open.",
+                "relationship_changes": [],
+                "knowledge_changes": [],
+                "durable_changes": [],
+                "unresolved_threads": ["Ted may respond."],
+            },
+            separators=(",", ":"),
+        )
+        valid = replace(
+            writer_result,
+            output_text=valid_output,
+            writer_receipt=replace(
+                writer_result.writer_receipt,
+                output_sha256=text_sha256(valid_output),
+            ),
+        )
+        validate_recorder_result_from_frozen_input(packet.exact_bytes, valid)
 
     def _freeze(
         self,

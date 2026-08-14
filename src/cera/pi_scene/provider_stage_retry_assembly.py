@@ -113,6 +113,7 @@ from .provider_stage_retry_ordinary import (
     serialize_planner_result,
     serialize_reader_validation_result,
     serialize_semantic_validation_result,
+    validate_recorder_result_from_frozen_input,
     writer_invocation_from_frozen_input,
 )
 from .provider_stage_retry_ordinary_custody import (
@@ -362,6 +363,7 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
         result_receipt_metrics: Callable[[object], ProviderStageReceiptMetricsV1],
         semantic_disposition: Callable[[object], ProviderStageSemanticDisposition],
         retire_failed_owner: Callable[[ProviderStageOwnerRetirementV1, Path], str],
+        validate_result: Callable[[bytes, object], None] | None = None,
         classify_non_retryable: ProviderStageNonRetryableClassifierPort | None = None,
     ) -> None:
         if stage not in _ORDINARY_STAGES:
@@ -379,6 +381,7 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
         self._result_receipt_metrics = result_receipt_metrics
         self._semantic_disposition = semantic_disposition
         self._retire_failed_owner = retire_failed_owner
+        self._validate_result = validate_result
         self._classify_non_retryable = classify_non_retryable
 
     def create_initial_owner(
@@ -523,6 +526,7 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
                 "protected_attempt_root": str(attempt_root),
             },
         )
+        result_validator = self._validate_result
 
         owner = CallableProviderStageAttemptOwnerV1(
             binding=ProviderStageAttemptOwnerBindingV1(
@@ -545,6 +549,11 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
             result_receipt_metrics=self._result_receipt_metrics,
             semantic_disposition=self._semantic_disposition,
             retire_owner=lambda retirement: self._retire_failed_owner(retirement, attempt_root),
+            validate_result=(
+                None
+                if result_validator is None
+                else lambda result: result_validator(exact_input, result)
+            ),
             classify_non_retryable=self._classify_non_retryable,
         )
         return _OutcomeRecordingOwnerV1(
@@ -1882,6 +1891,11 @@ def _pi_ordinary_factory(
         semantic_disposition=ordinary_nonsemantic_disposition,
         retire_failed_owner=lambda retirement, attempt_root: _retire_one_shot_owner(
             retirement, attempt_root, "pi_process_has_no_live_handle"
+        ),
+        validate_result=(
+            cast(Callable[[bytes, object], None], validate_recorder_result_from_frozen_input)
+            if stage is ProviderStage.RECORDER
+            else None
         ),
         classify_non_retryable=_classify_pi_non_retryable_failure,
     )

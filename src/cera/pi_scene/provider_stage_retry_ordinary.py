@@ -42,6 +42,7 @@ from cera.serialization import (
     canonical_sha256,
     domain_sha256,
     re_is_sha256,
+    text_sha256,
     to_primitive,
 )
 
@@ -50,6 +51,7 @@ from .contracts import (
     PiWriterReceiptV1,
     RecordingStatus,
     SceneRoute,
+    primary_item_keys,
 )
 from .http_contracts import (
     LeanSceneRequestControlsV1,
@@ -61,6 +63,7 @@ from .provider_stage_retry import (
     ProviderStage,
     ProviderStageRetryPhase,
 )
+from .provider_stage_retry_adapters import ProviderStageResultContractError
 from .provider_stage_retry_executor import ProviderStageSemanticDisposition
 from .provider_stage_retry_ordinary_custody import (
     ProtectedOrdinaryChainRequestIdentityV1,
@@ -96,6 +99,7 @@ from .runtime import (
     PlannerTurnInputV1,
     PlannerTurnOutputV1,
     ProviderStageRetryPendingError,
+    ordinary_record_from_recorder_output,
 )
 from .store import AcceptedPiSessionV1
 from .writer_view import verify_writer_view
@@ -2069,6 +2073,50 @@ def recorder_invocation_from_frozen_input(exact_input: bytes) -> PiSceneInvocati
     context = _mapping(semantic["recording_context"], "Recorder context")
     _exact_keys(context, {"invocation"}, "Recorder context")
     return _pi_invocation_from_payload(context["invocation"])
+
+
+def validate_recorder_result_from_frozen_input(
+    exact_input: bytes,
+    result: object,
+) -> None:
+    """Validate one completed Recorder result against its frozen accepted turn."""
+
+    semantic = _packet_semantic_input(
+        exact_input,
+        stage=ProviderStage.RECORDER,
+        packet_kind="recorder",
+    )
+    _exact_keys(
+        semantic,
+        {"accepted_story", "accepted_story_receipt", "recording_context"},
+        "Recorder semantic input",
+    )
+    if type(result) is not PiSceneInvocationResultV1:
+        raise ContractValidationError("Recorder provider-stage result type changed")
+    accepted = from_mapping(
+        LeanAcceptedTurnReceiptV1,
+        _mapping(semantic["accepted_story_receipt"], "Recorder accepted receipt"),
+    )
+    assert isinstance(accepted, LeanAcceptedTurnReceiptV1)
+    if semantic["accepted_story"] != accepted.exact_accepted_prose:
+        raise ContractValidationError("Recorder frozen story changed accepted custody")
+    if accepted.route is not SceneRoute.ORDINARY:
+        raise ContractValidationError("Recorder frozen receipt changed ordinary custody")
+    primary_item_keys(accepted.primary_authority_json)
+    if (
+        result.writer_receipt.route is not SceneRoute.ORDINARY
+        or result.writer_receipt.output_sha256 != text_sha256(result.output_text)
+    ):
+        raise ContractValidationError("Recorder result changed provider receipt custody")
+    try:
+        ordinary_record_from_recorder_output(
+            output_text=result.output_text,
+            accepted=accepted,
+        )
+    except (json.JSONDecodeError, ContractValidationError) as exc:
+        raise ProviderStageResultContractError(
+            "Recorder provider output failed its closed contract"
+        ) from exc
 
 
 def serialize_pi_result(result: PiSceneInvocationResultV1) -> bytes:

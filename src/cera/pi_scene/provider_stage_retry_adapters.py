@@ -57,6 +57,10 @@ class ProviderStageBoundaryKind(StrEnum):
     PI_DEEPSEEK = "pi_deepseek"
 
 
+class ProviderStageResultContractError(ContractValidationError):
+    """A completed provider result failed its stage-owned output contract."""
+
+
 _CODEX_STAGES = frozenset(
     {
         ProviderStage.PLANNER,
@@ -284,6 +288,7 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         result_receipt_metrics: Callable[[ResultT], ProviderStageReceiptMetricsV1],
         semantic_disposition: Callable[[ResultT], ProviderStageSemanticDisposition],
         retire_owner: Callable[[ProviderStageOwnerRetirementV1], str],
+        validate_result: Callable[[ResultT], None] | None = None,
         classify_non_retryable: ProviderStageNonRetryableClassifierPort | None = None,
         clock_ns: Callable[[], int] | None = None,
     ) -> None:
@@ -307,6 +312,10 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
             raise ContractValidationError(
                 "provider-stage adapter non-Retry classifier must be callable"
             )
+        if validate_result is not None and not callable(validate_result):
+            raise ContractValidationError(
+                "provider-stage adapter result validator must be callable"
+            )
         self.binding = binding
         self._read_session_scope_sha256 = read_session_scope_sha256
         self._read_ledger_snapshot = read_ledger_snapshot
@@ -320,6 +329,7 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         self._result_receipt_metrics = result_receipt_metrics
         self._semantic_disposition = semantic_disposition
         self._retire_owner = retire_owner
+        self._validate_result = validate_result
         self._classify_non_retryable = classify_non_retryable
         self._clock_ns = clock_ns or time.perf_counter_ns
         self._prepare_lock = Lock()
@@ -601,6 +611,36 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                 metrics=metrics,
                 disposition="post_result_session_changed",
             )
+        if self._validate_result is not None:
+            try:
+                self._validate_result(result)
+            except ProviderStageResultContractError as exc:
+                return ProviderStageClosedFailureV1(
+                    failure_class=ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+                    failure_evidence_sha256=domain_sha256(
+                        "cera.provider_stage_result_contract_failure.v1",
+                        {
+                            "chain_id": self.binding.chain_id,
+                            "attempt_number": self.binding.attempt_number,
+                            "stage": self.binding.stage.value,
+                            "failure_class": (
+                                ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID.value
+                            ),
+                            "exception_type": _exception_identity(exc),
+                            "receipt_evidence_sha256": receipt.receipt_evidence_sha256,
+                            "ledger_prefix_after_sha256": (metrics.ledger_prefix_after_sha256),
+                            "provider_operations_observed": (metrics.provider_operations_observed),
+                        },
+                    ),
+                    metrics=metrics,
+                )
+            except Exception as exc:
+                return self._known_local_failure(
+                    exc,
+                    after=after,
+                    duration_ms=duration_ms,
+                    disposition="result_contract_validator_failed",
+                )
         try:
             exact_result = self._serialize_result(result)
             if not isinstance(exact_result, bytes) or not exact_result:
