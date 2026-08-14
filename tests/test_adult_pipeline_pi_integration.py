@@ -536,6 +536,15 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v3")
+        adult_system_prompt = command[command.index("--system-prompt") + 1]
+        self.assertIn(
+            "more protected-user realization freedom than ordinary scenes", adult_system_prompt
+        )
+        self.assertIn("plausible immediate physical actions", adult_system_prompt)
+        self.assertIn("limited in-scene dialogue", adult_system_prompt)
+        self.assertIn("Do not invent or override consent, withdrawal", adult_system_prompt)
+        self.assertIn("current consent never authorizes an adjacent act", adult_system_prompt)
         self.assertEqual(command.count("--session-id"), 1)
         self.assertEqual(
             command[command.index("--session-id") + 1],

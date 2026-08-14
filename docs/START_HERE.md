@@ -2,6 +2,22 @@
 
 **Status:** controlling index
 
+## 2026-08-14 D-221 practical validation boundary
+
+Read D-221 before changing ordinary validation or Adult Scene guidance. The
+ordinary route has exactly two Ted content protections: no invented dialogue
+and no invented thoughts, feelings, memories, or private state. Immutable
+identity, adult age, parent-child relation, accepted-event existence, consent
+or withdrawal, major lasting decisions, and unusable output remain hard.
+Minor cast, claimant, door, object, communication, ordering, aftermath, and
+compatible event-detail drift are accepted or D-220-provisional and do not
+justify another Writer call. Adult Scene may realize plausible immediate Ted
+physical actions, bodily reactions, and limited dialogue within current adult
+consent, capacity, and freedom-to-stop authority, without inventing consent,
+withdrawal, lasting decisions, memories, or permanent preferences. The current
+identities are Writer authority order V15, Luna profile V4 with adapter V6 and
+prompt V4, and Adult Pi-role compatibility V3.
+
 ## 2026-08-13 D-220 ordinary standing policy
 
 Before ordinary Pi review, acceptance, qualification, or SillyTavern bridge

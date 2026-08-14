@@ -1,6 +1,27 @@
 # Current CERA Handoff
 
-**Updated:** 2026-08-13
+**Updated:** 2026-08-14
+
+## 2026-08-14 D-221 validation and Adult Ted-action clarification
+
+The creator confirmed that ordinary validation should reserve a second Writer
+call for genuine hard failures: invented Ted dialogue; invented Ted thoughts,
+feelings, memories, or private state; immutable identity, adult-age, kinship, or
+accepted-event contradictions; consent or withdrawal changes; major lasting
+decisions; and unusable or off-topic output. Claimant/background activity,
+minor communication or ordering drift, local door/object handling, short
+aftermath, and compatible additions around an established event are accepted
+or retained through D-220 provisional continuity. Uncertain recall may not
+erase the established event.
+
+Adult Scene now has explicit additional latitude to realize Ted's plausible
+immediate physical actions, bodily reactions, and limited dialogue inside
+established adult identity, capacity, current consent, and freedom to stop.
+Consent, withdrawal, lasting decisions, memories, and permanent preferences
+remain protected. D-220's immutable policy bytes and public provenance remain
+unchanged; D-221 changes validator classification and Adult Scene guidance.
+Current identities are Writer authority order V15, Luna profile V4 with adapter
+V6/prompt V4, and Adult Pi-role compatibility V3.
 
 ## 2026-08-13 D-220 ordinary provisional-continuity handoff
 

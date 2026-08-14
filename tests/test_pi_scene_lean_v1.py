@@ -829,13 +829,23 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("tool named context directly exactly once", prompt)
             self.assertIn("do not call a tool named invoke", prompt)
             self.assertIn("zz_CURRENT_TURN_AUTHORITY.json", prompt)
-            self.assertIn("Do not invent Ted dialogue", prompt)
             self.assertIn("presentation_contract.source_usage", prompt)
             self.assertIn("fact_scope", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
-        self.assertIn("supplied story material and intended direction", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("not automatically a fully completed off-page event", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "Ted has exactly two ordinary content protections", ORDINARY_WRITER_SYSTEM_PROMPT
+        )
+        self.assertIn("do not invent his speech or dialogue", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "do not invent his thoughts, feelings, memories", ORDINARY_WRITER_SYSTEM_PROMPT
+        )
+        self.assertIn(
+            "supplied story material and intended direction", ORDINARY_WRITER_SYSTEM_PROMPT
+        )
+        self.assertIn(
+            "not automatically a fully completed off-page event", ORDINARY_WRITER_SYSTEM_PROMPT
+        )
         self.assertIn("you own chronology", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("explicit or implicit interiority", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("RESPONSE_SEQUENCE.json", ORDINARY_WRITER_SYSTEM_PROMPT)
@@ -848,7 +858,8 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("surface_realization_items", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("may share one utterance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("one future-reliance test", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("provisional continuity", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("uncertainty does not erase the event", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Factual authority:", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
             "remain true until an explicit RESPONSE_SEQUENCE.json transition changes them",
@@ -861,35 +872,15 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("Requested scene development:", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Presentation freedom:", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Ted autonomy and output:", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("Final silent invariant audit:", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("Realize every surface item", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Final silent hard-boundary audit:", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Complete the core requested scenario", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
-            "Contradict or weaken no planned action, relation, boundary, or postcondition",
+            "Minor cast, claimant, presence, capability, door, object-handling",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
-        capability_rule = (
-            "Obey every cast or capability restriction in the current source and Planner "
-            "authority exactly; those restrictions override presentation freedom. "
-            "Do not assign speech, action, private state, intention, or newly asserted "
-            "presence to a character whom current authority excludes from that capability "
-            "in this continuation. Static continuity facts may be retained, but supporting "
-            "continuity alone does not authorize speech, action, private state, intention, "
-            "or newly asserted presence for any excluded, offstage, or background character."
-        )
-        self.assertIn(capability_rule, ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertEqual(ORDINARY_WRITER_SYSTEM_PROMPT.count(capability_rule), 1)
-        self.assertNotIn(capability_rule, ADULT_WRITER_SYSTEM_PROMPT)
-        self.assertIn(
-            "termination constraint the final meaningful beat",
-            ORDINARY_WRITER_SYSTEM_PROMPT,
-        )
-        self.assertIn("pronoun or unnamed description", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("indirect attribution", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn(
-            "may not substitute a near-equivalent that changes an authorized boundary",
-            ORDINARY_WRITER_SYSTEM_PROMPT,
-        )
-        self.assertNotIn("Final silent invariant audit:", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn("short-afterbeat differences may remain", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Explicit user correction always supersedes", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertNotIn("Final silent hard-boundary audit:", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertEqual(
             ORDINARY_WRITER_SYSTEM_PROMPT.count("unplanned relation change"),
             1,
@@ -913,16 +904,22 @@ class PiSceneLeanTests(unittest.TestCase):
             "atmosphere",
             "point of view",
             "reordered",
-            "compatible reversible staging",
+            "compatible detail",
         ):
             self.assertIn(freedom, ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("You own presentation chronology", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn(
-            "scene-local, reversible, non-identifying, non-causal",
-            ADULT_WRITER_SYSTEM_PROMPT,
+            "more Ted realization freedom than ordinary scenes", ADULT_WRITER_SYSTEM_PROMPT
         )
+        self.assertIn("plausible immediate Ted physical actions", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn("limited in-scene dialogue", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Do not invent or override consent, withdrawal", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "current consent never authorizes an adjacent act", ADULT_WRITER_SYSTEM_PROMPT
+        )
+        self.assertIn("may persist as provisional continuity", ADULT_WRITER_SYSTEM_PROMPT)
 
     def test_recorder_prompts_require_direct_tool_and_closed_json_shape(self) -> None:
         for prompt in (ORDINARY_RECORDER_SYSTEM_PROMPT, ADULT_RECORDER_SYSTEM_PROMPT):
@@ -977,7 +974,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v13",
+                "cera.pi_scene.writer_authority_order.v15",
             )
             self.assertEqual(
                 authority_order["precedence"][:2],
@@ -1234,7 +1231,11 @@ class PiSceneLeanTests(unittest.TestCase):
                 "explicit_or_implicit_writer_choice",
             )
             self.assertIn(
-                "Anything future-relevant requires accepted authority",
+                "may be recalled by later turns as provisional continuity",
+                control["fact_scope"]["creative_detail_rule"],
+            )
+            self.assertIn(
+                "explicit user correction supersedes them",
                 control["fact_scope"]["creative_detail_rule"],
             )
 

@@ -116,11 +116,11 @@ class SemanticValidationProviderTests(unittest.TestCase):
         route = luna_validator_route()
         self.assertEqual(
             LUNA_VALIDATOR_ADAPTER,
-            "cera.semantic_validation.luna_adapter.v5",
+            "cera.semantic_validation.luna_adapter.v6",
         )
-        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v3")
-        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v3")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v5")
+        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v4")
+        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v4")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v6")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
         self.assertEqual(route.maximum_output_tokens, 4_096)
@@ -141,10 +141,28 @@ class SemanticValidationProviderTests(unittest.TestCase):
             "stopping_boundary",
             "capability_restriction",
         )
-        offsets = tuple(LUNA_VALIDATOR_BASE_INSTRUCTIONS.index(value) for value in precedence)
+        hard_order = LUNA_VALIDATOR_BASE_INSTRUCTIONS.split("hard-first order:", 1)[1]
+        offsets = tuple(hard_order.index(value) for value in precedence)
         self.assertEqual(offsets, tuple(sorted(offsets)))
         self.assertIn(
             "Never let a soft conflict hide a coexisting hard conflict",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Ted has exactly two ordinary hard protections", LUNA_VALIDATOR_BASE_INSTRUCTIONS
+        )
+        self.assertIn(
+            "established identity, adult age, parent-child relationship",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "may remember an accepted event, be uncertain, or fail to recall it",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn("An extra Sakura line", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn("never unauthorized_consequence", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn(
+            "only when the output is unusable, off-topic, incoherent",
             LUNA_VALIDATOR_BASE_INSTRUCTIONS,
         )
 
@@ -155,7 +173,7 @@ class SemanticValidationProviderTests(unittest.TestCase):
         self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
         self.assertEqual(
             qualification_route.route_id,
-            "cera_full_model_qualification_semantic_validator_luna_xhigh_v3",
+            "cera_full_model_qualification_semantic_validator_luna_xhigh_v4",
         )
         self.assertEqual(
             qualification_route,

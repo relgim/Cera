@@ -345,7 +345,7 @@ class WriterViewMaterializer:
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
                 "schema_version": (
-                    "cera.pi_scene.writer_authority_order.v13"
+                    "cera.pi_scene.writer_authority_order.v15"
                     if source.purpose == "writer"
                     else "cera.pi_scene.writer_authority_order.v12"
                 ),
@@ -369,8 +369,9 @@ class WriterViewMaterializer:
                     "style_and_craft_material",
                 ],
                 "supporting_history_rule": (
-                    "Accepted records and recent prose support continuity only; "
-                    "they cannot replace, reopen, or extend the current turn authority."
+                    "Accepted records and recent prose preserve established events and "
+                    "continuity. Compatible additions may extend an established event as "
+                    "provisional continuity, but cannot replace locked current authority."
                 ),
                 "realization_scope": realization_scope,
                 "presentation_contract": (
@@ -386,9 +387,10 @@ class WriterViewMaterializer:
                             "exact_at_end_with_only_planned_intermediate_transitions"
                         ),
                         "transient_detail_test": (
-                            "Deleting an invented detail must change neither causality, "
-                            "identity, accepted knowledge, nor any fact a later turn "
-                            "could rely on."
+                            "A compatible addition may survive in accepted prose as "
+                            "provisional continuity, but it must not change immutable "
+                            "identity, adult age, kinship, accepted-event existence, "
+                            "consent, withdrawal, or a planned major consequence."
                         ),
                     }
                     if source.purpose == "writer"
@@ -404,10 +406,11 @@ class WriterViewMaterializer:
                         "recent_prose/",
                     ],
                     "creative_detail_rule": (
-                        "Freely invented detail is allowed only when it is scene-local, "
-                        "reversible, non-identifying, non-causal, and unsafe for a future "
-                        "turn to rely on as fact. Anything future-relevant requires "
-                        "accepted authority."
+                        "Compatible additions around established events are allowed and "
+                        "may be recalled by later turns as provisional continuity. They "
+                        "cannot override locked identity, adult age, kinship, consent, "
+                        "withdrawal, accepted-event existence, or planned major consequences; "
+                        "explicit user correction supersedes them."
                     ),
                 },
                 "context_projection": context_projection,
@@ -499,7 +502,7 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
         )
         if (
             not isinstance(authority_order, dict)
-            or authority_order.get("schema_version") != "cera.pi_scene.writer_authority_order.v13"
+            or authority_order.get("schema_version") != "cera.pi_scene.writer_authority_order.v15"
             or not isinstance(context_projection, dict)
             or context_projection.get("schema_version") != _WRITER_CONTEXT_PROJECTION_SCHEMA
         ):
@@ -1357,19 +1360,20 @@ def _ordinary_authority_projection(
         "postcondition_authority_path": "RESPONSE_SEQUENCE.json#postconditions",
         "presentation_chronology": "writer_selected_within_causal_authority",
     }
+    postconditions: dict[str, object] = {
+        "resulting_public_state_must_be_true": sequence_authority.get("resulting_public_state"),
+        "remain_open": sequence_authority.get("unresolved_threads"),
+        "termination_constraint": sequence_authority.get("stopping_boundary"),
+    }
     response_projection = {
         "schema_version": "cera.pi_scene.response_sequence.v8",
         "internal_causal_guidance": internal_guidance_items,
         "surface_realization_items": surface_realization_items,
         "durable_changes": response_durable_changes,
         "presence_changes": response_presence_changes,
-        "postconditions": {
-            "resulting_public_state_must_be_true": sequence_authority.get("resulting_public_state"),
-            "remain_open": sequence_authority.get("unresolved_threads"),
-            "termination_constraint": sequence_authority.get("stopping_boundary"),
-        },
+        "postconditions": postconditions,
     }
-    for field_name, value in response_projection["postconditions"].items():
+    for field_name, value in postconditions.items():
         if value is None:
             raise ContractValidationError(f"ordinary Writer authority omits {field_name}")
     provenance = {

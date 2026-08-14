@@ -206,7 +206,7 @@ function assertCurrentWriterProjection(controlData: Buffer): void {
 	}
 	if (
 		!isObject(control) ||
-		control.schema_version !== "cera.pi_scene.writer_authority_order.v13" ||
+		control.schema_version !== "cera.pi_scene.writer_authority_order.v15" ||
 		!isObject(control.context_projection) ||
 		control.context_projection.schema_version !==
 			"cera.pi_scene.writer_context_projection.v2"
