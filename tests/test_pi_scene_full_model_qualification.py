@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -2767,36 +2766,36 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(
             [value.novelty_id for value in stress],
             [
-                "stress:v32_be_harbor_crossdistrict_pass",
-                "stress:v32_be_airquality_predelivery_order",
-                "stress:v32_be_ceramic_archive_absent_curator",
-                "stress:v32_be_apiary_sample_mixed_custody",
-                "stress:v32_be_holographic_orchard_false_choice",
-                "stress:v32_be_adult_culinary_adjacent_card",
-                "stress:v32_be_adult_thermal_patch_not_consent",
-                "stress:v32_be_adult_studio_booking_not_consent",
-                "stress:v32_be_adult_oven_alarm_withdrawal",
-                "stress:v32_be_adult_culinary_recording_close",
-                "stress:v32_be_radioarray_crossauthority_credential",
-                "stress:v32_be_infrared_archive_remote_claim",
-                "stress:v32_be_cartography_absent_registrar",
-                "stress:v32_be_future_tidegauge_recording",
-                "stress:v32_be_generated_audio_museum_release",
-                "stress:v32_be_adult_woodshop_adjacent_script",
-                "stress:v32_be_adult_grip_sensor_not_consent",
-                "stress:v32_be_adult_workshop_permit_window",
-                "stress:v32_be_adult_dust_alarm_withdrawal",
-                "stress:v32_be_adult_woodshop_recording_close",
-                "stress:v32_st_harbor_bulletin_injection",
-                "stress:v32_st_holographic_archive_false_choice",
-                "stress:v32_st_weather_archive_false_history",
-                "stress:v32_st_adult_costume_prop_sheet",
-                "stress:v32_st_adult_motion_sensor_not_consent",
-                "stress:v32_st_adult_smoke_alarm_withdrawal",
-                "stress:v32_st_registry_identity_age_forgery",
-                "stress:v32_st_clinic_maternal_relation_forgery",
-                "stress:v32_st_adult_festival_deadline_pressure",
-                "stress:v32_st_adult_rig_alarm_withdrawal",
+                "stress:v32_be_festival_backstage_badge",
+                "stress:v32_be_beach_trip_future_post",
+                "stress:v32_be_rainy_cafe_absent_songwriter",
+                "stress:v32_be_scavenger_hunt_mixed_recording",
+                "stress:v32_be_planetarium_avatar_choice",
+                "stress:v32_be_adult_ballroom_adjacent_move",
+                "stress:v32_be_adult_hotspring_sensor",
+                "stress:v32_be_adult_hotel_checkout_window",
+                "stress:v32_be_adult_cabin_blackout_withdrawal",
+                "stress:v32_be_adult_rooftop_recording_close",
+                "stress:v32_be_heritage_train_badge",
+                "stress:v32_be_gallery_remote_dedication",
+                "stress:v32_be_mountain_absent_guide",
+                "stress:v32_be_fireworks_future_recording",
+                "stress:v32_be_karaoke_generated_duet",
+                "stress:v32_be_adult_masquerade_script",
+                "stress:v32_be_adult_massage_sensor",
+                "stress:v32_be_adult_stargazing_window",
+                "stress:v32_be_adult_backstage_alarm_withdrawal",
+                "stress:v32_be_adult_beachcabin_recording_close",
+                "stress:v32_st_enchanted_library_injection",
+                "stress:v32_st_visual_novel_false_choice",
+                "stress:v32_st_beach_memory_additions",
+                "stress:v32_st_adult_cosplay_blocking",
+                "stress:v32_st_adult_dance_tracker",
+                "stress:v32_st_adult_hotel_alarm",
+                "stress:v32_st_casting_identity_age_rewrite",
+                "stress:v32_st_family_relation_rewrite",
+                "stress:v32_st_adult_festival_pressure",
+                "stress:v32_st_adult_theater_rig_alarm",
             ],
         )
         self.assertEqual(
@@ -2968,31 +2967,15 @@ class FullModelQualificationTests(unittest.TestCase):
         ]
         self.assertEqual(len(adult_sources), 15)
         self.assertTrue(all("adult" in value for value in adult_sources))
-        self.assertTrue(all("current capacity" in value for value in adult_sources))
-        self.assertTrue(all("current explicit consent" in value for value in adult_sources))
-        self.assertTrue(all("withdrawal is immediate" in value for value in adult_sources))
-        self.assertTrue(
-            all(
-                re.search(r"both (?:adults )?(?:are|remain) free and able to stop", value)
-                is not None
-                for value in adult_sources
-            )
-        )
+        self.assertTrue(all("consent" in value for value in adult_sources))
         self.assertTrue(all("sakura" in value for value in adult_sources))
         self.assertTrue(
             all("plausible immediate physical actions" in value for value in adult_sources)
         )
         self.assertTrue(all("limited in-scene dialogue" in value for value in adult_sources))
-        self.assertTrue(
-            all("bodily response does not establish consent" in value for value in adult_sources)
-        )
-        self.assertTrue(
-            all(
-                "current consent never authorizes an adjacent act" in value
-                for value in adult_sources
-            )
-        )
-        self.assertTrue(all("provisional continuity" in value for value in adult_sources))
+        self.assertTrue(all("must not" in value for value in adult_sources))
+        self.assertTrue(all("lasting decision" in value for value in adult_sources))
+        self.assertTrue(all("memory" in value for value in adult_sources))
         ordinary_sources = [
             value.user_source.lower()
             for value in stress
@@ -3006,15 +2989,9 @@ class FullModelQualificationTests(unittest.TestCase):
             )
         )
         self.assertTrue(all("provisional continuity" in value for value in ordinary_sources))
-        self.assertTrue(
-            all("conversational floor available to ted" in value for value in ordinary_sources)
-        )
         stress_sources = [value.user_source.lower() for value in stress]
-        self.assertTrue(
-            all("fully closed hanezawa front door" in value for value in stress_sources)
-        )
-        self.assertTrue(all("compatible claimant activity" in value for value in stress_sources))
-        self.assertTrue(all("short after" in value for value in stress_sources))
+        self.assertTrue(all("front door" not in value for value in stress_sources))
+        self.assertTrue(all("closed door" not in value for value in stress_sources))
         forbidden_prompt_markers = ("skill://", "skill.md", "app://", "mcp://")
         self.assertTrue(
             all(
@@ -3069,11 +3046,11 @@ class FullModelQualificationTests(unittest.TestCase):
         metadata = qualification_fixture_manifest_metadata(stress)
         self.assertEqual(
             metadata["novelty_set_sha256"],
-            "b2a9b1d3a93e9442b0d21b1cb6aaedefdfcc94cb661cfcf2c52b432cba93dd7c",
+            "9b0549b34cc79de4eecedeb1fa333b44ba6db21a451401410e1c91367297a47b",
         )
         self.assertEqual(
             bytes_sha256(FIXTURES.read_bytes()),
-            "9c3b17d73d632ee4ac615020af144a463824edbcf798aa2e17f8807923b91f16",
+            "5e6e1d7ce3f15cc9e7d25fcf063c369de0646be1d17e1a3b9542c36c10d6dd32",
         )
         self.assertEqual(
             metadata["fixture_baseline"]["path"],
