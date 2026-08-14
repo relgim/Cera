@@ -118,9 +118,9 @@ class SemanticValidationProviderTests(unittest.TestCase):
             LUNA_VALIDATOR_ADAPTER,
             "cera.semantic_validation.luna_adapter.v6",
         )
-        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v4")
-        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v4")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v6")
+        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v5")
+        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v5")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v7")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
         self.assertEqual(route.maximum_output_tokens, 4_096)
@@ -152,6 +152,18 @@ class SemanticValidationProviderTests(unittest.TestCase):
             "Ted has exactly two ordinary hard protections", LUNA_VALIDATOR_BASE_INSTRUCTIONS
         )
         self.assertIn(
+            "only when the candidate expressly attributes the speech or private state to Ted",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Never infer that an anonymous or differently named claimant",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "is not protected_user_dialogue or protected_user_private_state",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
             "established identity, adult age, parent-child relationship",
             LUNA_VALIDATOR_BASE_INSTRUCTIONS,
         )
@@ -173,7 +185,7 @@ class SemanticValidationProviderTests(unittest.TestCase):
         self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
         self.assertEqual(
             qualification_route.route_id,
-            "cera_full_model_qualification_semantic_validator_luna_xhigh_v4",
+            "cera_full_model_qualification_semantic_validator_luna_xhigh_v5",
         )
         self.assertEqual(
             qualification_route,
