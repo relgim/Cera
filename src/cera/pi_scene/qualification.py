@@ -2418,11 +2418,33 @@ class QualificationCampaignRun:
                 if recording_status == "complete":
                     terminal_response = terminal_reader(review_id=provisional.review_id)
                     total_duration_ms += terminal_response.duration_ms
-                    decision = _validate_ordinary_terminal_decision_response(
-                        fixture,
-                        terminal_response,
-                        review=review,
-                    )
+                    terminal_projection_unstable = terminal_response.status_code == 404
+                    if not terminal_projection_unstable:
+                        try:
+                            decision = _validate_ordinary_terminal_decision_response(
+                                fixture,
+                                terminal_response,
+                                review=review,
+                            )
+                        except StateConflictError as exc:
+                            if exc.args != ("ordinary terminal decision changed its final review",):
+                                raise
+                            terminal_projection_unstable = True
+                    if terminal_projection_unstable:
+                        # Review and terminal-decision GETs are separate
+                        # read-only projections. A background-owned terminal
+                        # transition can land between them or leave the
+                        # terminal endpoint briefly unavailable, so require a
+                        # fresh exact pair. No action or provider call is
+                        # authorized by this reconciliation.
+                        if (
+                            time.monotonic() - started
+                            >= PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS
+                        ):
+                            raise
+                        time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
+                        current_response = None
+                        continue
                     projection = _validate_ordinary_accepted_review(
                         fixture,
                         review,
