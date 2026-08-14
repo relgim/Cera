@@ -46,6 +46,14 @@ JAVASCRIPT_STAGED_TARGETS = (
 POSITIVE_FIXTURE_TARGET = (
     ROOT / "tests" / "fixtures" / "generated" / "ordinary_review_v3_positive.json"
 )
+STAGED_POSITIVE_FIXTURE_TARGET = (
+    ROOT
+    / "integrations"
+    / "sillytavern"
+    / "creator-review-extension"
+    / "generated"
+    / "ordinary_review_v3_positive.json"
+)
 NEGATIVE_FIXTURE_TARGET = (
     ROOT / "tests" / "fixtures" / "generated" / "ordinary_review_v3_negative.json"
 )
@@ -2034,10 +2042,12 @@ def _build_outputs() -> dict[Path, bytes]:
         runtime_schemas,
         version_to_id,
     ).encode()
+    positive_fixture_bytes = _json_bytes(positive_fixture)
     outputs = {
         PYTHON_TARGET: rendered_python.encode(),
         JAVASCRIPT_TARGET: rendered_javascript,
-        POSITIVE_FIXTURE_TARGET: _json_bytes(positive_fixture),
+        POSITIVE_FIXTURE_TARGET: positive_fixture_bytes,
+        STAGED_POSITIVE_FIXTURE_TARGET: positive_fixture_bytes,
         NEGATIVE_FIXTURE_TARGET: _json_bytes(negative_fixture),
         DOC_TARGET: _render_docs(ordinary).encode(),
     }

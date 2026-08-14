@@ -25,7 +25,8 @@ Ordinary review V2 is historical. The current ordinary-only public family is:
 | `cera.pi_scene.review_decision.v3` | Python terminal custody | Exact creator/automatic decision, including output-only `standing_policy_accept_provisional` |
 | `cera.pi_scene.ordinary_standing_creator_policy.v1` | immutable Python authority | Closed D-220 policy object; it is not client input |
 | `cera.pi_scene.ordinary_policy_acceptance_audit.v1` | Python over bound validator and qualification evidence | Hash-only proof that one exact candidate qualified for standing-policy provisional continuity |
-| `cera.pi_scene.full_model_qualification_manifest.v23` | Python qualification authority | Freezes the standing-policy identity, text/object hashes, exact soft allowlists, hard-wins rule, and ordinary-only/no-second-Writer boundary |
+| `cera.pi_scene.full_model_qualification_manifest.v23` | historical Python qualification authority | Introduced the standing-policy identity, text/object hashes, exact soft allowlists, hard-wins rule, and ordinary-only/no-second-Writer boundary |
+| `cera.pi_scene.full_model_qualification_manifest.v24` | current Python qualification authority | Retains the exact V23 standing-policy authority while binding fresh fixture V20 and cumulative V1-V19 ancestry |
 | `cera.pi_scene.full_model_qualification_result.v6` | Python phase evidence | Adds independently recomputed standing-policy provisional counters and hash-only per-fixture evidence without relabeling first-pass acceptance |
 | `cera.pi_scene.full_model_complete_qualification.v5` | Python complete evidence | Aggregates backend plus SillyTavern V6 phase totals, including the distinct standing-policy provisional counter |
 

@@ -3559,7 +3559,7 @@ test('accepted auditable override keeps frozen rejection failures visible', asyn
 test('accepted standing policy is distinct and keeps provenance plus failures visible', async () => {
     const fixtureSet = JSON.parse(await readFile(path.resolve(
         sourceRoot,
-        '../../../tests/fixtures/generated/ordinary_review_v3_positive.json',
+        './generated/ordinary_review_v3_positive.json',
     ), 'utf8'));
     const review = fixtureSet.cases.find(
         value => value.case_id === 'review.schema.positive.accepted_standing_policy',

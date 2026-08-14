@@ -25,13 +25,14 @@ policy-object SHA-256 is
 - Adult remains strict and unchanged. D-220 supersedes D-219 only for ordinary
   soft-rejection disposition.
 
-Ordinary review V2 is historical and V3 is current. Concurrent source/schema
-integration uses qualification manifest V23, phase result V6, and complete
-result V5. Focused provider-free evidence is green: the exact soft-policy
-qualification case passed with one Writer, zero Regenerate, and zero manual
-action; 67 focused Python tests and 85 SillyTavern Node tests passed; generated
-contracts, Ruff, strict focused mypy, compilation, and diff checks passed. The
-complete no-selector gate and fresh V20/V24 qualification remain pending. Do
+Ordinary review V2 is historical and V3 is current. Current source/schema
+integration uses fixture V20, qualification manifest V24, phase result V6, and
+complete result V5. Focused provider-free evidence is green: the exact
+soft-policy qualification case passed with one Writer, zero Regenerate, and
+zero manual action; the V20/V24 qualification subsystem passed 68/68 tests;
+the staged SillyTavern suites and generated-contract checks passed. The
+complete no-selector gate and genuine live V20/V24 qualification remain
+pending. Do
 not claim this change fully qualified, resume a provider run, or synchronize
 installed SillyTavern from this checkpoint alone.
 

@@ -111,9 +111,10 @@ continuity. It makes no second Writer call and requires no manual creator
 action. The Luna/Reader rejection evidence remains attached, and the accepted
 artifact carries separate nonforgeable policy provenance. Adult remains strict
 and unchanged. Ordinary review V2 is historical; V3 is current.
-The matching qualification contracts are manifest V23, phase result V6, and
-complete result V5, with a separate standing-policy provisional counter and
-hash-only evidence rather than automatic/manual acceptance relabeling.
+The matching current qualification contracts are manifest V24 over fixture
+V20, phase result V6, and complete result V5. Historical manifest V23
+introduced the separate standing-policy provisional counter and hash-only
+evidence rather than automatic/manual acceptance relabeling.
 
 This is controlling design authority. Source integration and focused
 provider-free evidence are complete; the complete no-selector gate and fresh

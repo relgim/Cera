@@ -498,6 +498,7 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
                 "integrations/sillytavern/generated/ordinary-review-contracts-v3.mjs",
                 "integrations/sillytavern/cera-review-proxy-plugin/generated/ordinary-review-contracts-v3.mjs",
                 "integrations/sillytavern/creator-review-extension/generated/ordinary-review-contracts-v3.mjs",
+                "integrations/sillytavern/creator-review-extension/generated/ordinary_review_v3_positive.json",
                 "src/cera/generated/ordinary_review_contracts_v3.py",
                 "tests/fixtures/generated/ordinary_review_v3_negative.json",
                 "tests/fixtures/generated/ordinary_review_v3_positive.json",
