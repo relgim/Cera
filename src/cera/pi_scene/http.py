@@ -460,14 +460,7 @@ class PiSceneHttpAdapter:
                 if stage_retry is not None:
                     stage_retry.capture_pending(exc.envelope)
                 return
-            stage_retry = self.provider_stage_retry_http
-            if stage_retry is not None:
-                for envelope in (
-                    review.luna_provider_stage_retry_status,
-                    review.reader_provider_stage_retry_status,
-                ):
-                    if envelope is not None:
-                        stage_retry.capture_pending(envelope)
+            self._capture_pending_ordinary_validation(review)
             self._release_completed_ordinary_review(review)
         except Exception:
             # Provider diagnostics and exception text never cross into review
@@ -476,6 +469,22 @@ class PiSceneHttpAdapter:
         finally:
             with self._background_review_lock:
                 self._background_review_ids.discard(review_id)
+
+    def _capture_pending_ordinary_validation(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> None:
+        """Register exact Luna/Reader lane controls before request terminalization."""
+
+        stage_retry = self.provider_stage_retry_http
+        if stage_retry is None:
+            return
+        for envelope in (
+            review.luna_provider_stage_retry_status,
+            review.reader_provider_stage_retry_status,
+        ):
+            if envelope is not None:
+                stage_retry.capture_pending(envelope)
 
     def _resolve_generic_unresolved_before_request(
         self,
@@ -1007,13 +1016,17 @@ class PiSceneHttpAdapter:
                     raise StateConflictError(
                         "Pi Scene continued review lacks ordinary protected custody"
                     )
-                identity = ordinary_retry.bind_review_request(
-                    self.coordinator.get_review(retained_review_id)
-                )
+                review = self.coordinator.get_review(retained_review_id)
+                identity = ordinary_retry.bind_review_request(review)
                 if identity.request_id != binding.request_id:
                     raise StateConflictError(
                         "Pi Scene continued review changed protected request custody"
                     )
+                # A recovered upstream stage can expose newly prepared Luna and
+                # Reader lanes. Register those authenticated sibling chains while
+                # the upstream cursor is still nonterminal; once this continuation
+                # returns, the controller freezes the provisional completion.
+                self._capture_pending_ordinary_validation(review)
             return self._strip_readable_debug_from_completion(response)
 
     def resume_review_action(

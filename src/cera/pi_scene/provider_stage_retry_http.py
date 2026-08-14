@@ -482,9 +482,14 @@ class ProtectedProviderStageRetryHttpCursorStoreV1:
         with self._claim(request_sha256):
             current = self._read_unlocked(request_sha256)
             if current.terminal_completion_sha256 is not None:
-                raise StateConflictError(
-                    "provider-stage terminal request cannot gain a validation lane"
+                barrier = self.active_request_for_branch(
+                    world_id=current.request_identity.world_id,
+                    branch_id=current.request_identity.branch_id,
                 )
+                if barrier is None or barrier.request_id != current.request_identity.request_id:
+                    raise StateConflictError(
+                        "provider-stage terminal request cannot gain a validation lane"
+                    )
             if chain_id in current.chain_ids:
                 return current
             updated = ProviderStageRetryHttpCursorV1(
@@ -798,11 +803,15 @@ class ProviderStageRetryHttpControllerV1:
                 if lane is not None
                 else self._continuations.for_stage(chain.identity.stage)
             )
-            terminal = self._terminal_first(
-                chain_id=chain.chain_id,
-                identity=identity,
-                port=port,
-                cursor=cursor,
+            terminal = (
+                None
+                if lane is not None
+                else self._terminal_first(
+                    chain_id=chain.chain_id,
+                    identity=identity,
+                    port=port,
+                    cursor=cursor,
+                )
             )
             if terminal is not None:
                 return terminal
@@ -990,15 +999,19 @@ class ProviderStageRetryHttpControllerV1:
         identity: ProviderStageRetryHttpRequestIdentityV1,
         port: ProviderStageRetryHttpContinuationPort,
     ) -> dict[str, Any]:
-        terminal = self._terminal_first(
-            chain_id=chain.chain_id,
-            identity=identity,
-            port=port,
-            cursor=self._cursors.freeze(identity=identity, chain_id=chain.chain_id),
+        validation_lane = _review_validation_lane_binding(port, chain)
+        terminal = (
+            None
+            if validation_lane is not None
+            else self._terminal_first(
+                chain_id=chain.chain_id,
+                identity=identity,
+                port=port,
+                cursor=self._cursors.freeze(identity=identity, chain_id=chain.chain_id),
+            )
         )
         if terminal is not None:
             return terminal
-        validation_lane = _review_validation_lane_binding(port, chain)
         chain, envelope = self._provider_free_status(chain.chain_id)
         if chain.phase is not ProviderStageRetryPhase.SUCCEEDED:
             self._terminalize_failure_if_needed(

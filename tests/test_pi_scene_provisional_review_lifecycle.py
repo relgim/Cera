@@ -3,20 +3,23 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
-from threading import Barrier, Event, Thread
+from threading import Barrier, Event, RLock, Thread
 from time import monotonic
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.http import PiSceneHttpAdapter
 from cera.pi_scene.http_contracts import (
     PI_SCENE_ORDINARY_MODEL,
     PI_SCENE_PROFILE,
     LeanSceneRequestControlsV3,
+    PiSceneChatRequestV1,
 )
 from cera.pi_scene.ordinary_http import ordinary_review_payload
 from cera.pi_scene.ordinary_rejection_policy import (
@@ -504,6 +507,95 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             custody=prepared.custody,
             verdict=ReaderVerdictV1(status=ReaderStatus.ACCEPTED, issues=()),
         )
+
+    def test_continued_provisional_registers_both_prepared_lanes_before_terminal(
+        self,
+    ) -> None:
+        frozen_turn = _turn()
+        assert frozen_turn.request_controls is not None
+        request = PiSceneChatRequestV1(
+            route=SceneRoute.ORDINARY,
+            automatic_route=False,
+            messages=({"role": "user", "content": frozen_turn.exact_user_source},),
+            exact_user_source=frozen_turn.exact_user_source,
+            controls=frozen_turn.request_controls,
+        )
+        binding = SimpleNamespace(
+            request_id="request-" + "a" * 64,
+            world_id=frozen_turn.world_id,
+            branch_id=frozen_turn.branch_id,
+        )
+        review_id = "review-" + "b" * 28
+        luna = {"lane": "luna", "chain_id": "stage-retry-" + "c" * 64}
+        reader = {"lane": "reader", "chain_id": "stage-retry-" + "d" * 64}
+        review = SimpleNamespace(
+            luna_provider_stage_retry_status=luna,
+            reader_provider_stage_retry_status=reader,
+        )
+        completion = {
+            "object": "chat.completion",
+            "cera": {
+                "provisional": True,
+                "provisional_review_id": review_id,
+                "candidate_id": "candidate:test",
+            },
+        }
+
+        class Journal:
+            @contextmanager
+            def provider_dispatch_claim(self):
+                yield
+
+            @staticmethod
+            def inspect(_binding: object) -> dict[str, object]:
+                return {
+                    "status": "pending",
+                    "review_progress": None,
+                    "terminal_response": None,
+                }
+
+        class Retry:
+            @staticmethod
+            def bind_review_request(value: object) -> object:
+                self.assertIs(value, review)
+                return SimpleNamespace(request_id=binding.request_id)
+
+        captured: list[object] = []
+        terminalized = False
+
+        class Controller:
+            @staticmethod
+            def capture_pending(envelope: object) -> None:
+                self.assertFalse(terminalized)
+                captured.append(envelope)
+
+        class Coordinator:
+            @staticmethod
+            def get_review(value: str) -> object:
+                self.assertEqual(value, review_id)
+                return review
+
+        adapter = object.__new__(PiSceneHttpAdapter)
+        adapter._provider_request_lock = RLock()
+        adapter.coordinator = Coordinator()
+        adapter.ordinary_stage_retry_runtime = Retry()
+        adapter.provider_stage_retry_http = Controller()
+        adapter._prepare_bound_request = lambda _payload: (  # type: ignore[method-assign]
+            request,
+            frozen_turn,
+            binding,
+        )
+        adapter._durable_request_journal = lambda: Journal()  # type: ignore[method-assign]
+        adapter._run_bound_request = lambda **_kwargs: completion  # type: ignore[method-assign]
+
+        result = adapter.resume_original_request(
+            normalized_request={},
+            turn_input=frozen_turn,
+        )
+        terminalized = True
+
+        self.assertEqual(result, completion)
+        self.assertEqual(captured, [luna, reader])
 
     def test_frozen_payload_returns_while_both_real_futures_are_joined(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

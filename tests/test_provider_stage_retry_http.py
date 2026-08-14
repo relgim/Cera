@@ -141,6 +141,8 @@ class _Continuation:
         self.recording_repair_allowed: dict[str, bool] = {}
         self.recording_repair_calls = 0
         self.recording_repair_executor: Callable[[object], object] | None = None
+        self.validation_lanes: dict[str, dict[str, str]] = {}
+        self.validation_reviews: dict[str, dict[str, Any]] = {}
 
     def latest_chain_for_chain(self, chain_id: str) -> str:
         return self.latest.get(chain_id, chain_id)
@@ -150,6 +152,12 @@ class _Continuation:
 
     def recording_repair_action_allowed(self, chain_id: str) -> bool:
         return self.recording_repair_allowed.get(chain_id, True)
+
+    def validation_lane_binding_for_chain(self, chain_id: str) -> dict[str, str] | None:
+        return self.validation_lanes.get(chain_id)
+
+    def review_payload_for_validation_chain(self, chain_id: str) -> dict[str, Any]:
+        return dict(self.validation_reviews[chain_id])
 
     def execute_recording_repair(self, action: object) -> object:
         self.recording_repair_calls += 1
@@ -494,6 +502,74 @@ class ProviderStageRetryHttpTests(unittest.TestCase):
                 world_id=self.scope.world_id,
                 branch_id=self.scope.branch_id,
             )
+
+    def test_provisional_terminal_keeps_both_validation_lanes_controllable(self) -> None:
+        review_id = "review-" + "a" * 28
+        provisional = _completion("provisional story")
+        provisional["cera"].update(
+            {
+                "provisional": True,
+                "provisional_review_id": review_id,
+                "candidate_id": "candidate:provisional",
+            }
+        )
+        self.continuation.result = provisional
+        source_chain_id, source_envelope = self._begin_failed_chain()
+        source_action = _backend_action(source_envelope)
+        self.controller.post(
+            chain_id=source_chain_id,
+            action_id=source_action["action_id"],
+            body=source_action,
+        )
+
+        prepared_chains: dict[str, str] = {}
+        for lane, stage in (
+            ("luna", ProviderStage.SEMANTIC_VALIDATOR),
+            ("reader", ProviderStage.READER),
+        ):
+            packet = _packet(stage)
+            scope = type(self.scope).create(
+                world_id=self.scope.world_id,
+                branch_id=self.scope.branch_id,
+                request_id=self.scope.request_id,
+                generation_id=self.scope.generation_id,
+                stage=stage,
+                stage_ordinal=1,
+                accepted_state_sha256=self.scope.accepted_state_sha256,
+                exact_input=packet.exact_bytes,
+                authority_binding={"head": "accepted-head"},
+            )
+            prepared = self.service.prepare_initial(scope=scope, packet=packet)
+            self.assertIs(prepared.chain.phase, ProviderStageRetryPhase.ATTEMPT_PREPARED)
+            prepared_chains[lane] = prepared.chain.chain_id
+
+        binding = {
+            "schema_version": "cera.pi_scene.review_validation_lanes.v1",
+            "review_id": review_id,
+            "luna_chain_id": prepared_chains["luna"],
+            "reader_chain_id": prepared_chains["reader"],
+        }
+        current_review = _review(review_id)
+        for lane, chain_id in prepared_chains.items():
+            self.continuation.validation_lanes[chain_id] = {
+                **binding,
+                "lane": lane,
+                "chain_id": chain_id,
+            }
+            self.continuation.validation_reviews[chain_id] = current_review
+
+        self.continuation.result = current_review
+        for lane in ("luna", "reader"):
+            chain_id = prepared_chains[lane]
+            status = self.controller.get(chain_id)
+            action = _backend_action(status)
+            self.assertEqual(action["action_kind"], "resume_prepared")
+            completion = self.controller.post(
+                chain_id=chain_id,
+                action_id=action["action_id"],
+                body=action,
+            )
+            self.assertEqual(completion["review_id"], review_id)
 
     def test_protected_review_action_opens_new_terminal_epoch(self) -> None:
         review_id = "review-" + "a" * 28
