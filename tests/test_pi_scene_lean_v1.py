@@ -927,6 +927,10 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("never call a tool named invoke", prompt)
             self.assertIn("must begin with { and end with }", prompt)
             self.assertIn("no analysis", prompt)
+        self.assertIn(
+            "Do not return resulting_public_state: Python binds it from the exact",
+            ORDINARY_RECORDER_SYSTEM_PROMPT,
+        )
         self.assertIn("knowledge_scope must each be a JSON array", ADULT_RECORDER_SYSTEM_PROMPT)
 
     def test_creator_test_seed_matches_visible_doorway_and_does_not_surface_mia(self) -> None:
@@ -3403,7 +3407,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 1,
             )
 
-    def test_existing_recorder_output_structurally_repairs_scalar_secondary_canon(self) -> None:
+    def test_existing_recorder_output_repairs_scalar_canon_and_binds_missing_state(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             coordinator, _, _, store = self.make_runtime(root)
@@ -3411,7 +3415,6 @@ class PiSceneLeanTests(unittest.TestCase):
             accepted = store.accept(review.candidate)
             payload = {
                 "secondary_canon": "Hana leaves the conversational floor open.",
-                "resulting_public_state": "Hana has answered.",
                 "relationship_changes": [],
                 "knowledge_changes": [],
                 "durable_changes": [],
@@ -3440,6 +3443,10 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 record["secondary_canon"],
                 ["Hana leaves the conversational floor open."],
+            )
+            self.assertEqual(
+                record["resulting_public_state"],
+                "Hana has answered and the conversation remains open.",
             )
 
     def test_recorder_cannot_author_python_custody_fields(self) -> None:

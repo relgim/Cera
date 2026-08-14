@@ -50,6 +50,7 @@ from .contracts import (
     advisory_ted_warnings,
     canonical_authority,
     primary_item_keys,
+    primary_sequence_authority,
 )
 from .http_contracts import (
     LeanSceneRequestControlsV1,
@@ -3244,20 +3245,24 @@ def _ordinary_record_from_payload(
     accepted: LeanAcceptedTurnReceiptV1,
     payload: Mapping[str, Any],
 ) -> OrdinarySceneRecordV1:
-    _require_exact_keys(
-        payload,
-        {
-            "secondary_canon",
-            "resulting_public_state",
-            "relationship_changes",
-            "knowledge_changes",
-            "durable_changes",
-            "unresolved_threads",
-        },
-        "ordinary Recorder",
-    )
+    model_fields = {
+        "secondary_canon",
+        "relationship_changes",
+        "knowledge_changes",
+        "durable_changes",
+        "unresolved_threads",
+    }
+    legacy_fields = {"resulting_public_state", *model_fields}
+    if set(payload) == model_fields:
+        authority = json.loads(accepted.primary_authority_json)
+        if not isinstance(authority, Mapping):
+            raise ContractValidationError("Codex primary authority is not an object")
+        resulting_public_state = primary_sequence_authority(authority).get("resulting_public_state")
+    elif set(payload) == legacy_fields:
+        resulting_public_state = payload["resulting_public_state"]
+    else:
+        raise ContractValidationError("ordinary Recorder fields changed")
     item_keys = primary_item_keys(accepted.primary_authority_json)
-    resulting_public_state = payload["resulting_public_state"]
     if not isinstance(resulting_public_state, str) or not resulting_public_state.strip():
         raise ContractValidationError("resulting_public_state must be non-empty text")
     return ordinary_record_from_mapping(

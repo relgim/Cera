@@ -747,7 +747,6 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         valid_output = json.dumps(
             {
                 "secondary_canon": [],
-                "resulting_public_state": "The accepted conversation remains open.",
                 "relationship_changes": [],
                 "knowledge_changes": [],
                 "durable_changes": [],
