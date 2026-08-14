@@ -2,6 +2,26 @@
 
 **Updated:** 2026-08-14
 
+## 2026-08-14 D-222 Root AF qualification correction
+
+Root AF spent fixture V27/manifest V31 on backend ordinary fixture 1. Its first
+Writer candidate contained invented Ted private state, correctly classified as
+hard, and used the sole externally authorized Regenerate. The successor passed
+Luna and had one localized Reader `exact_quote` issue, so runtime correctly
+accepted it under standing-policy provisional continuity and Recorder
+completed. Qualification then failed only because it asserted that every
+standing-policy acceptance must have exactly one Writer, even after a governed
+hard Regenerate.
+
+The smallest correction distinguishes first-candidate policy acceptance from a
+policy-soft Regenerate successor. The latter requires exactly two Writer
+occurrences, preserves `first_pass_policy_provisional=false`, emits
+`regenerate_successor_policy_provisional`, and forbids a third Writer. Focused
+Root AF replay, V28 fixture/ancestry, V32 policy-freeze, historical-readability,
+and provider-free fixture-count checks pass. Fresh V28/manifest V32 is the next
+candidate; the complete provider-free gate and live qualification remain
+pending.
+
 ## 2026-08-14 D-221 validation and Adult Ted-action clarification
 
 The creator confirmed that ordinary validation should reserve a second Writer

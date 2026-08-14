@@ -2,6 +2,19 @@
 
 **Status:** controlling index
 
+## 2026-08-14 D-222 hard-Regenerate soft-successor handling
+
+Read D-222 before changing qualification handling after an ordinary Regenerate.
+A soft-only first candidate still uses one Writer. A genuinely hard first
+candidate may use the one governed Regenerate; if that successor has Python
+pass and only D-220-soft signals, accept it provisionally and stop. Preserve
+the original hard rejection and Regenerate receipt, report the distinct
+successor-policy event, and never make a third Writer call. Root AF exposed the
+qualification-only assertion defect after runtime and Recorder had already
+accepted the successor correctly. The focused correction and V28/V32 checks
+pass; the complete provider-free gate and fresh live qualification remain
+pending.
+
 ## 2026-08-14 D-221 practical validation boundary
 
 Read D-221 before changing ordinary validation or Adult Scene guidance. The

@@ -88,7 +88,8 @@ QUALIFICATION_FIXTURE_SCHEMA_V23 = "cera.pi_scene.full_model_qualification_fixtu
 QUALIFICATION_FIXTURE_SCHEMA_V24 = "cera.pi_scene.full_model_qualification_fixtures.v24"
 QUALIFICATION_FIXTURE_SCHEMA_V25 = "cera.pi_scene.full_model_qualification_fixtures.v25"
 QUALIFICATION_FIXTURE_SCHEMA_V26 = "cera.pi_scene.full_model_qualification_fixtures.v26"
-QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v27"
+QUALIFICATION_FIXTURE_SCHEMA_V27 = "cera.pi_scene.full_model_qualification_fixtures.v27"
+QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v28"
 QUALIFICATION_FIXTURE_PATH_V1 = "pi_scene_full_model_qualification_v1.json"
 QUALIFICATION_FIXTURE_SHA256_V1 = "0df9fc6ca8f621ab6ea44ed2ed5c7751138f9442ea3a16af9c97a57679163f35"
 QUALIFICATION_FIXTURE_PATH_V2 = "pi_scene_full_model_qualification_v2.json"
@@ -175,8 +176,12 @@ QUALIFICATION_FIXTURE_PATH_V26 = "pi_scene_full_model_qualification_v26.json"
 QUALIFICATION_FIXTURE_SHA256_V26 = (
     "3725b529fbfe5686a3aa7e005b9850ac8eca43f8be1a0b201195027d4e4dbdc2"
 )
-QUALIFICATION_BASELINE_FIXTURE_PATH = QUALIFICATION_FIXTURE_PATH_V26
-QUALIFICATION_BASELINE_FIXTURE_SHA256 = QUALIFICATION_FIXTURE_SHA256_V26
+QUALIFICATION_FIXTURE_PATH_V27 = "pi_scene_full_model_qualification_v27.json"
+QUALIFICATION_FIXTURE_SHA256_V27 = (
+    "6e35c724ab00f58ef3ebeaa2a5b96f665ea9ed38c16c72031e832edbc4e37a02"
+)
+QUALIFICATION_BASELINE_FIXTURE_PATH = QUALIFICATION_FIXTURE_PATH_V27
+QUALIFICATION_BASELINE_FIXTURE_SHA256 = QUALIFICATION_FIXTURE_SHA256_V27
 QUALIFICATION_MANIFEST_SCHEMA_V5 = "cera.pi_scene.full_model_qualification_manifest.v5"
 QUALIFICATION_MANIFEST_SCHEMA_V6 = "cera.pi_scene.full_model_qualification_manifest.v6"
 QUALIFICATION_MANIFEST_SCHEMA_V7 = "cera.pi_scene.full_model_qualification_manifest.v7"
@@ -203,7 +208,8 @@ QUALIFICATION_MANIFEST_SCHEMA_V27 = "cera.pi_scene.full_model_qualification_mani
 QUALIFICATION_MANIFEST_SCHEMA_V28 = "cera.pi_scene.full_model_qualification_manifest.v28"
 QUALIFICATION_MANIFEST_SCHEMA_V29 = "cera.pi_scene.full_model_qualification_manifest.v29"
 QUALIFICATION_MANIFEST_SCHEMA_V30 = "cera.pi_scene.full_model_qualification_manifest.v30"
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v31"
+QUALIFICATION_MANIFEST_SCHEMA_V31 = "cera.pi_scene.full_model_qualification_manifest.v31"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v32"
 QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v6"
 
 _QUALIFICATION_ADVERSARIAL_STRESS_TAGS = frozenset(
@@ -420,9 +426,23 @@ QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "frozen_isolated_sillytavern_tree_required": True,
     "phase_order": ["backend", "sillytavern"],
 }
+QUALIFICATION_EXECUTION_POLICY_V31: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+QUALIFICATION_EXECUTION_POLICY = {
+    **deepcopy(QUALIFICATION_EXECUTION_POLICY_V31),
+    "ordinary_standing_creator_policy": {
+        **deepcopy(
+            cast(
+                Mapping[str, Any],
+                QUALIFICATION_EXECUTION_POLICY_V31["ordinary_standing_creator_policy"],
+            )
+        ),
+        "hard_regenerate_soft_successor_tolerated": True,
+        "additional_writer_call_after_soft_successor": False,
+    },
+}
 QUALIFICATION_EXECUTION_POLICY_V22: Mapping[str, Any] = {
     key: deepcopy(value)
-    for key, value in QUALIFICATION_EXECUTION_POLICY.items()
+    for key, value in QUALIFICATION_EXECUTION_POLICY_V31.items()
     if key != "ordinary_standing_creator_policy"
 }
 
@@ -640,6 +660,11 @@ class QualificationFixtureV26(QualificationFixtureV25):
 @dataclass(frozen=True, slots=True)
 class QualificationFixtureV27(QualificationFixtureV26):
     """One novel practical-boundary case bound to cumulative V1-V26 ancestry."""
+
+
+@dataclass(frozen=True, slots=True)
+class QualificationFixtureV28(QualificationFixtureV27):
+    """One novel practical-boundary case bound to cumulative V1-V27 ancestry."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1303,6 +1328,7 @@ class QualificationCampaignRun:
             planner_latency: list[dict[str, Any]] | None = None
             retry_resolutions: list[ProviderStageRetryResolutionV1] = []
             standing_policy_provisional_acceptances = 0
+            first_pass_policy_provisional = False
             try:
                 initial_response = client.complete(
                     fixture=fixture,
@@ -1507,6 +1533,7 @@ class QualificationCampaignRun:
                             runtime_root=segment_root,
                             before=before,
                             provisional=successor_provisional,
+                            standing_policy_after_regenerate=True,
                         )
                         if isinstance(successor_join, OrdinaryReviewStopV1):
                             self._record_critical_provider_stage_retry_failure(
@@ -1547,12 +1574,19 @@ class QualificationCampaignRun:
                     policy_audit = projection.get("standing_policy_audit")
                     if isinstance(policy_audit, Mapping):
                         standing_policy_provisional_acceptances = 1
+                        first_pass_policy_provisional = bool(
+                            projection.get("first_pass_policy_provisional", False)
+                        )
                         self.parent.evidence.append(
                             {
                                 "schema_version": (
                                     "cera.pi_scene.qualification_standing_policy.v1"
                                 ),
-                                "event": "first_pass_policy_provisional",
+                                "event": (
+                                    "first_pass_policy_provisional"
+                                    if projection.get("first_pass_policy_provisional") is True
+                                    else "regenerate_successor_policy_provisional"
+                                ),
                                 "fixture_id": fixture.fixture_id,
                                 "phase": self.phase.value,
                                 "turn_index": turn_index,
@@ -1774,9 +1808,7 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "passed",
                     "first_pass_accepted": first_pass,
-                    "first_pass_policy_provisional": bool(
-                        projection.get("first_pass_policy_provisional", False)
-                    ),
+                    "first_pass_policy_provisional": first_pass_policy_provisional,
                     "standing_policy_provisional_acceptances": int(
                         standing_policy_provisional_acceptances
                     ),
@@ -1862,7 +1894,7 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "failed",
                     **_closed_failure_projection(exc),
-                    "first_pass_policy_provisional": bool(standing_policy_provisional_acceptances),
+                    "first_pass_policy_provisional": first_pass_policy_provisional,
                     "standing_policy_provisional_acceptances": (
                         standing_policy_provisional_acceptances
                     ),
@@ -2244,6 +2276,7 @@ class QualificationCampaignRun:
         runtime_root: Path,
         before: ProviderLedgerSnapshotV1,
         provisional: OrdinaryProvisionalCompletionV1,
+        standing_policy_after_regenerate: bool = False,
     ) -> OrdinaryReviewResolutionV1 | OrdinaryReviewStopV1:
         """Join one provisional candidate using read-only review reconciliation.
 
@@ -2360,6 +2393,7 @@ class QualificationCampaignRun:
                     projection = _validate_ordinary_accepted_review(
                         fixture,
                         review,
+                        standing_policy_after_regenerate=(standing_policy_after_regenerate),
                     )
                     return OrdinaryReviewResolutionV1(
                         result=projection,
@@ -3013,6 +3047,7 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
             QUALIFICATION_FIXTURE_SCHEMA_V24,
             QUALIFICATION_FIXTURE_SCHEMA_V25,
             QUALIFICATION_FIXTURE_SCHEMA_V26,
+            QUALIFICATION_FIXTURE_SCHEMA_V27,
             QUALIFICATION_FIXTURE_SCHEMA,
         }:
             if set(raw) != {
@@ -3052,7 +3087,8 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
                 QUALIFICATION_FIXTURE_SCHEMA_V24: _validate_v24_qualification_novelty_ancestry,
                 QUALIFICATION_FIXTURE_SCHEMA_V25: _validate_v25_qualification_novelty_ancestry,
                 QUALIFICATION_FIXTURE_SCHEMA_V26: _validate_v26_qualification_novelty_ancestry,
-                QUALIFICATION_FIXTURE_SCHEMA: _validate_v27_qualification_novelty_ancestry,
+                QUALIFICATION_FIXTURE_SCHEMA_V27: _validate_v27_qualification_novelty_ancestry,
+                QUALIFICATION_FIXTURE_SCHEMA: _validate_v28_qualification_novelty_ancestry,
             }[str(schema_version)]
             validator(
                 fixture_path=path,
@@ -3103,6 +3139,7 @@ def _decode_qualification_fixture_rows(
         QUALIFICATION_FIXTURE_SCHEMA_V24,
         QUALIFICATION_FIXTURE_SCHEMA_V25,
         QUALIFICATION_FIXTURE_SCHEMA_V26,
+        QUALIFICATION_FIXTURE_SCHEMA_V27,
         QUALIFICATION_FIXTURE_SCHEMA,
     }:
         raise ContractValidationError("qualification fixture schema changed")
@@ -3164,7 +3201,8 @@ def _decode_qualification_fixture_rows(
                     QUALIFICATION_FIXTURE_SCHEMA_V24: QualificationFixtureV24,
                     QUALIFICATION_FIXTURE_SCHEMA_V25: QualificationFixtureV25,
                     QUALIFICATION_FIXTURE_SCHEMA_V26: QualificationFixtureV26,
-                    QUALIFICATION_FIXTURE_SCHEMA: QualificationFixtureV27,
+                    QUALIFICATION_FIXTURE_SCHEMA_V27: QualificationFixtureV27,
+                    QUALIFICATION_FIXTURE_SCHEMA: QualificationFixtureV28,
                 }[schema_version]
                 fixture = fixture_type(
                     **common, novelty_id=str(value["novelty_id"]), stress_tags=tuple(tags)
@@ -3358,6 +3396,11 @@ def _qualification_fixture_ancestry() -> list[dict[str, str]]:
             "schema_version": QUALIFICATION_FIXTURE_SCHEMA_V26,
             "path": QUALIFICATION_FIXTURE_PATH_V26,
             "sha256": QUALIFICATION_FIXTURE_SHA256_V26,
+        },
+        {
+            "schema_version": QUALIFICATION_FIXTURE_SCHEMA_V27,
+            "path": QUALIFICATION_FIXTURE_PATH_V27,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V27,
         },
     ]
 
@@ -3881,6 +3924,26 @@ def _validate_v27_qualification_novelty_ancestry(
         baseline_fixture_path=baseline_fixture_path,
         baseline_fixture_sha256=baseline_fixture_sha256,
         baseline_ancestry=baseline_ancestry,
+        expected_baseline_path=QUALIFICATION_FIXTURE_PATH_V26,
+        expected_baseline_sha256=QUALIFICATION_FIXTURE_SHA256_V26,
+        expected_ancestry=_qualification_fixture_ancestry()[:26],
+    )
+
+
+def _validate_v28_qualification_novelty_ancestry(
+    *,
+    fixture_path: Path,
+    fixtures: tuple[QualificationFixtureV1, ...],
+    baseline_fixture_path: object,
+    baseline_fixture_sha256: object,
+    baseline_ancestry: object,
+) -> None:
+    _validate_qualification_novelty_ancestry(
+        fixture_path=fixture_path,
+        fixtures=fixtures,
+        baseline_fixture_path=baseline_fixture_path,
+        baseline_fixture_sha256=baseline_fixture_sha256,
+        baseline_ancestry=baseline_ancestry,
         expected_baseline_path=QUALIFICATION_BASELINE_FIXTURE_PATH,
         expected_baseline_sha256=QUALIFICATION_BASELINE_FIXTURE_SHA256,
         expected_ancestry=_qualification_fixture_ancestry(),
@@ -3939,9 +4002,15 @@ def _validate_qualification_novelty_ancestry(
 def _fixture_novelty_evidence(
     fixture: QualificationFixtureV1,
 ) -> dict[str, Any]:
-    if isinstance(fixture, QualificationFixtureV27):
+    if isinstance(fixture, QualificationFixtureV28):
         return {
             "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA,
+            "novelty_id": fixture.novelty_id,
+            "stress_tags": list(fixture.stress_tags),
+        }
+    if isinstance(fixture, QualificationFixtureV27):
+        return {
+            "fixture_schema_version": QUALIFICATION_FIXTURE_SCHEMA_V27,
             "novelty_id": fixture.novelty_id,
             "stress_tags": list(fixture.stress_tags),
         }
@@ -4322,6 +4391,13 @@ def qualification_fixture_manifest_metadata(
         }
         fixture_ancestry = _qualification_fixture_ancestry()[:25]
     elif fixture_types == {QualificationFixtureV27}:
+        fixture_schema_version = QUALIFICATION_FIXTURE_SCHEMA_V27
+        fixture_baseline = {
+            "path": QUALIFICATION_FIXTURE_PATH_V26,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V26,
+        }
+        fixture_ancestry = _qualification_fixture_ancestry()[:26]
+    elif fixture_types == {QualificationFixtureV28}:
         fixture_schema_version = QUALIFICATION_FIXTURE_SCHEMA
         fixture_baseline = {
             "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
@@ -4522,6 +4598,7 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         QUALIFICATION_MANIFEST_SCHEMA_V28,
         QUALIFICATION_MANIFEST_SCHEMA_V29,
         QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         required.add("fixture_ancestry")
@@ -4549,22 +4626,22 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         "user_authorized_deepseek_operations": USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING,
     }:
         raise StateConflictError("qualification provider ceilings changed")
-    expected_execution_policy = (
-        QUALIFICATION_EXECUTION_POLICY
-        if schema_version
-        in {
-            QUALIFICATION_MANIFEST_SCHEMA_V23,
-            QUALIFICATION_MANIFEST_SCHEMA_V24,
-            QUALIFICATION_MANIFEST_SCHEMA_V25,
-            QUALIFICATION_MANIFEST_SCHEMA_V26,
-            QUALIFICATION_MANIFEST_SCHEMA_V27,
-            QUALIFICATION_MANIFEST_SCHEMA_V28,
-            QUALIFICATION_MANIFEST_SCHEMA_V29,
-            QUALIFICATION_MANIFEST_SCHEMA_V30,
-            QUALIFICATION_MANIFEST_SCHEMA,
-        }
-        else QUALIFICATION_EXECUTION_POLICY_V22
-    )
+    if schema_version == QUALIFICATION_MANIFEST_SCHEMA:
+        expected_execution_policy = QUALIFICATION_EXECUTION_POLICY
+    elif schema_version in {
+        QUALIFICATION_MANIFEST_SCHEMA_V23,
+        QUALIFICATION_MANIFEST_SCHEMA_V24,
+        QUALIFICATION_MANIFEST_SCHEMA_V25,
+        QUALIFICATION_MANIFEST_SCHEMA_V26,
+        QUALIFICATION_MANIFEST_SCHEMA_V27,
+        QUALIFICATION_MANIFEST_SCHEMA_V28,
+        QUALIFICATION_MANIFEST_SCHEMA_V29,
+        QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
+    }:
+        expected_execution_policy = QUALIFICATION_EXECUTION_POLICY_V31
+    else:
+        expected_execution_policy = QUALIFICATION_EXECUTION_POLICY_V22
     if manifest["execution_policy"] != expected_execution_policy:
         raise StateConflictError("qualification execution policy changed")
 
@@ -4609,6 +4686,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V28,
         QUALIFICATION_MANIFEST_SCHEMA_V29,
         QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
         QUALIFICATION_MANIFEST_SCHEMA,
     }
     if (
@@ -4681,6 +4759,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V28,
         QUALIFICATION_MANIFEST_SCHEMA_V29,
         QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4713,6 +4792,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V28,
         QUALIFICATION_MANIFEST_SCHEMA_V29,
         QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4744,6 +4824,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V28,
         QUALIFICATION_MANIFEST_SCHEMA_V29,
         QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4774,6 +4855,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V28,
         QUALIFICATION_MANIFEST_SCHEMA_V29,
         QUALIFICATION_MANIFEST_SCHEMA_V30,
+        QUALIFICATION_MANIFEST_SCHEMA_V31,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4942,6 +5024,14 @@ def _validate_manifest_fixture_metadata(
             "sha256": QUALIFICATION_FIXTURE_SHA256_V25,
         }
         expected_ancestry = _qualification_fixture_ancestry()[:25]
+    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA_V27 and manifest_schema == (
+        QUALIFICATION_MANIFEST_SCHEMA_V31
+    ):
+        expected_baseline = {
+            "path": QUALIFICATION_FIXTURE_PATH_V26,
+            "sha256": QUALIFICATION_FIXTURE_SHA256_V26,
+        }
+        expected_ancestry = _qualification_fixture_ancestry()[:26]
     elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema == (
         QUALIFICATION_MANIFEST_SCHEMA
     ):
@@ -5563,6 +5653,8 @@ def _ordinary_standing_policy_reasons(review: OrdinaryReviewV3) -> tuple[str, ..
 def _validate_ordinary_accepted_review(
     fixture: QualificationFixtureV1,
     review: OrdinaryReviewV3,
+    *,
+    standing_policy_after_regenerate: bool = False,
 ) -> dict[str, Any]:
     if (
         review["state"] != "accepted"
@@ -5596,8 +5688,11 @@ def _validate_ordinary_accepted_review(
             expected_audit
         ):
             raise StateConflictError("ordinary standing-policy audit did not recompute")
-        if len(review["provider_attempts"]) != 1:
-            raise StateConflictError("ordinary standing policy invoked a second Writer")
+        expected_attempts = 2 if standing_policy_after_regenerate else 1
+        if len(review["provider_attempts"]) != expected_attempts:
+            raise StateConflictError(
+                "ordinary standing-policy Writer count changed for its governed path"
+            )
     else:
         if (
             acceptance.get("mode") != "automatic"
@@ -5638,7 +5733,7 @@ def _validate_ordinary_accepted_review(
         "observed_route": fixture.expected_route.value,
         "observed_next_route": fixture.expected_next_route.value,
         "first_pass_accepted": not standing_policy and len(review["provider_attempts"]) == 1,
-        "first_pass_policy_provisional": standing_policy,
+        "first_pass_policy_provisional": (standing_policy and not standing_policy_after_regenerate),
         "standing_policy_provisional_acceptances": int(standing_policy),
         "standing_policy_audit": (acceptance.get("standing_policy") if standing_policy else None),
         "automatic_repair_actions": 0,
@@ -7412,6 +7507,7 @@ __all__ = [
     "QualificationFixtureV25",
     "QualificationFixtureV26",
     "QualificationFixtureV27",
+    "QualificationFixtureV28",
     "QualificationManualActionAuthorizationV1",
     "QualificationManualActionAuthorizer",
     "QualificationManualActionRequestV1",
