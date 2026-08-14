@@ -1786,8 +1786,62 @@ class PiSceneHttpAdapter:
             return adult_review_payload(self.full_model_controller.get_adult_review(review_id))
         if ordinary is None:
             raise StateConflictError("unknown Pi Scene review")
+        ordinary = self._reconcile_ordinary_recorder_for_review_get(ordinary)
         self._release_completed_ordinary_review(ordinary)
         return self.review_payload(ordinary)
+
+    def _reconcile_ordinary_recorder_for_review_get(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> LeanReviewRecordV1:
+        """Expose an accepted review's exact Recorder recovery barrier.
+
+        Recorder can fail after the accepted turn is already immutable.  In
+        that state the review remains readable, but a plain review projection
+        cannot carry the generated provider-stage Retry envelope.  Surface the
+        existing chain through the generic 409 contract so callers can perform
+        only its exact backend-issued action.  A result that was already frozen
+        across a restart is joined provider-free before the review is returned.
+        """
+
+        accepted = review.accepted_receipt
+        ordinary_retry = self.ordinary_stage_retry_runtime
+        if accepted is None or ordinary_retry is None:
+            return review
+        if self.coordinator.store.recording_status(accepted) is RecordingStatus.COMPLETE:
+            return review
+        resolution = ordinary_retry.recorder_review_resolution(
+            review_id=review.review_id,
+            accepted=accepted,
+        )
+        if resolution.kind != "chain_active":
+            return review
+        envelope = resolution.envelope
+        if envelope is None:
+            raise StateConflictError("active Recorder chain lost its generated status")
+        status = envelope.get("status")
+        if not isinstance(status, Mapping):
+            raise StateConflictError("active Recorder chain status changed shape")
+        chain_id = status.get("chain_id")
+        state = status.get("state")
+        if not isinstance(chain_id, str) or not isinstance(state, str):
+            raise StateConflictError("active Recorder chain identity changed")
+        stage_retry = self.provider_stage_retry_http
+        if state == "succeeded":
+            if stage_retry is None:
+                raise StateConflictError("succeeded Recorder chain lacks provider-free join")
+            stage_retry.get(chain_id)
+            refreshed = self.coordinator.get_review(review.review_id)
+            if (
+                refreshed.accepted_receipt is None
+                or self.coordinator.store.recording_status(refreshed.accepted_receipt)
+                is not RecordingStatus.COMPLETE
+            ):
+                raise StateConflictError("succeeded Recorder chain did not bind recording")
+            return refreshed
+        if stage_retry is not None:
+            stage_retry.capture_pending(envelope)
+        raise ProviderStageRetryPendingError(envelope)
 
     def _release_completed_ordinary_review(
         self,

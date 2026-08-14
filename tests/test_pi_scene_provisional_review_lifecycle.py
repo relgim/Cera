@@ -31,6 +31,7 @@ from cera.pi_scene.review_store import LeanReviewState
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
     OrdinaryWriterCandidateOccurrenceV1,
+    ProviderStageRetryPendingError,
     _writer_prompt,
 )
 from cera.pi_scene.store import LeanSceneStore
@@ -315,10 +316,55 @@ class _ActiveRecorderReviewPort:
     def __init__(self) -> None:
         self.resolutions = 0
         self.bind_attempts = 0
+        chain_id = "stage-retry-" + text_sha256("active-recorder-review")
+        chain_sha256 = text_sha256(f"{chain_id}:1:0:eligible")
+        action = {
+            "schema_version": "cera.provider_stage_retry_action.v1",
+            "action_id": "stage-action-" + text_sha256(f"{chain_id}:1"),
+            "chain_id": chain_id,
+            "action_family": "provider_stage_control",
+            "action_kind": "provider_retry",
+            "automatic": False,
+            "provider_dispatch_authorized": True,
+            "consumes_retry_action": True,
+            "retry_action_ordinal": 1,
+            "whole_request_replay_authorized": False,
+            "provider_substitution_authorized": False,
+            "expected_chain_sha256": chain_sha256,
+        }
+        self.envelope = {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+                "schema_version": "cera.provider_stage_retry_status.v1",
+                "chain_id": chain_id,
+                "provider": "deepseek",
+                "model_family": "deepseek_v4",
+                "stage": "recorder",
+                "state": "eligible",
+                "maximum_attempts": 3,
+                "stage_attempts_total": 1,
+                "retry_actions_accepted": 0,
+                "provider_operations_observed_total": 2,
+                "provider_operations_conservative_total": 2,
+                "story_state_committed": True,
+                "branch_preserved_at_last_accepted_head": True,
+                "failure_category": "provider_output_invalid",
+                "available_actions": ["provider_retry"],
+                "technical_details": {
+                    "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                    "request_occurrence_sha256": "1" * 64,
+                    "request_sha256": "2" * 64,
+                    "stage_input_sha256": "3" * 64,
+                    "accepted_state_sha256": "4" * 64,
+                    "chain_sha256": chain_sha256,
+                },
+            },
+            "actions": [action],
+        }
 
     def recorder_review_resolution(self, **_kwargs: object) -> object:
         self.resolutions += 1
-        return SimpleNamespace(kind="chain_active")
+        return SimpleNamespace(kind="chain_active", envelope=self.envelope)
 
     def bind_review_action(self, **_kwargs: object) -> object:
         self.bind_attempts += 1
@@ -1514,6 +1560,9 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
 
             public = adapter.review_payload(accepted)
             self.assertFalse(public["actions"]["repair_recording_enabled"])
+            with self.assertRaises(ProviderStageRetryPendingError) as pending:
+                adapter.get_review(accepted.review_id)
+            self.assertEqual(pending.exception.envelope, recorder.envelope)
             with self.assertRaisesRegex(StateConflictError, "exact generic recovery"):
                 adapter.decide(
                     accepted.review_id,

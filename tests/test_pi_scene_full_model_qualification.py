@@ -1264,12 +1264,16 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         terminal_state: str | None = None,
         ambiguous_post: bool = False,
         failure_on_regenerate: bool = False,
+        failure_on_review: bool = False,
         prepared_resume: bool = False,
         repair_successor_exhausts: bool = False,
         deepseek_success_operations: int = 1,
         private_sentinel: str = "PRIVATE QUALIFICATION STORY SENTINEL",
     ) -> None:
-        super().__init__(runtime_root)
+        super().__init__(
+            runtime_root,
+            recording_repair_fixture_id=(failure_fixture_id if failure_on_review else None),
+        )
         if stage not in self._STAGE_OWNER or later_stage not in {None, *self._STAGE_OWNER}:
             raise AssertionError("fake provider stage is invalid")
         if failures_before_success not in {1, 2}:
@@ -1281,6 +1285,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         self.terminal_state = terminal_state
         self.ambiguous_post = ambiguous_post
         self.failure_on_regenerate = failure_on_regenerate
+        self.failure_on_review = failure_on_review
         self.prepared_resume = prepared_resume
         self.repair_successor_exhausts = repair_successor_exhausts
         if not 1 <= deepseek_success_operations <= DEEPSEEK_PER_INVOCATION_CEILING:
@@ -1297,8 +1302,12 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         self._ambiguous_raised = False
         self._completion_planner_override: int | None = None
         self.repair_successor_chains: set[str] = set()
+        self.review_retry_envelopes: dict[str, dict[str, Any]] = {}
+        self.review_retry_chains: dict[str, str] = {}
         if failure_on_regenerate:
             self.reject_first = True
+        if failure_on_review and stage != "recorder":
+            raise AssertionError("review-polled provider failure must belong to Recorder")
 
     def complete(
         self,
@@ -1307,6 +1316,27 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         session_id: str,
         payload: dict[str, Any] | Any,
     ) -> ClientResponseV1:
+        if self.failure_on_review:
+            response = super().complete(fixture=fixture, session_id=session_id, payload=payload)
+            if fixture.fixture_id != self.failure_fixture_id:
+                return response
+            self.failed_fixture = fixture
+            review_id = str(response.body["cera"]["provisional_review_id"])
+            review = deepcopy(self.reviews[review_id])
+            review["recording_status"] = "projection_pending"
+            review["actions"] = self._ordinary_actions()
+            self.reviews[review_id] = review
+            self._append_stage_failure("recorder")
+            envelope = self._envelope(
+                "recorder",
+                attempts=1,
+                retries=0,
+                state="eligible",
+            )
+            chain_id = str(envelope["status"]["chain_id"])
+            self.review_retry_envelopes[review_id] = envelope
+            self.review_retry_chains[chain_id] = review_id
+            return response
         if fixture.fixture_id != self.failure_fixture_id or self.failure_on_regenerate:
             return super().complete(fixture=fixture, session_id=session_id, payload=payload)
         value = dict(payload)
@@ -1352,6 +1382,19 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
             duration_ms=11,
             body=envelope,
         )
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        envelope = self.review_retry_envelopes.get(review_id)
+        if envelope is not None:
+            self.review_reads.append(review_id)
+            return ClientResponseV1(
+                transport="fake-review-get-recorder-retry",
+                path=f"/v1/cera/reviews/{review_id}",
+                status_code=409,
+                duration_ms=self.REVIEW_POLL_DURATION_MS,
+                body=deepcopy(envelope),
+            )
+        return super().review(review_id=review_id)
 
     def regenerate(
         self,
@@ -1514,6 +1557,17 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         if self.ambiguous_post and not self._ambiguous_raised:
             self._ambiguous_raised = True
             raise OSError(self.private_sentinel)
+        review_id = self.review_retry_chains.get(current)
+        if review_id is not None and body.get("schema_version") != (
+            "cera.provider_stage_retry_status_envelope.v1"
+        ):
+            review = deepcopy(self.reviews[review_id])
+            review["recording_status"] = "complete"
+            review["actions"] = self._ordinary_actions()
+            review["provider_operations"]["recorder"] = self.deepseek_success_operations
+            self.reviews[review_id] = review
+            self._bind_terminal_decision(review_id, creator_action="automatic_accept")
+            self.review_retry_envelopes.pop(review_id, None)
         return response
 
     def _successful_completion(self, *, stage: str, observed: int) -> dict[str, Any]:
@@ -4589,6 +4643,39 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(first["provider_operations"]["planner"], 1)
             self.assertEqual(first["provider_operations"]["writer"], 2)
             self.assertEqual(first["provider_operations"]["reader"], 2)
+
+    def test_accepted_review_get_surfaces_recorder_retry_before_recording_repair(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            client = _FakeProviderStageRetryClient(
+                runtime,
+                failure_fixture_id="backend-ordinary-01",
+                stage="recorder",
+                failure_on_review=True,
+            )
+            runner = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            )
+            campaign = runner.start_phase(QualificationPhase.BACKEND, fixtures)
+            campaign.run_segment(client=client, runtime_root=runtime, turn_count=1)
+
+            self.assertEqual(len(campaign.results), 1)
+            first = campaign.results[0]
+            self.assertEqual(first["status"], "passed")
+            self.assertEqual(first["provider_stage_retry_actions"], 1)
+            self.assertEqual(first["provider_stage_repair_recording_actions"], 0)
+            self.assertEqual(first["review_recording_repair_actions"], 0)
+            self.assertEqual(first["externally_authorized_manual_actions"], 1)
+            self.assertEqual(first["provider_operations"]["recorder"], 1)
+            self.assertEqual(first["deepseek_http_operations"], 3)
+            self.assertEqual(len(client.action_posts), 1)
+            self.assertEqual(client.action_posts[0][1]["action_kind"], "provider_retry")
+            self.assertGreaterEqual(len(client.review_reads), 2)
+            self.assertEqual(client.review_retry_envelopes, {})
 
     def test_ambiguous_post_reconciles_by_get_without_reposting_or_leaking(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)

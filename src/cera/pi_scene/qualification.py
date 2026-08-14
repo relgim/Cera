@@ -2250,6 +2250,25 @@ class QualificationCampaignRun:
             if current_response is None:
                 current_response = review_reader(review_id=provisional.review_id)
                 total_duration_ms += current_response.duration_ms
+            recorder_retry = self._resolve_manual_provider_stage_retry(
+                fixture=fixture,
+                turn_index=turn_index,
+                client=client,
+                runtime_root=runtime_root,
+                before=before,
+                response=current_response,
+                candidate_sha256=provisional.candidate_sha256,
+            )
+            if recorder_retry is not None:
+                retry_resolutions.append(recorder_retry)
+                total_duration_ms += recorder_retry.duration_ms
+                if recorder_retry.completion_response is None:
+                    return OrdinaryReviewStopV1(tuple(retry_resolutions))
+                # Recorder continuation may return the protected original
+                # completion or review-action decision.  The joined review GET
+                # is the sole canonical projection after recording is repaired.
+                current_response = None
+                continue
             review = _validate_ordinary_review_response(
                 fixture,
                 current_response,
