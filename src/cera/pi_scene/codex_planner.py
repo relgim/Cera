@@ -265,12 +265,16 @@ def _accepted_evidence(
             "exact_accepted_prose_sha256": accepted_prose_hash,
             "primary_authority_sha256": primary_authority_hash,
         }
-        # Exact prior user text is useful ordinary continuity, but protected
-        # adult source never belongs in the Codex evidence projection.
+        # Exact prior ordinary source remains available through accepted-world
+        # custody.  Keep only its validated hash in this bounded Planner delta;
+        # protected adult source never belongs in the Codex evidence projection.
         if route == "ordinary":
-            exact_source = receipt.get("exact_user_source")
-            if isinstance(exact_source, str):
-                public_receipt["exact_user_source"] = exact_source
+            public_receipt["exact_user_source_sha256"] = _accepted_text_hash(
+                receipt,
+                text_field="exact_user_source",
+                hash_field="exact_user_source_sha256",
+                label="user source",
+            )
         public_value = {
             "receipt": public_receipt,
             "ordinary_record": value.get("ordinary_record"),

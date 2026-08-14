@@ -8,6 +8,29 @@ from cera.serialization import text_sha256
 
 
 class PiSceneCodexPlannerPrivacyTests(unittest.TestCase):
+    def test_ordinary_source_is_hash_only_bounded_evidence(self) -> None:
+        exact_source = "Continue the accepted scene. " * 200
+        records = (
+            {
+                "receipt": {
+                    "accepted_turn_id": "accepted-ordinary-0001",
+                    "generation": 1,
+                    "route": "ordinary",
+                    "exact_user_source": exact_source,
+                    "exact_accepted_prose": "Accepted prose.",
+                    "primary_authority_json": "{}",
+                },
+                "ordinary_record": {"summary": "The accepted scene remains available."},
+            },
+        )
+
+        evidence = _accepted_evidence(records)
+
+        self.assertEqual(len(evidence), 1)
+        self.assertNotIn(exact_source, evidence[0].exact_content)
+        self.assertIn(text_sha256(exact_source), evidence[0].exact_content)
+        self.assertLess(len(evidence[0].exact_content), 4_000)
+
     def test_hash_only_adult_receipt_is_valid_codex_evidence(self) -> None:
         protected_source = "PROTECTED ADULT SOURCE"
         protected_prose = "PROTECTED ADULT PROSE"
