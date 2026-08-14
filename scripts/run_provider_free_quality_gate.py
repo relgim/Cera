@@ -53,9 +53,11 @@ _PINNED_QUALITY_TOOLS = {
 }
 _GENERATED_CONTRACT_CHECK = "scripts/generate_provider_stage_retry_contracts.py"
 _ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK = "scripts/generate_ordinary_review_contracts.py"
+_ORDINARY_REVIEW_V3_GENERATED_CONTRACT_CHECK = "scripts/generate_ordinary_review_contracts_v3.py"
 _GENERATED_CONTRACT_CHECKS = (
     ("provider-stage", _GENERATED_CONTRACT_CHECK),
-    ("ordinary-review", _ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK),
+    ("ordinary-review-v2", _ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK),
+    ("ordinary-review-v3", _ORDINARY_REVIEW_V3_GENERATED_CONTRACT_CHECK),
 )
 _EXPECTED_PROVIDER_STAGES = (
     "planner",
@@ -81,6 +83,11 @@ _ORDINARY_REVIEW_SCHEMA_TARGETS = (
     "schemas/pi_scene/ordinary_review/v2/review_checks.schema.json",
     "schemas/pi_scene/ordinary_review/v2/review_decision.schema.json",
     "schemas/pi_scene/ordinary_review/v2/review_lifecycle.schema.json",
+    "schemas/pi_scene/ordinary_review/v3/common.schema.json",
+    "schemas/pi_scene/ordinary_review/v3/review.schema.json",
+    "schemas/pi_scene/ordinary_review/v3/review_checks.schema.json",
+    "schemas/pi_scene/ordinary_review/v3/review_decision.schema.json",
+    "schemas/pi_scene/ordinary_review/v3/review_lifecycle.schema.json",
 )
 _ORDINARY_REVIEW_GENERATED_TARGETS = (
     "docs/generated/ORDINARY_REVIEW_CONTRACTS_V2.md",
@@ -90,6 +97,13 @@ _ORDINARY_REVIEW_GENERATED_TARGETS = (
     "src/cera/generated/ordinary_review_contracts_v2.py",
     "tests/fixtures/generated/ordinary_review_v2_negative.json",
     "tests/fixtures/generated/ordinary_review_v2_positive.json",
+    "docs/generated/ORDINARY_REVIEW_CONTRACTS_V3.md",
+    "integrations/sillytavern/generated/ordinary-review-contracts-v3.mjs",
+    "integrations/sillytavern/cera-review-proxy-plugin/generated/ordinary-review-contracts-v3.mjs",
+    "integrations/sillytavern/creator-review-extension/generated/ordinary-review-contracts-v3.mjs",
+    "src/cera/generated/ordinary_review_contracts_v3.py",
+    "tests/fixtures/generated/ordinary_review_v3_negative.json",
+    "tests/fixtures/generated/ordinary_review_v3_positive.json",
 )
 _READER_SOURCE_TARGETS = (
     "src/cera/reader_validation/__init__.py",
@@ -104,6 +118,7 @@ _ORDINARY_REVIEW_LIFECYCLE_SOURCE_TARGETS = (
     "src/cera/pi_scene/http.py",
     "src/cera/pi_scene/http_contracts.py",
     "src/cera/pi_scene/ordinary_http.py",
+    "src/cera/pi_scene/ordinary_rejection_policy.py",
     "src/cera/pi_scene/provider_stage_retry_executor.py",
     "src/cera/pi_scene/provider_stage_retry_http.py",
     "src/cera/pi_scene/provider_stage_retry_ordinary.py",
@@ -121,6 +136,7 @@ _ORDINARY_REVIEW_LIFECYCLE_SOURCE_TARGETS = (
 _ORDINARY_REVIEW_LEGACY_TYPE_TARGETS = ("src/cera/pi_scene/store.py",)
 _ORDINARY_REVIEW_TEST_MODULES = (
     "tests.test_ordinary_review_schema_generation",
+    "tests.test_ordinary_review_schema_generation_v3",
     "tests.test_pi_scene_accepted_regenerate_runtime",
     "tests.test_pi_scene_provisional_review_lifecycle",
     "tests.test_pi_scene_reader_validation",
@@ -275,11 +291,14 @@ _PROVIDER_STAGE_RETRY_COMPILE_TARGETS = (
 )
 _ORDINARY_REVIEW_FORMAT_TARGETS = (
     _ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK,
+    _ORDINARY_REVIEW_V3_GENERATED_CONTRACT_CHECK,
     "src/cera/adult_pipeline/contracts.py",
     "src/cera/generated/ordinary_review_contracts_v2.py",
+    "src/cera/generated/ordinary_review_contracts_v3.py",
     *_READER_SOURCE_TARGETS,
     "src/cera/pi_scene/review_lifecycle.py",
     "tests/test_ordinary_review_schema_generation.py",
+    "tests/test_ordinary_review_schema_generation_v3.py",
     "tests/test_pi_scene_provisional_review_lifecycle.py",
     "tests/test_pi_scene_reader_validation.py",
 )
@@ -295,8 +314,10 @@ _ORDINARY_REVIEW_LINT_TARGETS = (
 )
 _ORDINARY_REVIEW_TYPE_TARGETS = (
     _ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK,
+    _ORDINARY_REVIEW_V3_GENERATED_CONTRACT_CHECK,
     "src/cera/adult_pipeline/contracts.py",
     "src/cera/generated/ordinary_review_contracts_v2.py",
+    "src/cera/generated/ordinary_review_contracts_v3.py",
     *_READER_SOURCE_TARGETS,
     *(
         target
@@ -321,8 +342,11 @@ _SILLYTAVERN_RETRY_NODE_CHECK_TARGETS = (
 )
 _SILLYTAVERN_ORDINARY_REVIEW_NODE_CHECK_TARGETS = (
     "integrations/sillytavern/generated/ordinary-review-contracts-v2.mjs",
+    "integrations/sillytavern/generated/ordinary-review-contracts-v3.mjs",
     "integrations/sillytavern/cera-review-proxy-plugin/generated/ordinary-review-contracts-v2.mjs",
+    "integrations/sillytavern/cera-review-proxy-plugin/generated/ordinary-review-contracts-v3.mjs",
     "integrations/sillytavern/creator-review-extension/generated/ordinary-review-contracts-v2.mjs",
+    "integrations/sillytavern/creator-review-extension/generated/ordinary-review-contracts-v3.mjs",
     "integrations/sillytavern/creator-review-extension/completion-metadata.js",
 )
 _SILLYTAVERN_NODE_CHECK_TARGETS = tuple(

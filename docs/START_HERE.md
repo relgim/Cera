@@ -2,6 +2,28 @@
 
 **Status:** controlling index
 
+## 2026-08-13 D-220 ordinary standing policy
+
+Before ordinary Pi review, acceptance, qualification, or SillyTavern bridge
+work, read D-220 in
+[`authority/DECISIONS_AND_SUPERSESSIONS.md`](authority/DECISIONS_AND_SUPERSESSIONS.md)
+and the D-220 delta in
+[`implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md`](implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md).
+
+For ordinary scenes only, the immutable `standing_creator_policy`
+`ordinary_provisional_continuity` v1 may accept a first Writer candidate once
+as provisional continuity when Python passes and every Luna/Reader rejection
+is exactly soft-allowlisted. Hard always wins; evidence remains attached; no
+second Writer call or manual creator action occurs. Adult remains strict.
+Ordinary review V2 is historical and V3 is current. The policy text and object
+hashes, exact allowlists, and supersession boundary are recorded in D-220. The
+current qualification family is manifest V23, phase result V6, and complete
+result V5; older versions remain historical evidence.
+Source integration and focused provider-free evidence are complete locally.
+The complete no-selector gate and fresh-fixture qualification remain pending;
+this index grants no provider call, live rerun, route promotion, or
+installed-client sync.
+
 ## 2026-08-09 C78 full-model roadmap
 
 For the next creator-authorized CERA implementation work, read

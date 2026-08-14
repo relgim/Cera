@@ -1,0 +1,3791 @@
+{
+  "schema_version": "cera.pi_scene.ordinary_review_fixture_set.v2",
+  "generated_from_sha256": {
+    "common.schema.json": "1173985ac4a56b091f972af5e25dc0300f01d945f97ffa84654d15682806f10a",
+    "review.schema.json": "ef7221477b9a1cafc03769213ef57bd42a82980d8016441ffe6edc62992ce85a",
+    "review_checks.schema.json": "379bb6b3b871ee28a87fcd60e35a0d4b0b23c65421ca602832593a4470001167",
+    "review_decision.schema.json": "0f2b43072d82957ca3fd8dcb613c7b12d553ea48868a21de9432c3bac2538bfc",
+    "review_lifecycle.schema.json": "9d504d0bf1811eea547edd0fe30b8239eaf6f7976adcf63a8b6a573672d4ee42"
+  },
+  "external_provider_stage_schema_sha256": {
+    "action.schema.json": "0a9b3d202d7e1383a529e23a463aa1c625c8388c26071f321a2c0751e13507cf",
+    "blocked_ambiguous.schema.json": "64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9",
+    "common.schema.json": "2fc9e2d301dbb17d73811a265c9e36915cad4d44f510b708e989b5aec6226b52",
+    "compatibility_adapter.schema.json": "8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff",
+    "exhausted.schema.json": "53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b",
+    "status.schema.json": "4405489f856b7d11716c95709adc759d2a93228bf998d868b25b00e7cc942255",
+    "status_envelope.schema.json": "7dccaffbe58698bc363fc9e3faee0b14dae4eca7253c69f96a1cc290a88900d9"
+  },
+  "expected_valid": true,
+  "cases": [
+    {
+      "case_id": "review.schema.positive.base_01",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "checks_pending",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "pending",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_pending",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 0,
+              "reader": 0
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 0,
+          "reader": 0,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.manual_pass_review_ready",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "review_ready",
+        "review_mode": "manual",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "pass",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": true,
+          "regenerate_enabled": true,
+          "decline_enabled": true,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "manual"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_passed",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.automatic_luna_reject",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "review_ready",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "sequence_contradiction",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": true,
+          "decline_enabled": true,
+          "replan_enabled": false,
+          "auditable_override_enabled": true,
+          "auditable_override_action": "accept_provisional",
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": {
+          "schema_version": "cera.pi_scene.creator_guidance_projection.v1",
+          "action": "regenerate",
+          "text_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.blocked_inconclusive_without_retry",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "checks_pending",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "blocked",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "inconclusive",
+            "verdict_sha256": null,
+            "failures": [
+              {
+                "code": "validation_result_unavailable",
+                "concise_explanation": "The semantic verdict is unavailable and requires explicit recovery.",
+                "source_kind": "runtime_failure",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_blocked",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 0,
+              "reader": 0
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 0,
+          "reader": 0,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.blocked_luna_retry",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "checks_pending",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "blocked",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "inconclusive",
+            "verdict_sha256": null,
+            "failures": [
+              {
+                "code": "luna_provider_stage_blocked",
+                "concise_explanation": "The semantic-validator stage is blocked and requires its explicit stage-local recovery.",
+                "source_kind": "runtime_failure",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": {
+              "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+              "status": {
+                "schema_version": "cera.provider_stage_retry_status.v1",
+                "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "provider": "codex",
+                "model_family": "luna",
+                "stage": "semantic_validator",
+                "state": "blocked_ambiguous",
+                "maximum_attempts": 3,
+                "stage_attempts_total": 1,
+                "retry_actions_accepted": 0,
+                "provider_operations_observed_total": 0,
+                "provider_operations_conservative_total": 1,
+                "story_state_committed": false,
+                "branch_preserved_at_last_accepted_head": true,
+                "failure_category": "dispatch_ambiguous",
+                "available_actions": [
+                  "check_status"
+                ],
+                "technical_details": {
+                  "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                  "request_occurrence_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                  "request_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                  "stage_input_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "accepted_state_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+                  "chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                }
+              },
+              "actions": [
+                {
+                  "schema_version": "cera.provider_stage_retry_action.v1",
+                  "action_id": "stage-action-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "action_family": "provider_stage_control",
+                  "action_kind": "check_status",
+                  "automatic": true,
+                  "provider_dispatch_authorized": false,
+                  "consumes_retry_action": false,
+                  "retry_action_ordinal": null,
+                  "whole_request_replay_authorized": false,
+                  "provider_substitution_authorized": false,
+                  "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                }
+              ]
+            }
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_blocked",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 0,
+              "reader": 0
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 0,
+          "reader": 0,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.blocked_reader_retry",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "checks_pending",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "blocked",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "inconclusive",
+            "verdict_sha256": null,
+            "failures": [
+              {
+                "code": "reader_result_unavailable",
+                "concise_explanation": "The Reader result is unavailable and requires explicit recovery.",
+                "source_kind": "runtime_failure",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": {
+              "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+              "status": {
+                "schema_version": "cera.provider_stage_retry_status.v1",
+                "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "provider": "codex",
+                "model_family": "sol",
+                "stage": "reader",
+                "state": "blocked_ambiguous",
+                "maximum_attempts": 3,
+                "stage_attempts_total": 1,
+                "retry_actions_accepted": 0,
+                "provider_operations_observed_total": 0,
+                "provider_operations_conservative_total": 1,
+                "story_state_committed": false,
+                "branch_preserved_at_last_accepted_head": true,
+                "failure_category": "dispatch_ambiguous",
+                "available_actions": [
+                  "check_status"
+                ],
+                "technical_details": {
+                  "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                  "request_occurrence_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                  "request_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                  "stage_input_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "accepted_state_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+                  "chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                }
+              },
+              "actions": [
+                {
+                  "schema_version": "cera.provider_stage_retry_action.v1",
+                  "action_id": "stage-action-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "action_family": "provider_stage_control",
+                  "action_kind": "check_status",
+                  "automatic": true,
+                  "provider_dispatch_authorized": false,
+                  "consumes_retry_action": false,
+                  "retry_action_ordinal": null,
+                  "whole_request_replay_authorized": false,
+                  "provider_substitution_authorized": false,
+                  "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                }
+              ]
+            }
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_blocked",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 0,
+              "reader": 0
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 0,
+          "reader": 0,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.accepted_automatic_projection_pending",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "accepted",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": "projection_pending",
+        "gate_status": "pass",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": {
+          "mode": "automatic",
+          "accepted_turn_id": "turn-accepted-automatic",
+          "accepted_receipt_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "canon_status": "accepted"
+        },
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_passed",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.accepted_manual_pending_repair_with_action",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "accepted",
+        "review_mode": "manual",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": "pending_repair",
+        "gate_status": "pass",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": {
+          "mode": "manual",
+          "accepted_turn_id": "turn-accepted-manual",
+          "accepted_receipt_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "canon_status": "accepted"
+        },
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": true
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "manual"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_passed",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.accepted_automatic_recording_complete",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "accepted",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": "complete",
+        "gate_status": "pass",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": {
+          "mode": "automatic",
+          "accepted_turn_id": "turn-accepted-complete",
+          "accepted_receipt_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "canon_status": "accepted"
+        },
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_passed",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 1
+        },
+        "terminal_decision": {
+          "decision_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.accepted_auditable_override",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "accepted",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": "projection_pending",
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "sequence_contradiction",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": {
+          "mode": "auditable_override",
+          "accepted_turn_id": "turn-accepted-override",
+          "accepted_receipt_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "canon_status": "provisional"
+        },
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.declined_rejected_candidate",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "declined",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "sequence_contradiction",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.regenerated_rejected_candidate",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "regenerated",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "sequence_contradiction",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.replanned_rejected_candidate",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "replanned",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "sequence_contradiction",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": {
+          "schema_version": "cera.pi_scene.creator_guidance_projection.v1",
+          "action": "replan",
+          "text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.declined_qualified_manual_candidate",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "declined",
+        "review_mode": "manual",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "pass",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "manual"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_passed",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.regenerated_qualified_manual_candidate",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "regenerated",
+        "review_mode": "manual",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "pass",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "manual"
+        },
+        "creator_guidance": {
+          "schema_version": "cera.pi_scene.creator_guidance_projection.v1",
+          "action": "regenerate",
+          "text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "checks_passed",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review.schema.positive.checks_pending_known_luna_reject",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "checks_pending",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": null,
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "sequence_contradiction",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 0
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 0,
+          "recorder": 0
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review.schema.positive.accepted_standing_policy",
+      "contract_schema_version": "cera.pi_scene.review.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review.v3",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "accepted",
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+        "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "warnings": [],
+        "recording_status": "projection_pending",
+        "gate_status": "reject",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "reject",
+            "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "failures": [
+              {
+                "code": "omitted_decision",
+                "concise_explanation": "The candidate contradicts one required current-plan item.",
+                "source_kind": "verdict_conflict",
+                "feedback_scope": null
+              }
+            ],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pass",
+            "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": {
+          "mode": "standing_policy",
+          "accepted_turn_id": "turn-accepted-standing-policy",
+          "accepted_receipt_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "canon_status": "provisional",
+          "standing_policy": {
+            "schema_version": "cera.pi_scene.ordinary_policy_acceptance_audit.v1",
+            "authority_kind": "standing_creator_policy",
+            "policy_id": "ordinary_provisional_continuity",
+            "policy_version": 1,
+            "policy_sha256": "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
+            "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "semantic_validation_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "reader_validation_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "python_qualification_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "tolerated_reason_codes": [
+              "luna:omitted_decision"
+            ],
+            "audit_sha256": "9406f14ff5a71a2c50f9a7ac14f08ebed82b9eb12f3bc310ab7ab0e631388918"
+          }
+        },
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "request_controls": {
+          "schema_version": "cera.pi_scene.request_controls.v3",
+          "session_id": "ordinary-review-fixture",
+          "scene_depth": "auto",
+          "regeneration_key": null,
+          "character_autonomy": "both",
+          "prompt_handling": "adjustment",
+          "reasoning_effort": "medium",
+          "scene_change": false,
+          "adult_craft_mode": "off",
+          "review_mode": "automatic"
+        },
+        "creator_guidance": null,
+        "provider_attempts": [
+          {
+            "attempt_number": 1,
+            "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "disposition": "luna_rejected",
+            "provider_operations": {
+              "planner": 1,
+              "writer": 1,
+              "validator": 1,
+              "reader": 1
+            }
+          }
+        ],
+        "provider_operations": {
+          "planner": 1,
+          "writer": 1,
+          "validator": 1,
+          "reader": 1,
+          "recorder": 0
+        },
+        "terminal_decision": {
+          "decision_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.all_required_checks_pending",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.all_required_checks_pass",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "pass",
+          "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pass",
+          "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pass",
+          "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.luna_semantic_reject",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "reject",
+          "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "failures": [
+            {
+              "code": "sequence_contradiction",
+              "concise_explanation": "The candidate contradicts one required current-plan item.",
+              "source_kind": "verdict_conflict",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pass",
+          "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pass",
+          "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.luna_inconclusive_without_retry",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "validation_result_unavailable",
+              "concise_explanation": "The semantic verdict is unavailable and requires explicit recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.luna_blocked_ambiguous",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "luna_provider_stage_blocked",
+              "concise_explanation": "The semantic-validator stage is blocked and requires its explicit stage-local recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+              "schema_version": "cera.provider_stage_retry_status.v1",
+              "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "provider": "codex",
+              "model_family": "luna",
+              "stage": "semantic_validator",
+              "state": "blocked_ambiguous",
+              "maximum_attempts": 3,
+              "stage_attempts_total": 1,
+              "retry_actions_accepted": 0,
+              "provider_operations_observed_total": 0,
+              "provider_operations_conservative_total": 1,
+              "story_state_committed": false,
+              "branch_preserved_at_last_accepted_head": true,
+              "failure_category": "dispatch_ambiguous",
+              "available_actions": [
+                "check_status"
+              ],
+              "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "request_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "stage_input_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                "accepted_state_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+                "chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+              }
+            },
+            "actions": [
+              {
+                "schema_version": "cera.provider_stage_retry_action.v1",
+                "action_id": "stage-action-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "action_family": "provider_stage_control",
+                "action_kind": "check_status",
+                "automatic": true,
+                "provider_dispatch_authorized": false,
+                "consumes_retry_action": false,
+                "retry_action_ordinal": null,
+                "whole_request_replay_authorized": false,
+                "provider_substitution_authorized": false,
+                "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+              }
+            ]
+          }
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.reader_blocked_ambiguous",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "reader_result_unavailable",
+              "concise_explanation": "The Reader result is unavailable and requires explicit recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+              "schema_version": "cera.provider_stage_retry_status.v1",
+              "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "provider": "codex",
+              "model_family": "sol",
+              "stage": "reader",
+              "state": "blocked_ambiguous",
+              "maximum_attempts": 3,
+              "stage_attempts_total": 1,
+              "retry_actions_accepted": 0,
+              "provider_operations_observed_total": 0,
+              "provider_operations_conservative_total": 1,
+              "story_state_committed": false,
+              "branch_preserved_at_last_accepted_head": true,
+              "failure_category": "dispatch_ambiguous",
+              "available_actions": [
+                "check_status"
+              ],
+              "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "request_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "stage_input_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                "accepted_state_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+                "chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+              }
+            },
+            "actions": [
+              {
+                "schema_version": "cera.provider_stage_retry_action.v1",
+                "action_id": "stage-action-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "action_family": "provider_stage_control",
+                "action_kind": "check_status",
+                "automatic": true,
+                "provider_dispatch_authorized": false,
+                "consumes_retry_action": false,
+                "retry_action_ordinal": null,
+                "whole_request_replay_authorized": false,
+                "provider_substitution_authorized": false,
+                "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+              }
+            ]
+          }
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.luna_manual_retry_eligible",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "luna_provider_stage_blocked",
+              "concise_explanation": "The semantic-validator stage is blocked and requires its explicit stage-local recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+              "schema_version": "cera.provider_stage_retry_status.v1",
+              "chain_id": "stage-retry-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "provider": "codex",
+              "model_family": "luna",
+              "stage": "semantic_validator",
+              "state": "eligible",
+              "maximum_attempts": 3,
+              "stage_attempts_total": 1,
+              "retry_actions_accepted": 0,
+              "provider_operations_observed_total": 1,
+              "provider_operations_conservative_total": 1,
+              "story_state_committed": false,
+              "branch_preserved_at_last_accepted_head": true,
+              "failure_category": "transport_timeout",
+              "available_actions": [
+                "provider_retry"
+              ],
+              "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "request_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "stage_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            },
+            "actions": [
+              {
+                "schema_version": "cera.provider_stage_retry_action.v1",
+                "action_id": "stage-action-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "chain_id": "stage-retry-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "action_family": "provider_stage_control",
+                "action_kind": "provider_retry",
+                "automatic": false,
+                "provider_dispatch_authorized": true,
+                "consumes_retry_action": true,
+                "retry_action_ordinal": 1,
+                "whole_request_replay_authorized": false,
+                "provider_substitution_authorized": false,
+                "expected_chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            ]
+          }
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.reader_manual_retry_eligible",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "reader_result_unavailable",
+              "concise_explanation": "The Reader result is unavailable and requires explicit recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+              "schema_version": "cera.provider_stage_retry_status.v1",
+              "chain_id": "stage-retry-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "provider": "codex",
+              "model_family": "sol",
+              "stage": "reader",
+              "state": "eligible",
+              "maximum_attempts": 3,
+              "stage_attempts_total": 1,
+              "retry_actions_accepted": 0,
+              "provider_operations_observed_total": 1,
+              "provider_operations_conservative_total": 1,
+              "story_state_committed": false,
+              "branch_preserved_at_last_accepted_head": true,
+              "failure_category": "transport_timeout",
+              "available_actions": [
+                "provider_retry"
+              ],
+              "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "request_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "stage_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            },
+            "actions": [
+              {
+                "schema_version": "cera.provider_stage_retry_action.v1",
+                "action_id": "stage-action-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "chain_id": "stage-retry-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "action_family": "provider_stage_control",
+                "action_kind": "provider_retry",
+                "automatic": false,
+                "provider_dispatch_authorized": true,
+                "consumes_retry_action": true,
+                "retry_action_ordinal": 1,
+                "whole_request_replay_authorized": false,
+                "provider_substitution_authorized": false,
+                "expected_chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            ]
+          }
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.luna_attempts_exhausted",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "luna_provider_stage_blocked",
+              "concise_explanation": "The semantic-validator stage is blocked and requires its explicit stage-local recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+              "schema_version": "cera.provider_stage_retry_status.v1",
+              "chain_id": "stage-retry-4444444444444444444444444444444444444444444444444444444444444444",
+              "provider": "codex",
+              "model_family": "luna",
+              "stage": "semantic_validator",
+              "state": "attempts_exhausted",
+              "maximum_attempts": 3,
+              "stage_attempts_total": 3,
+              "retry_actions_accepted": 2,
+              "provider_operations_observed_total": 3,
+              "provider_operations_conservative_total": 3,
+              "story_state_committed": false,
+              "branch_preserved_at_last_accepted_head": true,
+              "failure_category": "provider_unavailable",
+              "available_actions": [],
+              "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+                "request_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+                "stage_input_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+                "accepted_state_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+                "chain_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+              }
+            },
+            "actions": []
+          }
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_checks.schema.positive.reader_attempts_exhausted",
+      "contract_schema_version": "cera.pi_scene.review_checks.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_checks.v2",
+        "luna": {
+          "role": "luna_semantic_validator",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "reader": {
+          "role": "codex_reader_severe_quality",
+          "required": true,
+          "status": "inconclusive",
+          "verdict_sha256": null,
+          "failures": [
+            {
+              "code": "reader_result_unavailable",
+              "concise_explanation": "The Reader result is unavailable and requires explicit recovery.",
+              "source_kind": "runtime_failure",
+              "feedback_scope": null
+            }
+          ],
+          "provider_stage_retry_status": {
+            "schema_version": "cera.provider_stage_retry_status_envelope.v1",
+            "status": {
+              "schema_version": "cera.provider_stage_retry_status.v1",
+              "chain_id": "stage-retry-4444444444444444444444444444444444444444444444444444444444444444",
+              "provider": "codex",
+              "model_family": "sol",
+              "stage": "reader",
+              "state": "attempts_exhausted",
+              "maximum_attempts": 3,
+              "stage_attempts_total": 3,
+              "retry_actions_accepted": 2,
+              "provider_operations_observed_total": 3,
+              "provider_operations_conservative_total": 3,
+              "story_state_committed": false,
+              "branch_preserved_at_last_accepted_head": true,
+              "failure_category": "provider_unavailable",
+              "available_actions": [],
+              "technical_details": {
+                "schema_version": "cera.provider_stage_retry_technical_details.v1",
+                "request_occurrence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+                "request_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+                "stage_input_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+                "accepted_state_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+                "chain_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+              }
+            },
+            "actions": []
+          }
+        },
+        "adult_filter": {
+          "role": "protected_adult_filter",
+          "required": false,
+          "status": "not_applicable",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        },
+        "python": {
+          "role": "python_deterministic_custody_privacy",
+          "required": true,
+          "status": "pending",
+          "verdict_sha256": null,
+          "failures": [],
+          "provider_stage_retry_status": null
+        }
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_01",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "story_committed",
+        "creator_action": "automatic_accept",
+        "story_state_committed": true,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "accepted",
+          "review_mode": "automatic",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": "projection_pending",
+          "gate_status": "pass",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": {
+            "mode": "automatic",
+            "accepted_turn_id": "turn-accepted-automatic",
+            "accepted_receipt_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "canon_status": "accepted"
+          },
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "checks_passed",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "e3b7f86f5feec7240c8e63fa70a972eed728e2f02e8ba7ebbd2f7e5be13ec207",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": null,
+        "operational_warnings": [],
+        "accepted_receipt_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "accepted_turn_id": "turn-accepted-automatic"
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_02",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "story_committed",
+        "creator_action": "accept",
+        "story_state_committed": true,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "accepted",
+          "review_mode": "manual",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": "pending_repair",
+          "gate_status": "pass",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": {
+            "mode": "manual",
+            "accepted_turn_id": "turn-accepted-manual",
+            "accepted_receipt_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "canon_status": "accepted"
+          },
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": true
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "manual"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "checks_passed",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "41c3d1936e9c5c6cb79d4ff3391dbf483246fba7817c10e18171a7c7d779e16d",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": null,
+        "operational_warnings": [],
+        "accepted_receipt_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "accepted_turn_id": "turn-accepted-manual"
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_03",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "story_committed",
+        "creator_action": "accept_provisional",
+        "story_state_committed": true,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "accepted",
+          "review_mode": "automatic",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": "projection_pending",
+          "gate_status": "reject",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "reject",
+              "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+              "failures": [
+                {
+                  "code": "sequence_contradiction",
+                  "concise_explanation": "The candidate contradicts one required current-plan item.",
+                  "source_kind": "verdict_conflict",
+                  "feedback_scope": null
+                }
+              ],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": {
+            "mode": "auditable_override",
+            "accepted_turn_id": "turn-accepted-override",
+            "accepted_receipt_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "canon_status": "provisional"
+          },
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "luna_rejected",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "2cbc7d1a654149a89cc66850bd7939f3aa92eb8eb36b6e14edf7a3978c0a8d9c",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": null,
+        "operational_warnings": [],
+        "accepted_receipt_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "accepted_turn_id": "turn-accepted-override"
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_04",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "review_transitioned",
+        "creator_action": "decline",
+        "story_state_committed": false,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "declined",
+          "review_mode": "automatic",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": null,
+          "gate_status": "reject",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "reject",
+              "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+              "failures": [
+                {
+                  "code": "sequence_contradiction",
+                  "concise_explanation": "The candidate contradicts one required current-plan item.",
+                  "source_kind": "verdict_conflict",
+                  "feedback_scope": null
+                }
+              ],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": null,
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "luna_rejected",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "ce4264f4165188514c1c28245afc4f2903d9e46cd67dde9125c069802fa80dac",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": null,
+        "operational_warnings": []
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_05",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "review_transitioned",
+        "creator_action": "regenerate",
+        "story_state_committed": false,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "regenerated",
+          "review_mode": "automatic",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": null,
+          "gate_status": "reject",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "reject",
+              "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+              "failures": [
+                {
+                  "code": "sequence_contradiction",
+                  "concise_explanation": "The candidate contradicts one required current-plan item.",
+                  "source_kind": "verdict_conflict",
+                  "feedback_scope": null
+                }
+              ],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": null,
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "luna_rejected",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "601c17bf27e63874f0626f3b290dae89a4cdf7387f6496c5e5ec57090f781a39",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": {
+          "schema_version": "cera.pi_scene.ordinary_successor_fixture.v1",
+          "completion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "operational_warnings": []
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_06",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "review_transitioned",
+        "creator_action": "replan",
+        "story_state_committed": false,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "replanned",
+          "review_mode": "automatic",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": null,
+          "gate_status": "reject",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "reject",
+              "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+              "failures": [
+                {
+                  "code": "sequence_contradiction",
+                  "concise_explanation": "The candidate contradicts one required current-plan item.",
+                  "source_kind": "verdict_conflict",
+                  "feedback_scope": null
+                }
+              ],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": null,
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic"
+          },
+          "creator_guidance": {
+            "schema_version": "cera.pi_scene.creator_guidance_projection.v1",
+            "action": "replan",
+            "text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "luna_rejected",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "c7cae7ec52fbfd8c6b7d0595d7271773ecced26e5c276753c4c68d7110a70a67",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": {
+          "schema_version": "cera.pi_scene.ordinary_successor_fixture.v1",
+          "completion_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "operational_warnings": []
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_07",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "story_committed",
+        "creator_action": "repair_recording",
+        "story_state_committed": true,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "accepted",
+          "review_mode": "automatic",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": "complete",
+          "gate_status": "pass",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": {
+            "mode": "automatic",
+            "accepted_turn_id": "turn-accepted-complete",
+            "accepted_receipt_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "canon_status": "accepted"
+          },
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "checks_passed",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 1
+          },
+          "terminal_decision": {
+            "decision_sha256": "8441d2a81ea93cb7434e41ddc3cb0dca316b68cdbfd9e51ef88836e0836ff184",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": null,
+        "operational_warnings": [],
+        "accepted_receipt_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "accepted_turn_id": "turn-accepted-complete"
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_08",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "review_transitioned",
+        "creator_action": "decline",
+        "story_state_committed": false,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "declined",
+          "review_mode": "manual",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": null,
+          "gate_status": "pass",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": null,
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "manual"
+          },
+          "creator_guidance": null,
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "checks_passed",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "708e44a9508ff3394f842fcb89baac914f4adfb0db7f12deb7568665eb0d8dde",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": null,
+        "operational_warnings": []
+      }
+    },
+    {
+      "case_id": "review_decision.schema.positive.positive_09",
+      "contract_schema_version": "cera.pi_scene.review_decision.v3",
+      "value": {
+        "schema_version": "cera.pi_scene.review_decision.v3",
+        "status": "review_transitioned",
+        "creator_action": "regenerate",
+        "story_state_committed": false,
+        "retry_mode": "not_applicable",
+        "review": {
+          "schema_version": "cera.pi_scene.review.v3",
+          "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "regenerated",
+          "review_mode": "manual",
+          "route": "ordinary",
+          "story_text": "Hana pauses beside the doorway, leaving the invitation open.",
+          "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_authority_kind": "codex_cognition_plan",
+          "primary_authority_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "warnings": [],
+          "recording_status": null,
+          "gate_status": "pass",
+          "checks": {
+            "schema_version": "cera.pi_scene.review_checks.v2",
+            "luna": {
+              "role": "luna_semantic_validator",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "reader": {
+              "role": "codex_reader_severe_quality",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "adult_filter": {
+              "role": "protected_adult_filter",
+              "required": false,
+              "status": "not_applicable",
+              "verdict_sha256": null,
+              "failures": [],
+              "provider_stage_retry_status": null
+            },
+            "python": {
+              "role": "python_deterministic_custody_privacy",
+              "required": true,
+              "status": "pass",
+              "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+              "failures": [],
+              "provider_stage_retry_status": null
+            }
+          },
+          "acceptance": null,
+          "actions": {
+            "accept_enabled": false,
+            "regenerate_enabled": false,
+            "decline_enabled": false,
+            "replan_enabled": false,
+            "auditable_override_enabled": false,
+            "auditable_override_action": null,
+            "repair_recording_enabled": false
+          },
+          "request_controls": {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": null,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": false,
+            "adult_craft_mode": "off",
+            "review_mode": "manual"
+          },
+          "creator_guidance": {
+            "schema_version": "cera.pi_scene.creator_guidance_projection.v1",
+            "action": "regenerate",
+            "text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "provider_attempts": [
+            {
+              "attempt_number": 1,
+              "candidate_id": "candidate-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "disposition": "checks_passed",
+              "provider_operations": {
+                "planner": 1,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1
+              }
+            }
+          ],
+          "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 0
+          },
+          "terminal_decision": {
+            "decision_sha256": "112d9458137d74068b587f84ffeb9b0292c5fd01c4cf5d9808ae6ab0ac2c4087",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        },
+        "successor": {
+          "schema_version": "cera.pi_scene.ordinary_successor_fixture.v1",
+          "completion_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "operational_warnings": []
+      }
+    },
+    {
+      "case_id": "review_lifecycle.schema.positive.base_01",
+      "contract_schema_version": "cera.pi_scene.review_lifecycle.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_lifecycle.v2",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "review_url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "review_mode": "automatic",
+        "state": "checks_pending",
+        "gate_status": "pending",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "terminal_decision": null
+      }
+    },
+    {
+      "case_id": "review_lifecycle.schema.positive.manual_initial_lifecycle",
+      "contract_schema_version": "cera.pi_scene.review_lifecycle.v2",
+      "value": {
+        "schema_version": "cera.pi_scene.review_lifecycle.v2",
+        "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "review_url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "review_mode": "manual",
+        "state": "checks_pending",
+        "gate_status": "pending",
+        "checks": {
+          "schema_version": "cera.pi_scene.review_checks.v2",
+          "luna": {
+            "role": "luna_semantic_validator",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "reader": {
+            "role": "codex_reader_severe_quality",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": false,
+            "status": "not_applicable",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          },
+          "python": {
+            "role": "python_deterministic_custody_privacy",
+            "required": true,
+            "status": "pending",
+            "verdict_sha256": null,
+            "failures": [],
+            "provider_stage_retry_status": null
+          }
+        },
+        "acceptance": null,
+        "actions": {
+          "accept_enabled": false,
+          "regenerate_enabled": false,
+          "decline_enabled": false,
+          "replan_enabled": false,
+          "auditable_override_enabled": false,
+          "auditable_override_action": null,
+          "repair_recording_enabled": false
+        },
+        "terminal_decision": null
+      }
+    }
+  ]
+}

@@ -32,13 +32,13 @@ from types import MappingProxyType
 from typing import Any, Protocol, cast
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.generated.ordinary_review_contracts_v2 import (
-    OrdinaryReviewDecisionV2,
-    OrdinaryReviewLifecycleV1,
-    OrdinaryReviewV2,
-    validate_ordinary_review_decision_v2,
-    validate_ordinary_review_lifecycle_v1,
-    validate_ordinary_review_v2,
+from cera.generated.ordinary_review_contracts_v3 import (
+    OrdinaryReviewDecisionV3,
+    OrdinaryReviewLifecycleV2,
+    OrdinaryReviewV3,
+    validate_ordinary_review_decision_v3,
+    validate_ordinary_review_lifecycle_v2,
+    validate_ordinary_review_v3,
 )
 from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryStatusEnvelopeV1,
@@ -55,6 +55,11 @@ from cera.serialization import (
 )
 
 from .http_contracts import PI_SCENE_AUTO_MODEL, PI_SCENE_PROFILE
+from .ordinary_rejection_policy import (
+    build_ordinary_policy_acceptance_audit_from_bindings,
+    ordinary_policy_acceptance_projection,
+    ordinary_standing_creator_policy,
+)
 
 QUALIFICATION_FIXTURE_SCHEMA_V1 = "cera.pi_scene.full_model_qualification_fixtures.v1"
 QUALIFICATION_FIXTURE_SCHEMA_V2 = "cera.pi_scene.full_model_qualification_fixtures.v2"
@@ -148,8 +153,9 @@ QUALIFICATION_MANIFEST_SCHEMA_V18 = "cera.pi_scene.full_model_qualification_mani
 QUALIFICATION_MANIFEST_SCHEMA_V19 = "cera.pi_scene.full_model_qualification_manifest.v19"
 QUALIFICATION_MANIFEST_SCHEMA_V20 = "cera.pi_scene.full_model_qualification_manifest.v20"
 QUALIFICATION_MANIFEST_SCHEMA_V21 = "cera.pi_scene.full_model_qualification_manifest.v21"
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v22"
-QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v5"
+QUALIFICATION_MANIFEST_SCHEMA_V22 = "cera.pi_scene.full_model_qualification_manifest.v22"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v23"
+QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v6"
 
 _QUALIFICATION_ADVERSARIAL_STRESS_TAGS = frozenset(
     {
@@ -336,12 +342,35 @@ QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "reader_reasoning_effort": "medium",
     "ordinary_review_mode": "automatic",
     "ordinary_luna_reader_python_pass_auto_accept_required": True,
+    "ordinary_standing_creator_policy": {
+        "authority_kind": ordinary_standing_creator_policy().authority_kind,
+        "policy_id": ordinary_standing_creator_policy().policy_id,
+        "policy_version": ordinary_standing_creator_policy().policy_version,
+        "policy_sha256": ordinary_standing_creator_policy().policy_sha256,
+        "policy_text_sha256": ordinary_standing_creator_policy().policy_text_sha256,
+        "soft_semantic_conflict_classes": list(
+            ordinary_standing_creator_policy().soft_semantic_conflict_classes
+        ),
+        "soft_reader_feedback_scopes": list(
+            ordinary_standing_creator_policy().soft_reader_feedback_scopes
+        ),
+        "hard_signal_wins": True,
+        "first_writer_candidate_retained": True,
+        "second_writer_call": False,
+        "manual_action_required": False,
+        "adult_routes_excluded": True,
+    },
     "adult_filter_pass_atomic_accept_required": True,
     "exact_adult_prose_in_qualification_evidence": False,
     "dynamic_loopback_only_cera_port": True,
     "installed_cera_port_5101_untouched": True,
     "frozen_isolated_sillytavern_tree_required": True,
     "phase_order": ["backend", "sillytavern"],
+}
+QUALIFICATION_EXECUTION_POLICY_V22: Mapping[str, Any] = {
+    key: deepcopy(value)
+    for key, value in QUALIFICATION_EXECUTION_POLICY.items()
+    if key != "ordinary_standing_creator_policy"
 }
 
 EXPECTED_PHASE_COUNTS: Mapping[str, Mapping[str, int]] = {
@@ -806,7 +835,7 @@ class OrdinaryProvisionalCompletionV1:
     review_url: str
     candidate_sha256: str
     story_text: str
-    lifecycle: OrdinaryReviewLifecycleV1
+    lifecycle: OrdinaryReviewLifecycleV2
 
 
 @dataclass(frozen=True, slots=True)
@@ -814,7 +843,7 @@ class OrdinaryReviewResolutionV1:
     """Provider-free review reconciliation result for one candidate."""
 
     result: Mapping[str, Any] | RejectionReviewV1
-    review: OrdinaryReviewV2
+    review: OrdinaryReviewV3
     retry_resolutions: tuple[ProviderStageRetryResolutionV1, ...]
     http_duration_ms: int
     terminal_decision_sha256: str | None
@@ -1180,6 +1209,7 @@ class QualificationCampaignRun:
             )
             planner_latency: list[dict[str, Any]] | None = None
             retry_resolutions: list[ProviderStageRetryResolutionV1] = []
+            standing_policy_provisional_acceptances = 0
             try:
                 initial_response = client.complete(
                     fixture=fixture,
@@ -1421,6 +1451,35 @@ class QualificationCampaignRun:
                     # explicit Regenerate, so only the terminal projection is
                     # reconciled with the append-only ledgers.
                     projections.append(projection)
+                    policy_audit = projection.get("standing_policy_audit")
+                    if isinstance(policy_audit, Mapping):
+                        standing_policy_provisional_acceptances = 1
+                        self.parent.evidence.append(
+                            {
+                                "schema_version": (
+                                    "cera.pi_scene.qualification_standing_policy.v1"
+                                ),
+                                "event": "first_pass_policy_provisional",
+                                "fixture_id": fixture.fixture_id,
+                                "phase": self.phase.value,
+                                "turn_index": turn_index,
+                                "candidate_sha256": policy_audit["candidate_sha256"],
+                                "policy_sha256": policy_audit["policy_sha256"],
+                                "audit_sha256": policy_audit["audit_sha256"],
+                                "semantic_validation_sha256": (
+                                    policy_audit["semantic_validation_sha256"]
+                                ),
+                                "reader_validation_sha256": (
+                                    policy_audit["reader_validation_sha256"]
+                                ),
+                                "python_qualification_sha256": (
+                                    policy_audit["python_qualification_sha256"]
+                                ),
+                                "tolerated_reason_codes": list(
+                                    policy_audit["tolerated_reason_codes"]
+                                ),
+                            }
+                        )
                 else:
                     first = _classify_completion_response(fixture, response)
                     first_pass = isinstance(first, Mapping) and first["first_pass_accepted"] is True
@@ -1622,6 +1681,12 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "passed",
                     "first_pass_accepted": first_pass,
+                    "first_pass_policy_provisional": bool(
+                        projection.get("first_pass_policy_provisional", False)
+                    ),
+                    "standing_policy_provisional_acceptances": int(
+                        standing_policy_provisional_acceptances
+                    ),
                     "explicit_regenerate_actions": explicit_regenerate_actions,
                     "review_recording_repair_actions": review_recording_repair_actions,
                     "externally_authorized_manual_actions": (externally_authorized_manual_actions),
@@ -1704,6 +1769,10 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "failed",
                     **_closed_failure_projection(exc),
+                    "first_pass_policy_provisional": bool(standing_policy_provisional_acceptances),
+                    "standing_policy_provisional_acceptances": (
+                        standing_policy_provisional_acceptances
+                    ),
                     "explicit_regenerate_actions": failed_explicit_regenerate_actions,
                     "review_recording_repair_actions": (failed_review_recording_repair_actions),
                     "provider_stage_control_actions": (failed_provider_stage_control_actions),
@@ -2262,7 +2331,7 @@ class QualificationCampaignRun:
         *,
         fixture: QualificationFixtureV1,
         client: QualificationClient,
-        review: OrdinaryReviewV2,
+        review: OrdinaryReviewV3,
     ) -> tuple[ClientResponseV1, int]:
         started = time.monotonic()
         total_duration_ms = 0
@@ -2303,7 +2372,7 @@ class QualificationCampaignRun:
         turn_index: int,
         client: QualificationClient,
         provisional: OrdinaryProvisionalCompletionV1,
-        review: OrdinaryReviewV2,
+        review: OrdinaryReviewV3,
         action_kind: str,
         action_family: str,
     ) -> int:
@@ -2631,6 +2700,13 @@ class QualificationCampaignRun:
             "passed_fixtures": sum(value["status"] == "passed" for value in self.results),
             "first_pass_accepted": sum(
                 value.get("first_pass_accepted") is True for value in self.results
+            ),
+            "first_pass_policy_provisional": sum(
+                value.get("first_pass_policy_provisional") is True for value in self.results
+            ),
+            "standing_policy_provisional_acceptances": sum(
+                int(value.get("standing_policy_provisional_acceptances", 0))
+                for value in self.results
             ),
             "explicit_regenerate_actions": sum(
                 int(value.get("explicit_regenerate_actions", 0)) for value in self.results
@@ -3973,6 +4049,7 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         QUALIFICATION_MANIFEST_SCHEMA_V19,
         QUALIFICATION_MANIFEST_SCHEMA_V20,
         QUALIFICATION_MANIFEST_SCHEMA_V21,
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         required.add("fixture_ancestry")
@@ -4000,7 +4077,12 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         "user_authorized_deepseek_operations": USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING,
     }:
         raise StateConflictError("qualification provider ceilings changed")
-    if manifest["execution_policy"] != QUALIFICATION_EXECUTION_POLICY:
+    expected_execution_policy = (
+        QUALIFICATION_EXECUTION_POLICY
+        if schema_version == QUALIFICATION_MANIFEST_SCHEMA
+        else QUALIFICATION_EXECUTION_POLICY_V22
+    )
+    if manifest["execution_policy"] != expected_execution_policy:
         raise StateConflictError("qualification execution policy changed")
 
 
@@ -4035,6 +4117,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V19,
         QUALIFICATION_MANIFEST_SCHEMA_V20,
         QUALIFICATION_MANIFEST_SCHEMA_V21,
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
         QUALIFICATION_MANIFEST_SCHEMA,
     }
     if (
@@ -4098,6 +4181,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V19,
         QUALIFICATION_MANIFEST_SCHEMA_V20,
         QUALIFICATION_MANIFEST_SCHEMA_V21,
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4121,6 +4205,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V19,
         QUALIFICATION_MANIFEST_SCHEMA_V20,
         QUALIFICATION_MANIFEST_SCHEMA_V21,
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4143,6 +4228,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V19,
         QUALIFICATION_MANIFEST_SCHEMA_V20,
         QUALIFICATION_MANIFEST_SCHEMA_V21,
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4164,6 +4250,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V19,
         QUALIFICATION_MANIFEST_SCHEMA_V20,
         QUALIFICATION_MANIFEST_SCHEMA_V21,
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -4267,9 +4354,10 @@ def _validate_manifest_fixture_metadata(
             "sha256": QUALIFICATION_FIXTURE_SHA256_V17,
         }
         expected_ancestry = _qualification_fixture_ancestry()[:17]
-    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema == (
-        QUALIFICATION_MANIFEST_SCHEMA
-    ):
+    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema in {
+        QUALIFICATION_MANIFEST_SCHEMA_V22,
+        QUALIFICATION_MANIFEST_SCHEMA,
+    }:
         expected_baseline = {
             "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
             "sha256": QUALIFICATION_BASELINE_FIXTURE_SHA256,
@@ -4546,7 +4634,7 @@ def _validate_ordinary_provisional_completion(
         raise StateConflictError("ordinary qualification initial completion is not provisional")
     _validate_accepted_route_projection(fixture, cera)
     try:
-        lifecycle = validate_ordinary_review_lifecycle_v1(cera.get("review_lifecycle"))
+        lifecycle = validate_ordinary_review_lifecycle_v2(cera.get("review_lifecycle"))
     except ContractValidationError as exc:
         raise StateConflictError(
             "ordinary qualification lifecycle failed generated validation"
@@ -4621,11 +4709,11 @@ def _validate_ordinary_review_response(
     response: ClientResponseV1,
     *,
     provisional: OrdinaryProvisionalCompletionV1,
-) -> OrdinaryReviewV2:
+) -> OrdinaryReviewV3:
     if response.status_code != 200:
         raise StateConflictError(f"ordinary review GET returned HTTP {response.status_code}")
     try:
-        review = validate_ordinary_review_v2(response.body)
+        review = validate_ordinary_review_v3(response.body)
     except ContractValidationError as exc:
         raise StateConflictError("ordinary review failed generated validation") from exc
     if (
@@ -4649,7 +4737,7 @@ def _validate_ordinary_review_response(
 
 
 def _ordinary_review_lane_retry_envelopes(
-    review: OrdinaryReviewV2,
+    review: OrdinaryReviewV3,
 ) -> tuple[ProviderStageRetryStatusEnvelopeV1, ...]:
     checks = cast(Mapping[str, Any], review["checks"])
     envelopes: list[ProviderStageRetryStatusEnvelopeV1] = []
@@ -4682,9 +4770,10 @@ def _ordinary_review_lane_retry_envelopes(
 
 
 def _ordinary_attempt_trace_v2(
-    review: OrdinaryReviewV2,
+    review: OrdinaryReviewV3,
     *,
     accepted: bool,
+    standing_policy: bool = False,
 ) -> None:
     attempts = review["provider_attempts"]
     operations = cast(Mapping[str, Any], review["provider_operations"])
@@ -4719,7 +4808,16 @@ def _ordinary_attempt_trace_v2(
             raise StateConflictError("ordinary review attempt accounting changed")
         terminal_attempt = ordinal == len(attempts)
         if accepted and terminal_attempt:
-            if disposition != "checks_passed":
+            if standing_policy:
+                if disposition not in {
+                    "luna_rejected",
+                    "reader_rejected",
+                    "luna_reader_rejected",
+                }:
+                    raise StateConflictError(
+                        "standing-policy acceptance hid its rejected disposition"
+                    )
+            elif disposition != "checks_passed":
                 raise StateConflictError("accepted ordinary attempt did not pass all checks")
         elif disposition not in {
             "luna_rejected",
@@ -4755,7 +4853,7 @@ def _ordinary_attempt_trace_v2(
 
 def _ordinary_rejection_review(
     fixture: QualificationFixtureV1,
-    review: OrdinaryReviewV2,
+    review: OrdinaryReviewV3,
 ) -> RejectionReviewV1:
     if review["state"] != "review_ready" or review["gate_status"] != "reject":
         raise StateConflictError("ordinary review is not an eligible joined rejection")
@@ -4787,6 +4885,9 @@ def _ordinary_rejection_review(
         "observed_route": fixture.expected_route.value,
         "observed_next_route": fixture.expected_next_route.value,
         "first_pass_accepted": False,
+        "first_pass_policy_provisional": False,
+        "standing_policy_provisional_acceptances": 0,
+        "standing_policy_audit": None,
         "automatic_repair_actions": 0,
     }
     return RejectionReviewV1(
@@ -4800,34 +4901,128 @@ def _ordinary_rejection_review(
     )
 
 
+def _ordinary_standing_policy_reasons(review: OrdinaryReviewV3) -> tuple[str, ...]:
+    """Independently derive exact soft reasons from the public V3 projection."""
+
+    checks = cast(Mapping[str, Any], review["checks"])
+    python_lane = cast(Mapping[str, Any], checks["python"])
+    if (
+        python_lane.get("status") != "pass"
+        or python_lane.get("failures") != []
+        or python_lane.get("provider_stage_retry_status") is not None
+    ):
+        raise StateConflictError("standing policy bypassed Python qualification")
+    reasons: set[str] = set()
+    luna = cast(Mapping[str, Any], checks["luna"])
+    if luna.get("provider_stage_retry_status") is not None:
+        raise StateConflictError("standing policy retained Luna Retry authority")
+    luna_status = luna.get("status")
+    luna_failures = luna.get("failures")
+    if not isinstance(luna_failures, list):
+        raise StateConflictError("standing-policy Luna failures changed shape")
+    conflicts = [
+        value
+        for value in luna_failures
+        if isinstance(value, Mapping) and value.get("source_kind") == "verdict_conflict"
+    ]
+    if any(
+        not isinstance(value, Mapping)
+        or value.get("source_kind") not in {"verdict_conflict", "review_flag"}
+        for value in luna_failures
+    ):
+        raise StateConflictError("standing policy encountered a hard Luna signal")
+    if luna_status == "pass":
+        if conflicts:
+            raise StateConflictError("passing Luna lane exposed a conflict")
+    elif luna_status == "reject":
+        if len(conflicts) != 1:
+            raise StateConflictError("standing policy requires one typed Luna conflict")
+        code = conflicts[0].get("code")
+        if code not in set(ordinary_standing_creator_policy().soft_semantic_conflict_classes):
+            raise StateConflictError("standing policy encountered a hard Luna conflict")
+        reasons.add(f"luna:{code}")
+    else:
+        raise StateConflictError("standing policy encountered inconclusive Luna evidence")
+    reader = cast(Mapping[str, Any], checks["reader"])
+    if reader.get("provider_stage_retry_status") is not None:
+        raise StateConflictError("standing policy retained Reader Retry authority")
+    reader_status = reader.get("status")
+    reader_failures = reader.get("failures")
+    if not isinstance(reader_failures, list):
+        raise StateConflictError("standing-policy Reader failures changed shape")
+    if reader_status == "pass":
+        if reader_failures:
+            raise StateConflictError("passing Reader lane exposed a failure")
+    elif reader_status == "reject":
+        if not reader_failures or any(
+            not isinstance(value, Mapping)
+            or value.get("source_kind") != "reader_issue"
+            or value.get("feedback_scope")
+            not in set(ordinary_standing_creator_policy().soft_reader_feedback_scopes)
+            for value in reader_failures
+        ):
+            raise StateConflictError("standing policy encountered a hard Reader issue")
+        reasons.update(
+            f"reader:{cast(Mapping[str, Any], value)['feedback_scope']}"
+            for value in reader_failures
+        )
+    else:
+        raise StateConflictError("standing policy encountered inconclusive Reader evidence")
+    if not reasons:
+        raise StateConflictError("standing policy accepted without a soft rejection")
+    return tuple(sorted(reasons))
+
+
 def _validate_ordinary_accepted_review(
     fixture: QualificationFixtureV1,
-    review: OrdinaryReviewV2,
+    review: OrdinaryReviewV3,
 ) -> dict[str, Any]:
     if (
         review["state"] != "accepted"
         or review["review_mode"] != "automatic"
-        or review["gate_status"] != "pass"
         or review["recording_status"] != "complete"
     ):
         raise StateConflictError("ordinary qualification review was not fully accepted")
     checks = cast(Mapping[str, Any], review["checks"])
-    if any(
-        cast(Mapping[str, Any], checks[lane])["status"] != "pass"
-        for lane in ("luna", "reader", "python")
-    ):
-        raise StateConflictError("ordinary acceptance bypassed a required check")
     reader_lane = cast(Mapping[str, Any], checks["reader"])
     if reader_lane["provider_stage_retry_status"] is not None:
         raise StateConflictError("ordinary acceptance retained Reader Retry authority")
     acceptance = review["acceptance"]
     if not isinstance(acceptance, Mapping) or (
-        acceptance.get("mode") != "automatic"
-        or acceptance.get("canon_status") != "accepted"
-        or not isinstance(acceptance.get("accepted_turn_id"), str)
+        not isinstance(acceptance.get("accepted_turn_id"), str)
         or not re_is_sha256(str(acceptance.get("accepted_receipt_sha256")))
     ):
-        raise StateConflictError("ordinary automatic acceptance authority changed")
+        raise StateConflictError("ordinary acceptance identity changed")
+    standing_policy = acceptance.get("mode") == "standing_policy"
+    if standing_policy:
+        if review["gate_status"] != "reject" or acceptance.get("canon_status") != "provisional":
+            raise StateConflictError("ordinary standing-policy acceptance changed disposition")
+        reasons = _ordinary_standing_policy_reasons(review)
+        expected_audit = build_ordinary_policy_acceptance_audit_from_bindings(
+            candidate_sha256=review["candidate_sha256"],
+            semantic_validation_sha256=cast(str, checks["luna"]["verdict_sha256"]),
+            reader_validation_sha256=cast(str, checks["reader"]["verdict_sha256"]),
+            python_qualification_sha256=cast(str, checks["python"]["verdict_sha256"]),
+            tolerated_reason_codes=reasons,
+        )
+        if acceptance.get("standing_policy") != ordinary_policy_acceptance_projection(
+            expected_audit
+        ):
+            raise StateConflictError("ordinary standing-policy audit did not recompute")
+        if len(review["provider_attempts"]) != 1:
+            raise StateConflictError("ordinary standing policy invoked a second Writer")
+    else:
+        if (
+            acceptance.get("mode") != "automatic"
+            or acceptance.get("canon_status") != "accepted"
+            or acceptance.get("standing_policy") is not None
+            or review["gate_status"] != "pass"
+            or any(
+                cast(Mapping[str, Any], checks[lane])["status"] != "pass"
+                for lane in ("luna", "reader", "python")
+            )
+        ):
+            raise StateConflictError("ordinary automatic acceptance authority changed")
     actions = cast(Mapping[str, Any], review["actions"])
     if (
         any(
@@ -4844,14 +5039,21 @@ def _validate_ordinary_accepted_review(
         or actions.get("auditable_override_action") is not None
     ):
         raise StateConflictError("ordinary accepted review exposed a creator action")
-    _ordinary_attempt_trace_v2(review, accepted=True)
+    _ordinary_attempt_trace_v2(
+        review,
+        accepted=True,
+        standing_policy=standing_policy,
+    )
     return {
         "visible_prose_sha256": text_sha256(review["story_text"]),
         "accepted_turn_id": acceptance["accepted_turn_id"],
         "accepted_receipt_sha256": acceptance["accepted_receipt_sha256"],
         "observed_route": fixture.expected_route.value,
         "observed_next_route": fixture.expected_next_route.value,
-        "first_pass_accepted": len(review["provider_attempts"]) == 1,
+        "first_pass_accepted": not standing_policy and len(review["provider_attempts"]) == 1,
+        "first_pass_policy_provisional": standing_policy,
+        "standing_policy_provisional_acceptances": int(standing_policy),
+        "standing_policy_audit": (acceptance.get("standing_policy") if standing_policy else None),
         "automatic_repair_actions": 0,
         "provider_operations": dict(cast(Mapping[str, int], review["provider_operations"])),
     }
@@ -4861,23 +5063,28 @@ def _validate_ordinary_terminal_decision_response(
     fixture: QualificationFixtureV1,
     response: ClientResponseV1,
     *,
-    review: OrdinaryReviewV2,
-) -> OrdinaryReviewDecisionV2:
+    review: OrdinaryReviewV3,
+) -> OrdinaryReviewDecisionV3:
     if response.status_code != 200:
         raise StateConflictError(
             f"ordinary terminal decision GET returned HTTP {response.status_code}"
         )
     try:
-        decision = validate_ordinary_review_decision_v2(response.body)
+        decision = validate_ordinary_review_decision_v3(response.body)
     except ContractValidationError as exc:
         raise StateConflictError("ordinary terminal decision failed generated validation") from exc
     decision_review = decision.get("review")
     if decision_review != review or decision.get("successor") is not None:
         raise StateConflictError("ordinary terminal decision changed its final review")
     creator_action = decision.get("creator_action")
-    if creator_action not in {"automatic_accept", "repair_recording"}:
-        raise StateConflictError("ordinary automatic terminal action changed")
     acceptance = cast(Mapping[str, Any], review["acceptance"])
+    expected_actions = (
+        {"standing_policy_accept_provisional", "repair_recording"}
+        if acceptance.get("mode") == "standing_policy"
+        else {"automatic_accept", "repair_recording"}
+    )
+    if creator_action not in expected_actions:
+        raise StateConflictError("ordinary terminal action changed acceptance authority")
     if (
         decision.get("story_state_committed") is not True
         or decision.get("status") != "story_committed"
@@ -4896,13 +5103,13 @@ def _validate_optional_ordinary_repair_response(
 ) -> None:
     if response.status_code != 200:
         raise StateConflictError(f"ordinary Recorder repair returned HTTP {response.status_code}")
-    if response.body.get("schema_version") == "cera.pi_scene.review.v2":
-        review = validate_ordinary_review_v2(response.body)
+    if response.body.get("schema_version") == "cera.pi_scene.review.v3":
+        review = validate_ordinary_review_v3(response.body)
         if review["review_id"] != review_id:
             raise StateConflictError("ordinary Recorder repair changed review identity")
         return
     try:
-        decision = validate_ordinary_review_decision_v2(response.body)
+        decision = validate_ordinary_review_decision_v3(response.body)
     except ContractValidationError as exc:
         raise StateConflictError("ordinary Recorder repair returned an invalid decision") from exc
     projected_review = decision.get("review")
@@ -4919,7 +5126,7 @@ def _validate_ordinary_regenerate_response(
     fixture: QualificationFixtureV1,
     response: ClientResponseV1,
     *,
-    predecessor: OrdinaryReviewV2,
+    predecessor: OrdinaryReviewV3,
 ) -> OrdinaryProvisionalCompletionV1:
     if response.status_code != 200:
         raise StateConflictError(f"ordinary Regenerate returned HTTP {response.status_code}")
@@ -4942,7 +5149,7 @@ def _validate_ordinary_regenerate_response(
         return dict(value)
 
     try:
-        decision = validate_ordinary_review_decision_v2(
+        decision = validate_ordinary_review_decision_v3(
             response.body,
             successor_validator=validate_successor,
         )

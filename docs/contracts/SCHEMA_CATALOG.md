@@ -13,6 +13,52 @@ validators, fixtures, compatibility adapters, and drift checking. The older
 full review packet remains historical audit evidence rather than active schema
 authority.
 
+## Pi Scene ordinary provisional-review V3 controlling family (D-220)
+
+Ordinary review V2 is historical. The current ordinary-only public family is:
+
+| Schema | Owner | Meaning |
+|---|---|---|
+| `cera.pi_scene.review.v3` | Python read model | Exact frozen Writer candidate, independent Luna/Reader/Python lanes, actions, accounting, acceptance, and terminal-decision link |
+| `cera.pi_scene.review_checks.v2` | Python over independent typed results | Current joined ordinary checks; Adult Filter remains explicitly not applicable |
+| `cera.pi_scene.review_lifecycle.v2` | Python lifecycle projection | Initial/successor `checks_pending` identity for V3 reconciliation |
+| `cera.pi_scene.review_decision.v3` | Python terminal custody | Exact creator/automatic decision, including output-only `standing_policy_accept_provisional` |
+| `cera.pi_scene.ordinary_standing_creator_policy.v1` | immutable Python authority | Closed D-220 policy object; it is not client input |
+| `cera.pi_scene.ordinary_policy_acceptance_audit.v1` | Python over bound validator and qualification evidence | Hash-only proof that one exact candidate qualified for standing-policy provisional continuity |
+| `cera.pi_scene.full_model_qualification_manifest.v23` | Python qualification authority | Freezes the standing-policy identity, text/object hashes, exact soft allowlists, hard-wins rule, and ordinary-only/no-second-Writer boundary |
+| `cera.pi_scene.full_model_qualification_result.v6` | Python phase evidence | Adds independently recomputed standing-policy provisional counters and hash-only per-fixture evidence without relabeling first-pass acceptance |
+| `cera.pi_scene.full_model_complete_qualification.v5` | Python complete evidence | Aggregates backend plus SillyTavern V6 phase totals, including the distinct standing-policy provisional counter |
+
+The standing authority kind is `standing_creator_policy`, policy ID
+`ordinary_provisional_continuity`, version `1`. Exact policy text SHA-256 is
+`1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2`; canonical
+policy-object SHA-256 is
+`47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23`.
+
+The policy is fail-closed. Luna is soft only for `omitted_decision`,
+`presence_violation`, `stopping_boundary`, or `capability_restriction`. Reader
+is soft only when it rejects and every issue scope is `exact_quote` or
+`omitted_planner_item`. Python failure/inconclusive, all other Luna classes,
+Reader inconclusive, and any `whole_candidate` issue are hard. Any hard signal
+wins. A soft-only result with Python pass accepts the first candidate exactly
+once as provisional continuity, retains the rejected verdict bindings, and
+makes no second Writer call or creator action.
+
+Policy provenance is separate from validator evidence and cannot be created by
+the browser: the audit binds the immutable policy-object hash, candidate hash,
+semantic-validation hash, Reader-validation hash, Python-qualification hash,
+and the exact sorted tolerated reason codes. The accepted V3 projection carries
+that audit under `acceptance.mode=standing_policy` and
+`canon_status=provisional`. Missing, extra, drifted, client-authored, or
+mismatched provenance fails validation. Adult schemas and strict disposition
+are unchanged.
+
+Readable V3 schemas and their generated contract summary are under
+`schemas/pi_scene/ordinary_review/v3/` and
+`docs/generated/ORDINARY_REVIEW_CONTRACTS_V3.md`. Their source integration and
+provider-free qualification are pending; this catalog entry does not claim a
+passed implementation gate.
+
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 active schema family
 

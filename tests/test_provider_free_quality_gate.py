@@ -170,6 +170,7 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
             {
                 "src/cera/pi_scene/http_contracts.py",
                 "src/cera/pi_scene/ordinary_http.py",
+                "src/cera/pi_scene/ordinary_rejection_policy.py",
                 "src/cera/pi_scene/request_binding.py",
                 "src/cera/pi_scene/review_lifecycle.py",
                 "src/cera/pi_scene/review_store.py",
@@ -181,6 +182,7 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
         self.assertLessEqual(
             {
                 "tests.test_ordinary_review_schema_generation",
+                "tests.test_ordinary_review_schema_generation_v3",
                 "tests.test_pi_scene_provisional_review_lifecycle",
                 "tests.test_pi_scene_reader_validation",
                 "tests.test_provider_stage_retry_assembly",
@@ -466,14 +468,18 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
 
     def test_generated_ordinary_review_contracts_are_gate_bound(self) -> None:
         module = _load_runner()
-        generator = module._ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK
-        self.assertIn(generator, module._FORMAT_TARGETS)
-        self.assertIn(generator, module._TYPE_TARGETS)
+        generators = {
+            module._ORDINARY_REVIEW_GENERATED_CONTRACT_CHECK,
+            module._ORDINARY_REVIEW_V3_GENERATED_CONTRACT_CHECK,
+        }
+        self.assertLessEqual(generators, set(module._FORMAT_TARGETS))
+        self.assertLessEqual(generators, set(module._TYPE_TARGETS))
         self.assertEqual(
             set(module._ORDINARY_REVIEW_SCHEMA_TARGETS),
             {
                 path.relative_to(ROOT).as_posix()
-                for path in (ROOT / "schemas" / "pi_scene" / "ordinary_review" / "v2").glob(
+                for version in ("v2", "v3")
+                for path in (ROOT / "schemas" / "pi_scene" / "ordinary_review" / version).glob(
                     "*.schema.json"
                 )
             },
@@ -488,23 +494,28 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
                 "src/cera/generated/ordinary_review_contracts_v2.py",
                 "tests/fixtures/generated/ordinary_review_v2_negative.json",
                 "tests/fixtures/generated/ordinary_review_v2_positive.json",
+                "docs/generated/ORDINARY_REVIEW_CONTRACTS_V3.md",
+                "integrations/sillytavern/generated/ordinary-review-contracts-v3.mjs",
+                "integrations/sillytavern/cera-review-proxy-plugin/generated/ordinary-review-contracts-v3.mjs",
+                "integrations/sillytavern/creator-review-extension/generated/ordinary-review-contracts-v3.mjs",
+                "src/cera/generated/ordinary_review_contracts_v3.py",
+                "tests/fixtures/generated/ordinary_review_v3_negative.json",
+                "tests/fixtures/generated/ordinary_review_v3_positive.json",
             },
         )
         self.assertTrue(
             all((ROOT / target).is_file() for target in module._ORDINARY_REVIEW_GENERATED_TARGETS)
         )
-        completed = subprocess.run(
-            (
-                sys.executable,
-                str(ROOT / generator),
-                "--check",
-            ),
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(completed.returncode, 0, completed.stderr)
+        for generator in generators:
+            with self.subTest(generator=generator):
+                completed = subprocess.run(
+                    (sys.executable, str(ROOT / generator), "--check"),
+                    cwd=ROOT,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_quality_tool_phase_invokes_both_generated_contract_checks(self) -> None:
         module = _load_runner()

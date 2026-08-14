@@ -13,6 +13,7 @@ from cera.errors import (
     StateConflictError,
 )
 from cera.pi_scene.contracts import LeanCandidateV1, PiWriterReceiptV1, SceneRoute
+from cera.pi_scene.runtime import LeanPiSceneCoordinator
 from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.world_workspace import (
     AcceptedGenesisCatalog,
@@ -21,7 +22,16 @@ from cera.pi_scene.world_workspace import (
     PiSceneWorldWorkspaceManager,
     RequestBoundWorldMcpBridge,
 )
-from cera.serialization import canonical_json, text_sha256
+from cera.pi_scene.writer_view import WriterViewMaterializer
+from cera.semantic_validation import SemanticVerdict
+from cera.serialization import canonical_json, canonical_sha256, text_sha256
+from tests.test_pi_scene_lean_v1 import FakePi
+from tests.test_pi_scene_provisional_review_lifecycle import (
+    _LifecycleRetryPort,
+    _turn,
+    _UnusedReader,
+)
+from tests.test_pi_scene_semantic_runtime import _CognitionPlanner
 
 ROOT = Path(__file__).resolve().parents[1]
 GENESIS_ROOT = ROOT / "genesis" / "packages"
@@ -485,6 +495,95 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         )
         self.assertIsNotNone(
             store.load_accepted_pi_session(world_id="world-test", branch_id="branch-main")
+        )
+
+    def test_standing_policy_acceptance_forks_with_rebound_qualification(self) -> None:
+        parent = self.manager.create_new_chat(
+            NewChatWorkspaceRequestV1(
+                chat_id="chat-policy",
+                world_id="world-test",
+                branch_id="branch-main",
+                settings={"autonomy": "both"},
+            )
+        )
+        store = LeanSceneStore(self.runtime_root)
+        planner = _CognitionPlanner()
+        pi = FakePi()
+        retry = _LifecycleRetryPort(
+            planner,
+            pi,
+            luna=SemanticVerdict.REJECT,
+        )
+        coordinator = LeanPiSceneCoordinator(
+            store=store,
+            planner=planner,
+            writer_views=WriterViewMaterializer(Path(self.temporary.name) / "views"),
+            pi=pi,  # type: ignore[arg-type]
+            session_root=Path(self.temporary.name) / "sessions",
+            reader_validator=_UnusedReader(),  # type: ignore[arg-type]
+            ordinary_stage_retry=retry,  # type: ignore[arg-type]
+        )
+        frozen = coordinator.start_ordinary(_turn())
+        accepted_review = coordinator.begin_ordinary_validation(frozen.review_id)
+        self.assertEqual(accepted_review.state, "accepted")
+        self.assertEqual(accepted_review.accepted_receipt.creator_action, "provisional_accept")
+
+        parent_head_before = store.load_head(
+            world_id="world-test",
+            branch_id="branch-main",
+        )
+        parent_bytes_before = _raw_manifest(parent.branch_root)
+        parent_turn_dir = next((parent.branch_root / "accepted").iterdir())
+        parent_binding = _json(parent_turn_dir / "VALIDATION_INPUT_BINDING.json")
+
+        child = self.manager.fork_chat(
+            ForkChatWorkspaceRequestV1(
+                parent_chat_id="chat-policy",
+                world_id="world-test",
+                parent_branch_id="branch-main",
+                child_chat_id="chat-policy-fork",
+                child_branch_id="branch-fork",
+            )
+        )
+        child_head = store.load_head(world_id="world-test", branch_id="branch-fork")
+        self.assertEqual(child_head.accepted_turn_id, parent_head_before.accepted_turn_id)
+        self.assertEqual(child_head.receipt.branch_id, "branch-fork")
+        self.assertEqual(_raw_manifest(parent.branch_root), parent_bytes_before)
+
+        child_turn_dir = next((child.branch_root / "accepted").iterdir())
+        binding_artifact = _json(child_turn_dir / "VALIDATION_INPUT_BINDING.json")
+        binding = binding_artifact["binding"]
+        python_artifact = _json(child_turn_dir / "PYTHON_QUALIFICATION.json")
+        qualification = python_artifact["qualification"]
+        policy = _json(child_turn_dir / "POLICY_ACCEPTANCE_AUDIT.json")
+        semantic = _json(child_turn_dir / "SEMANTIC_VALIDATION.json")
+        reader = _json(child_turn_dir / "READER_VALIDATION.json")
+
+        self.assertNotEqual(
+            binding["binding_sha256"],
+            parent_binding["binding"]["binding_sha256"],
+        )
+        self.assertEqual(
+            binding["semantic_custody_sha256"],
+            canonical_sha256(semantic["validation"]["custody"]),
+        )
+        self.assertEqual(
+            binding["reader_custody_sha256"],
+            canonical_sha256(reader["validation"]["custody"]),
+        )
+        self.assertEqual(
+            qualification["validation_input_binding_sha256"],
+            binding["binding_sha256"],
+        )
+        self.assertEqual(
+            policy["python_qualification_sha256"],
+            qualification["qualification_sha256"],
+        )
+        self.assertEqual(
+            policy["audit_sha256"],
+            canonical_sha256(
+                {key: value for key, value in policy.items() if key != "audit_sha256"}
+            ),
         )
 
     def test_tampered_workspace_or_genesis_is_rejected_on_restart(self) -> None:

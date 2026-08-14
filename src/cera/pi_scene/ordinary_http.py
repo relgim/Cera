@@ -6,10 +6,10 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from cera.errors import StateConflictError
-from cera.generated.ordinary_review_contracts_v2 import (
-    validate_ordinary_review_checks_v1,
-    validate_ordinary_review_lifecycle_v1,
-    validate_ordinary_review_v2,
+from cera.generated.ordinary_review_contracts_v3 import (
+    validate_ordinary_review_checks_v2,
+    validate_ordinary_review_lifecycle_v2,
+    validate_ordinary_review_v3,
 )
 from cera.reader_validation import ReaderStatus
 from cera.semantic_validation import SemanticVerdict
@@ -18,6 +18,10 @@ from cera.serialization import to_primitive
 from .contracts import RecordingStatus, SceneRoute
 from .creator_trace import cognition_creator_trace
 from .http_contracts import PI_SCENE_ADULT_MODEL, PI_SCENE_ORDINARY_MODEL, PI_SCENE_PROFILE
+from .ordinary_rejection_policy import (
+    OrdinaryPolicyAcceptanceAuditV1,
+    ordinary_policy_acceptance_projection,
+)
 from .review_lifecycle import (
     OrdinaryReviewMode,
     OrdinaryReviewPhase,
@@ -34,6 +38,7 @@ def ordinary_review_payload(
     validation_provider_operation_attempts: (Sequence[Mapping[str, int] | None] | None) = None,
     terminal_decision: dict[str, str] | None = None,
     recording_repair_authorized: bool = False,
+    policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None = None,
 ) -> dict[str, Any]:
     """Project one review after its recording status was read by the adapter."""
 
@@ -45,6 +50,7 @@ def ordinary_review_payload(
             validation_provider_operation_attempts=(validation_provider_operation_attempts),
             terminal_decision=terminal_decision,
             recording_repair_authorized=recording_repair_authorized,
+            policy_acceptance_audit=policy_acceptance_audit,
         )
 
     candidate = review.candidate
@@ -133,6 +139,7 @@ def _ordinary_review_payload_for_detached_hash(
     provider_attempts: Sequence[LeanReviewRecordV1] | None,
     validation_provider_operation_attempts: (Sequence[Mapping[str, int] | None] | None),
     recording_repair_authorized: bool,
+    policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None,
 ) -> dict[str, Any]:
     """Build the private null-link basis for the detached decision hash."""
 
@@ -145,6 +152,7 @@ def _ordinary_review_payload_for_detached_hash(
         validation_provider_operation_attempts=(validation_provider_operation_attempts),
         terminal_decision=None,
         recording_repair_authorized=recording_repair_authorized,
+        policy_acceptance_audit=policy_acceptance_audit,
         validate_contract=False,
     )
 
@@ -236,14 +244,15 @@ def ordinary_completion_payload(
             validation_provider_operation_attempts=(validation_provider_operation_attempts),
             terminal_decision=None,
             recording_repair_authorized=False,
+            policy_acceptance_audit=None,
         )
         if projected_review["state"] != "checks_pending":
             raise StateConflictError(
                 "Pi Scene completion lifecycle escaped its provisional initial state"
             )
-        cera_payload["review_lifecycle"] = validate_ordinary_review_lifecycle_v1(
+        cera_payload["review_lifecycle"] = validate_ordinary_review_lifecycle_v2(
             {
-                "schema_version": "cera.pi_scene.review_lifecycle.v1",
+                "schema_version": "cera.pi_scene.review_lifecycle.v2",
                 "review_id": review.review_id,
                 "review_url": f"/v1/cera/reviews/{review.review_id}",
                 "review_mode": projected_review["review_mode"],
@@ -309,6 +318,7 @@ def _ordinary_review_payload_v2(
     validation_provider_operation_attempts: (Sequence[Mapping[str, int] | None] | None),
     terminal_decision: dict[str, str] | None,
     recording_repair_authorized: bool,
+    policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None,
     validate_contract: bool = True,
 ) -> dict[str, Any]:
     if type(recording_repair_authorized) is not bool:
@@ -316,7 +326,7 @@ def _ordinary_review_payload_v2(
     candidate = review.candidate
     checks = _review_checks_v1(review)
     gate_status = _review_gate_status(review, checks)
-    acceptance = _review_acceptance(review)
+    acceptance = _review_acceptance(review, policy_acceptance_audit)
     actions = _review_actions(
         review,
         gate_status=gate_status,
@@ -334,7 +344,7 @@ def _ordinary_review_payload_v2(
     }:
         raise StateConflictError("Pi Scene terminal-decision link changed shape")
     payload = {
-        "schema_version": "cera.pi_scene.review.v2",
+        "schema_version": "cera.pi_scene.review.v3",
         "review_id": review.review_id,
         "state": _public_review_state(review),
         "review_mode": mode.value,
@@ -365,41 +375,50 @@ def _ordinary_review_payload_v2(
         # with only its terminal pointer replaced by null.  That intermediate
         # is intentionally not a public review.v2 value.
         return payload
-    return dict(validate_ordinary_review_v2(payload))
+    return dict(validate_ordinary_review_v3(payload))
 
 
 def _review_checks_v1(review: LeanReviewRecordV1) -> dict[str, Any]:
     semantic = review.semantic_validation
     reader = review.reader_validation
     qualification = review.python_qualification
-    failures_by_owner = {
+    failures_by_owner: dict[
+        OrdinaryValidationOwner,
+        tuple[dict[str, str | None], ...],
+    ] = {
         owner: tuple(
             {
                 "code": failure.failure_code,
                 "concise_explanation": failure.concise_explanation,
+                "feedback_scope": None,
+                "source_kind": "runtime_failure",
             }
             for failure in review.validation_failures
             if failure.owner is owner
         )
         for owner in OrdinaryValidationOwner
     }
-    luna_failures: tuple[dict[str, str], ...]
+    luna_failures: tuple[dict[str, str | None], ...]
     if semantic is None:
         luna_failures = failures_by_owner[OrdinaryValidationOwner.LUNA]
     else:
-        values: list[dict[str, str]] = []
+        values: list[dict[str, str | None]] = []
         conflict = semantic.verdict.conflict
         if conflict is not None:
             values.append(
                 {
                     "code": conflict.conflict_class.value,
                     "concise_explanation": conflict.concise_explanation,
+                    "feedback_scope": None,
+                    "source_kind": "verdict_conflict",
                 }
             )
         values.extend(
             {
                 "code": flag.flag_code,
                 "concise_explanation": flag.concise_explanation,
+                "feedback_scope": None,
+                "source_kind": "review_flag",
             }
             for flag in semantic.verdict.review_flags
         )
@@ -411,15 +430,19 @@ def _review_checks_v1(review: LeanReviewRecordV1) -> dict[str, Any]:
             {
                 "code": issue.issue_code,
                 "concise_explanation": issue.concise_explanation,
+                "feedback_scope": (
+                    None if issue.feedback_scope is None else issue.feedback_scope.value
+                ),
+                "source_kind": "reader_issue",
             }
             for issue in reader.verdict.issues
         )
     )
     python_failures = failures_by_owner[OrdinaryValidationOwner.PYTHON]
     return dict(
-        validate_ordinary_review_checks_v1(
+        validate_ordinary_review_checks_v2(
             {
-                "schema_version": "cera.pi_scene.review_checks.v1",
+                "schema_version": "cera.pi_scene.review_checks.v2",
                 "luna": _check_lane(
                     role="luna_semantic_validator",
                     required=True,
@@ -446,6 +469,8 @@ def _review_checks_v1(review: LeanReviewRecordV1) -> dict[str, Any]:
                         if reader is None
                         else "pass"
                         if reader.verdict.status is ReaderStatus.ACCEPTED
+                        else "inconclusive"
+                        if reader.verdict.status is ReaderStatus.INCONCLUSIVE
                         else "reject"
                     ),
                     verdict_sha256=(None if reader is None else reader.binding_sha256),
@@ -487,7 +512,7 @@ def _check_lane(
     required: bool,
     status: str,
     verdict_sha256: str | None,
-    failures: Sequence[dict[str, str]],
+    failures: Sequence[Mapping[str, str | None]],
     provider_stage_retry_status: object,
 ) -> dict[str, Any]:
     return {
@@ -527,22 +552,41 @@ def _review_gate_status(
     return "pass"
 
 
-def _review_acceptance(review: LeanReviewRecordV1) -> dict[str, Any] | None:
+def _review_acceptance(
+    review: LeanReviewRecordV1,
+    policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None,
+) -> dict[str, Any] | None:
     accepted = review.accepted_receipt
     if accepted is None:
         return None
-    mode = {
-        "automatic_accept": "automatic",
-        "accept": "manual",
-        "provisional_accept": "auditable_override",
-    }.get(accepted.creator_action)
+    mode: str | None
+    if policy_acceptance_audit is not None:
+        if (
+            accepted.creator_action != "provisional_accept"
+            or policy_acceptance_audit.candidate_sha256 != accepted.candidate_sha256
+        ):
+            raise StateConflictError("standing-policy acceptance changed receipt custody")
+        mode = "standing_policy"
+    else:
+        mode = {
+            "automatic_accept": "automatic",
+            "accept": "manual",
+            "provisional_accept": "auditable_override",
+        }.get(accepted.creator_action)
     if mode is None:
         raise StateConflictError("Pi Scene lifecycle acceptance mode changed")
     return {
         "mode": mode,
         "accepted_turn_id": accepted.accepted_turn_id,
         "accepted_receipt_sha256": accepted.receipt_sha256,
-        "canon_status": ("provisional" if mode == "auditable_override" else "accepted"),
+        "canon_status": (
+            "provisional" if mode in {"auditable_override", "standing_policy"} else "accepted"
+        ),
+        "standing_policy": (
+            None
+            if policy_acceptance_audit is None
+            else ordinary_policy_acceptance_projection(policy_acceptance_audit)
+        ),
     }
 
 

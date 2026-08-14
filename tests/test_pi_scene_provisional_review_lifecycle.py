@@ -19,11 +19,15 @@ from cera.pi_scene.http_contracts import (
     LeanSceneRequestControlsV3,
 )
 from cera.pi_scene.ordinary_http import ordinary_review_payload
+from cera.pi_scene.ordinary_rejection_policy import (
+    tolerated_ordinary_rejection_reasons,
+)
 from cera.pi_scene.review_lifecycle import (
     OrdinaryReviewPhase,
     OrdinaryValidationInputBindingV1,
     OrdinaryValidationOwner,
 )
+from cera.pi_scene.review_store import LeanReviewState
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
     OrdinaryWriterCandidateOccurrenceV1,
@@ -36,6 +40,7 @@ from cera.reader_validation import (
     ReaderIssueV1,
     ReaderStatus,
     ReaderVerdictV1,
+    RetryFeedbackScope,
 )
 from cera.semantic_validation import (
     BoundSemanticValidationV1,
@@ -565,16 +570,117 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             retry.release_reader.set()
             worker.join(timeout=5)
             self.assertFalse(worker.is_alive())
-            rejected = result[0]
-            self.assertIs(rejected.review_phase, OrdinaryReviewPhase.VALIDATION_REJECTED)
-            joined = ordinary_review_payload(
-                rejected,
-                recording_status=None,
-                provider_attempts=(rejected,),
+            accepted = result[0]
+            self.assertIs(accepted.review_phase, OrdinaryReviewPhase.VALIDATION_REJECTED)
+            self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
+            joined = self._adapter(coordinator).review_payload(accepted)
+            self.assertEqual(joined["state"], "accepted")
+            self.assertEqual(joined["gate_status"], "reject")
+            self.assertEqual(joined["acceptance"]["mode"], "standing_policy")
+            self.assertEqual(joined["acceptance"]["canon_status"], "provisional")
+            self.assertIsNotNone(joined["acceptance"]["standing_policy"])
+            self.assertFalse(joined["actions"]["regenerate_enabled"])
+            self.assertTrue(joined["checks"]["luna"]["failures"])
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
+
+    def test_standing_policy_exact_soft_allowlists_are_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, _pi, _retry = self._runtime(
+                Path(temporary),
+                luna=SemanticVerdict.REJECT,
             )
-            self.assertEqual(joined["state"], "review_ready")
-            self.assertTrue(joined["actions"]["auditable_override_enabled"])
-            self.assertEqual([call.purpose for call in pi.calls], ["writer"])
+            frozen = coordinator.start_ordinary(_turn())
+            accepted = coordinator.begin_ordinary_validation(frozen.review_id)
+            semantic = accepted.semantic_validation
+            reader = accepted.reader_validation
+            self.assertIsNotNone(semantic)
+            self.assertIsNotNone(reader)
+            assert semantic is not None and reader is not None
+            soft = {
+                SemanticConflictClass.OMITTED_DECISION,
+                SemanticConflictClass.PRESENCE_VIOLATION,
+                SemanticConflictClass.STOPPING_BOUNDARY,
+                SemanticConflictClass.CAPABILITY_RESTRICTION,
+            }
+            for conflict_class in SemanticConflictClass:
+                with self.subTest(conflict_class=conflict_class.value):
+                    bound = replace(
+                        semantic,
+                        verdict=SemanticValidationVerdictV1(
+                            schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
+                            verdict=SemanticVerdict.REJECT,
+                            conflict=SemanticConflictV1(
+                                conflict_class=conflict_class,
+                                concise_explanation="Typed policy classification fixture.",
+                                exact_quote=None,
+                                decision_key=semantic.verdict.conflict.decision_key,
+                            ),
+                        ),
+                    )
+                    reasons = tolerated_ordinary_rejection_reasons(bound, reader)
+                    if conflict_class in soft:
+                        self.assertEqual(reasons, (f"luna:{conflict_class.value}",))
+                    else:
+                        self.assertIsNone(reasons)
+
+            for scope in RetryFeedbackScope:
+                with self.subTest(reader_scope=scope.value):
+                    issue = ReaderIssueV1(
+                        issue_code="policy_fixture",
+                        concise_explanation="Typed Reader policy fixture.",
+                        exact_quote=(
+                            reader.request.exact_candidate_prose[:12]
+                            if scope is RetryFeedbackScope.EXACT_QUOTE
+                            else None
+                        ),
+                        omitted_planner_item_key=(
+                            reader.request.current_plan_item_keys[0]
+                            if scope is RetryFeedbackScope.OMITTED_PLANNER_ITEM
+                            else None
+                        ),
+                        feedback_scope=scope,
+                    )
+                    rejected_reader = replace(
+                        reader,
+                        verdict=ReaderVerdictV1(
+                            status=ReaderStatus.REJECTED,
+                            issues=(issue,),
+                        ),
+                    )
+                    passing_semantic = replace(
+                        semantic,
+                        verdict=SemanticValidationVerdictV1(
+                            schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
+                            verdict=SemanticVerdict.PASS,
+                            conflict=None,
+                        ),
+                    )
+                    reasons = tolerated_ordinary_rejection_reasons(
+                        passing_semantic,
+                        rejected_reader,
+                    )
+                    if scope is RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY:
+                        self.assertIsNone(reasons)
+                    else:
+                        self.assertEqual(reasons, (f"reader:{scope.value}",))
+
+    def test_standing_policy_soft_rejection_does_not_wait_in_manual_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, pi, _retry = self._runtime(
+                Path(temporary),
+                luna=SemanticVerdict.REJECT,
+            )
+            frozen = coordinator.start_ordinary(_turn(mode="manual"))
+            accepted = coordinator.begin_ordinary_validation(frozen.review_id)
+            public = self._adapter(coordinator).review_payload(accepted)
+
+            self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
+            self.assertEqual(public["review_mode"], "manual")
+            self.assertEqual(public["gate_status"], "reject")
+            self.assertEqual(public["acceptance"]["mode"], "standing_policy")
+            self.assertEqual(public["acceptance"]["canon_status"], "provisional")
+            self.assertFalse(any(public["actions"].values()))
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
 
     def test_python_privacy_gate_rebuilds_the_safe_reader_projection(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -890,38 +996,27 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertEqual(accepted.review.state, "accepted")
             self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
 
-    def test_rejected_manual_regenerate_carries_exact_bound_conflict_to_writer(self) -> None:
+    def test_soft_omitted_decision_does_not_call_a_second_writer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             coordinator, _store, pi, retry = self._runtime(
                 Path(temporary),
                 luna=SemanticVerdict.REJECT,
             )
             frozen = coordinator.start_ordinary(_turn(mode="manual"))
-            rejected = coordinator.begin_ordinary_validation(frozen.review_id)
-            validation = rejected.semantic_validation
+            accepted = coordinator.begin_ordinary_validation(frozen.review_id)
+            validation = accepted.semantic_validation
             self.assertIsNotNone(validation)
             assert validation is not None
 
-            with patch.object(
-                coordinator,
-                "_prepare_review",
-                wraps=coordinator._prepare_review,
-            ) as prepare:
-                regenerated = coordinator.regenerate(rejected.review_id)
-
-            self.assertIsNotNone(regenerated.successor)
-            self.assertIs(prepare.call_args.kwargs["repair_validation"], validation)
-            repair_prompt = pi.calls[-1].prompt
-            self.assertIn("rejected for omitted_decision", repair_prompt)
-            self.assertIn("decision sakura_door_response", repair_prompt)
-            self.assertIn(
-                "The candidate omitted one planned decision.",
-                repair_prompt,
-            )
-            self.assertEqual(repair_prompt.count(_REPAIR_WHOLE_SCENE_AUDIT), 1)
+            self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
+            public = self._adapter(coordinator).review_payload(accepted)
+            self.assertEqual(public["acceptance"]["mode"], "standing_policy")
+            self.assertFalse(public["actions"]["regenerate_enabled"])
+            with self.assertRaisesRegex(StateConflictError, "already terminal"):
+                coordinator.regenerate(accepted.review_id)
             self.assertEqual(retry.planner.calls, 1)
-            self.assertEqual([call.purpose for call in pi.calls], ["writer", "writer"])
-            self.assertEqual(retry.writer_occurrences, 2)
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
+            self.assertEqual(retry.writer_occurrences, 1)
 
     def test_manual_pass_and_reader_only_regenerate_keep_generic_writer_prompt(self) -> None:
         self.assertEqual(_writer_prompt(None), _GENERIC_WRITER_PROMPT)
@@ -1121,6 +1216,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                     recovered.review_phase,
                     OrdinaryReviewPhase.VALIDATION_REJECTED,
                 )
+                self.assertEqual(recovered.state, LeanReviewState.ACCEPTED)
                 self.assertEqual(recovered.validation_failures, ())
                 self.assertIsNone(recovered.luna_provider_stage_retry_status)
                 self.assertIsNone(recovered.reader_provider_stage_retry_status)
@@ -1169,6 +1265,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                     recovered.review_phase,
                     OrdinaryReviewPhase.VALIDATION_REJECTED,
                 )
+                self.assertEqual(recovered.state, LeanReviewState.ACCEPTED)
                 self.assertEqual(recovered.validation_failures, ())
                 self.assertIsNone(recovered.luna_provider_stage_retry_status)
                 self.assertIsNone(recovered.reader_provider_stage_retry_status)

@@ -55,7 +55,14 @@ from .lineage import (
     receipt_sha_index,
     selected_receipt_chain,
 )
-from .review_lifecycle import OrdinaryPythonQualificationV1
+from .ordinary_rejection_policy import (
+    OrdinaryPolicyAcceptanceAuditV1,
+    build_ordinary_policy_acceptance_audit,
+)
+from .review_lifecycle import (
+    OrdinaryPythonQualificationV1,
+    OrdinaryValidationInputBindingV1,
+)
 
 if TYPE_CHECKING:
     from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
@@ -704,6 +711,17 @@ class LeanSceneStore:
                 raise StateConflictError("acceptance decision audit changed candidate custody")
             return audit
 
+    def load_policy_acceptance_audit(
+        self,
+        accepted: LeanAcceptedTurnReceiptV1,
+    ) -> OrdinaryPolicyAcceptanceAuditV1 | None:
+        """Load the immutable standing-policy authority for one accepted object."""
+
+        with self._lock:
+            branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
+            turn_dir = _locate_accepted_turn_dir(branch_root, accepted)
+            return _load_policy_acceptance_audit(turn_dir, accepted=accepted)
+
     def promote_adult_acceptance_envelope(
         self,
         envelope: AdultAcceptedTurnEnvelopeV1,
@@ -1274,9 +1292,11 @@ class LeanSceneStore:
         semantic_validation: BoundSemanticValidationV1 | None = None,
         reader_validation: Any | None = None,
         python_qualification: OrdinaryPythonQualificationV1 | None = None,
+        validation_input_binding: OrdinaryValidationInputBindingV1 | None = None,
         acceptance_action: str = "accept",
         acceptance_decision_request_sha256: str | None = None,
         override_feedback_sha256: str | None = None,
+        policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None = None,
     ) -> LeanAcceptedTurnReceiptV1:
         """Publish phase one exactly once; identical recovery is read-only."""
 
@@ -1291,6 +1311,7 @@ class LeanSceneStore:
                     acceptance_action=acceptance_action,
                     decision_request_sha256=acceptance_decision_request_sha256,
                     override_feedback_sha256=override_feedback_sha256,
+                    policy_acceptance_audit=policy_acceptance_audit,
                 )
                 head = self.load_head(
                     world_id=candidate.world_id,
@@ -1327,7 +1348,9 @@ class LeanSceneStore:
                 semantic_validation,
                 reader_validation,
                 python_qualification,
+                validation_input_binding=validation_input_binding,
                 acceptance_action=acceptance_action,
+                policy_acceptance_audit=policy_acceptance_audit,
             )
             receipt = _receipt_for_candidate(
                 candidate,
@@ -1340,11 +1363,13 @@ class LeanSceneStore:
                 semantic_validation=semantic_validation,
                 reader_validation=reader_validation,
                 python_qualification=python_qualification,
+                validation_input_binding=validation_input_binding,
                 acceptance_action=acceptance_action,
                 acceptance_decision_request_sha256=(
                     acceptance_decision_request_sha256
                 ),
                 override_feedback_sha256=override_feedback_sha256,
+                policy_acceptance_audit=policy_acceptance_audit,
             )
             self._select_receipt(
                 branch_root,
@@ -1362,9 +1387,11 @@ class LeanSceneStore:
         semantic_validation: BoundSemanticValidationV1 | None = None,
         reader_validation: Any | None = None,
         python_qualification: OrdinaryPythonQualificationV1 | None = None,
+        validation_input_binding: OrdinaryValidationInputBindingV1 | None = None,
         acceptance_action: str = "automatic_accept",
         acceptance_decision_request_sha256: str | None = None,
         override_feedback_sha256: str | None = None,
+        policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None = None,
     ) -> LeanAcceptedTurnReceiptV1:
         """Accept a same-generation sibling and atomically select it.
 
@@ -1392,6 +1419,7 @@ class LeanSceneStore:
                     acceptance_action=acceptance_action,
                     decision_request_sha256=acceptance_decision_request_sha256,
                     override_feedback_sha256=override_feedback_sha256,
+                    policy_acceptance_audit=policy_acceptance_audit,
                 )
                 if head.accepted_head_sha256 == existing.receipt_sha256:
                     return existing
@@ -1422,7 +1450,9 @@ class LeanSceneStore:
                 semantic_validation,
                 reader_validation,
                 python_qualification,
+                validation_input_binding=validation_input_binding,
                 acceptance_action=acceptance_action,
+                policy_acceptance_audit=policy_acceptance_audit,
             )
             receipt = existing or _receipt_for_candidate(
                 candidate,
@@ -1436,11 +1466,13 @@ class LeanSceneStore:
                     semantic_validation=semantic_validation,
                     reader_validation=reader_validation,
                     python_qualification=python_qualification,
+                    validation_input_binding=validation_input_binding,
                     acceptance_action=acceptance_action,
                     acceptance_decision_request_sha256=(
                         acceptance_decision_request_sha256
                     ),
                     override_feedback_sha256=override_feedback_sha256,
+                    policy_acceptance_audit=policy_acceptance_audit,
                 )
             self._select_receipt(
                 branch_root,
@@ -1459,15 +1491,29 @@ class LeanSceneStore:
         semantic_validation: BoundSemanticValidationV1 | None,
         reader_validation: Any | None,
         python_qualification: OrdinaryPythonQualificationV1 | None,
+        validation_input_binding: OrdinaryValidationInputBindingV1 | None,
         acceptance_action: str,
         acceptance_decision_request_sha256: str | None,
         override_feedback_sha256: str | None,
+        policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None,
     ) -> None:
         decision_audit = _acceptance_decision_audit_for_candidate(
             candidate,
             acceptance_action=acceptance_action,
             decision_request_sha256=acceptance_decision_request_sha256,
             override_feedback_sha256=override_feedback_sha256,
+        )
+        if policy_acceptance_audit is not None and decision_audit is not None:
+            raise ContractValidationError(
+                "standing-policy acceptance cannot impersonate a creator override"
+            )
+        _validate_policy_acceptance_audit(
+            candidate,
+            semantic_validation=semantic_validation,
+            reader_validation=reader_validation,
+            python_qualification=python_qualification,
+            acceptance_action=acceptance_action,
+            audit=policy_acceptance_audit,
         )
         accepted_root = branch_root / "accepted"
         final_dir = accepted_root / _accepted_object_directory_name(receipt)
@@ -1482,6 +1528,11 @@ class LeanSceneStore:
                 accepted=stored,
             ) != decision_audit:
                 raise StateConflictError("accepted decision audit differs from replay")
+            if _load_policy_acceptance_audit(
+                final_dir,
+                accepted=stored,
+            ) != policy_acceptance_audit:
+                raise StateConflictError("accepted policy audit differs from replay")
             return
         stage = branch_root / f".accept-{uuid4().hex}"
         stage.mkdir(parents=False, exist_ok=False)
@@ -1512,10 +1563,26 @@ class LeanSceneStore:
                         qualification=python_qualification,
                     ),
                 )
+            if validation_input_binding is not None:
+                _write_new_json(
+                    stage / "VALIDATION_INPUT_BINDING.json",
+                    _validation_input_binding_artifact(
+                        candidate=candidate,
+                        binding=validation_input_binding,
+                    ),
+                )
             if decision_audit is not None:
                 _write_new_json(
                     stage / "ACCEPTANCE_DECISION_AUDIT.json",
                     to_primitive(decision_audit),
+                )
+            if policy_acceptance_audit is not None:
+                _write_new_json(
+                    stage / "POLICY_ACCEPTANCE_AUDIT.json",
+                    {
+                        **to_primitive(policy_acceptance_audit),
+                        "audit_sha256": policy_acceptance_audit.audit_sha256,
+                    },
                 )
             if acceptance_action == "provisional_accept":
                 if semantic_validation is None:  # guarded by qualification
@@ -2257,13 +2324,37 @@ class LeanSceneStore:
                 receipt=receipt,
                 reader_validation=reader_validation,
             )
-            _verify_python_qualification_artifact(
+            python_qualification = _verify_python_qualification_artifact(
                 path.parent,
                 receipt=receipt,
                 semantic_validation=semantic_validation,
                 reader_validation=reader_validation,
             )
-            _load_acceptance_decision_audit(path.parent, accepted=receipt)
+            _load_validation_input_binding_artifact(
+                path.parent,
+                receipt=receipt,
+                semantic_validation=semantic_validation,
+                reader_validation=reader_validation,
+                python_qualification=python_qualification,
+            )
+            decision_audit = _load_acceptance_decision_audit(path.parent, accepted=receipt)
+            policy_audit = _load_policy_acceptance_audit(path.parent, accepted=receipt)
+            if decision_audit is not None and policy_audit is not None:
+                raise StateConflictError("accepted object has competing acceptance authorities")
+            if policy_audit is not None:
+                if (
+                    semantic_validation is None
+                    or reader_validation is None
+                    or python_qualification is None
+                    or build_ordinary_policy_acceptance_audit(
+                        candidate_sha256=receipt.candidate_sha256,
+                        semantic=semantic_validation,
+                        reader=reader_validation,
+                        python_qualification=python_qualification,
+                    )
+                    != policy_audit
+                ):
+                    raise StateConflictError("stored policy acceptance changed qualification")
             _load_atomic_adult_promotion(path.parent, accepted=receipt)
             if receipt.receipt_sha256 in seen_hashes:
                 raise StateConflictError("accepted receipt object occurs more than once")
@@ -2795,6 +2886,45 @@ def _load_acceptance_decision_audit(
     return audit
 
 
+def _load_policy_acceptance_audit(
+    turn_dir: Path,
+    *,
+    accepted: LeanAcceptedTurnReceiptV1,
+) -> OrdinaryPolicyAcceptanceAuditV1 | None:
+    path = turn_dir / "POLICY_ACCEPTANCE_AUDIT.json"
+    if not path.exists():
+        return None
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("accepted policy audit path is unsafe")
+    payload = _read_json(path)
+    if not isinstance(payload, Mapping) or set(payload) != {
+        "schema_version",
+        "authority_kind",
+        "policy_id",
+        "policy_version",
+        "policy_sha256",
+        "candidate_sha256",
+        "semantic_validation_sha256",
+        "reader_validation_sha256",
+        "python_qualification_sha256",
+        "tolerated_reason_codes",
+        "audit_sha256",
+    }:
+        raise StateConflictError("accepted policy audit fields changed")
+    body = {key: payload[key] for key in payload if key != "audit_sha256"}
+    try:
+        audit = from_mapping(OrdinaryPolicyAcceptanceAuditV1, body)
+    except ContractValidationError as exc:
+        raise StateConflictError("accepted policy audit is invalid") from exc
+    if (
+        payload["audit_sha256"] != audit.audit_sha256
+        or audit.candidate_sha256 != accepted.candidate_sha256
+        or accepted.creator_action != "provisional_accept"
+    ):
+        raise StateConflictError("accepted policy audit changed accepted custody")
+    return audit
+
+
 def _require_acceptance_decision_replay(
     branch_root: Path,
     *,
@@ -2803,6 +2933,7 @@ def _require_acceptance_decision_replay(
     acceptance_action: str,
     decision_request_sha256: str | None,
     override_feedback_sha256: str | None,
+    policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None,
 ) -> None:
     """Authenticate a recovery call against its immutable decision audit."""
 
@@ -2817,6 +2948,39 @@ def _require_acceptance_decision_replay(
     turn_dir = _locate_accepted_turn_dir(branch_root, accepted)
     if _load_acceptance_decision_audit(turn_dir, accepted=accepted) != expected:
         raise StateConflictError("accepted decision audit differs from replay")
+    if (
+        _load_policy_acceptance_audit(turn_dir, accepted=accepted)
+        != policy_acceptance_audit
+    ):
+        raise StateConflictError("accepted policy audit differs from replay")
+
+
+def _validate_policy_acceptance_audit(
+    candidate: LeanCandidateV1,
+    *,
+    semantic_validation: BoundSemanticValidationV1 | None,
+    reader_validation: Any | None,
+    python_qualification: OrdinaryPythonQualificationV1 | None,
+    acceptance_action: str,
+    audit: OrdinaryPolicyAcceptanceAuditV1 | None,
+) -> None:
+    if audit is None:
+        return
+    if (
+        acceptance_action != "provisional_accept"
+        or semantic_validation is None
+        or reader_validation is None
+        or python_qualification is None
+    ):
+        raise ContractValidationError("ordinary policy acceptance lacks provisional custody")
+    expected = build_ordinary_policy_acceptance_audit(
+        candidate_sha256=candidate.candidate_sha256,
+        semantic=semantic_validation,
+        reader=reader_validation,
+        python_qualification=python_qualification,
+    )
+    if expected is None or audit != expected:
+        raise ContractValidationError("ordinary policy acceptance is not exactly eligible")
 
 
 def _validate_candidate_qualification(
@@ -2825,7 +2989,9 @@ def _validate_candidate_qualification(
     reader_validation: Any | None,
     python_qualification: OrdinaryPythonQualificationV1 | None,
     *,
+    validation_input_binding: OrdinaryValidationInputBindingV1 | None = None,
     acceptance_action: str,
+    policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None = None,
 ) -> None:
     if acceptance_action not in {
         "accept",
@@ -2838,7 +3004,7 @@ def _validate_candidate_qualification(
         and candidate.primary_authority_kind == "codex_cognition_plan"
     )
     if not requires_validation:
-        if acceptance_action == "provisional_accept":
+        if acceptance_action == "provisional_accept" or policy_acceptance_audit is not None:
             raise ContractValidationError(
                 "provisional acceptance requires a rejected semantic candidate"
             )
@@ -2882,7 +3048,34 @@ def _validate_candidate_qualification(
             != reader_validation.binding_sha256
         ):
             raise ContractValidationError("Python qualification changed validator custody")
+        if validation_input_binding is not None and (
+            validation_input_binding.candidate_sha256 != candidate.candidate_sha256
+            or validation_input_binding.semantic_request_sha256
+            != canonical_sha256(validation.request)
+            or validation_input_binding.semantic_custody_sha256
+            != canonical_sha256(validation.custody)
+            or validation_input_binding.reader_request_sha256
+            != canonical_sha256(reader_validation.request)
+            or validation_input_binding.reader_custody_sha256
+            != canonical_sha256(reader_validation.custody)
+            or python_qualification is None
+            or python_qualification.validation_input_binding_sha256
+            != validation_input_binding.binding_sha256
+        ):
+            raise ContractValidationError(
+                "validation-input binding changed accepted validator custody"
+            )
+        _validate_policy_acceptance_audit(
+            candidate,
+            semantic_validation=validation,
+            reader_validation=reader_validation,
+            python_qualification=python_qualification,
+            acceptance_action=acceptance_action,
+            audit=policy_acceptance_audit,
+        )
     else:
+        if policy_acceptance_audit is not None:
+            raise ContractValidationError("legacy acceptance cannot use standing policy")
         expected_verdict = (
             SemanticVerdict.REJECT
             if acceptance_action == "provisional_accept"
@@ -2987,6 +3180,70 @@ def _python_qualification_artifact(
     return {**body, "artifact_sha256": canonical_sha256(body)}
 
 
+def _validation_input_binding_artifact(
+    *,
+    candidate: LeanCandidateV1,
+    binding: OrdinaryValidationInputBindingV1,
+) -> dict[str, Any]:
+    if binding.candidate_sha256 != candidate.candidate_sha256:
+        raise ContractValidationError("validation-input artifact changed candidate custody")
+    body = {
+        "schema_version": "cera.pi_scene.validation_input_binding_acceptance.v1",
+        "candidate_sha256": candidate.candidate_sha256,
+        "binding": to_primitive(binding),
+    }
+    return {**body, "artifact_sha256": canonical_sha256(body)}
+
+
+def _load_validation_input_binding_artifact(
+    turn_dir: Path,
+    *,
+    receipt: LeanAcceptedTurnReceiptV1,
+    semantic_validation: BoundSemanticValidationV1 | None,
+    reader_validation: Any | None,
+    python_qualification: OrdinaryPythonQualificationV1 | None,
+) -> OrdinaryValidationInputBindingV1 | None:
+    path = turn_dir / "VALIDATION_INPUT_BINDING.json"
+    if not path.exists():
+        return None
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("accepted validation-input custody is invalid")
+    payload = _read_json(path)
+    body = {key: payload[key] for key in payload if key != "artifact_sha256"}
+    if (
+        set(payload)
+        != {
+            "schema_version",
+            "candidate_sha256",
+            "binding",
+            "artifact_sha256",
+        }
+        or payload["schema_version"] != "cera.pi_scene.validation_input_binding_acceptance.v1"
+        or payload["candidate_sha256"] != receipt.candidate_sha256
+        or payload["artifact_sha256"] != canonical_sha256(body)
+        or not isinstance(payload["binding"], Mapping)
+    ):
+        raise StateConflictError("accepted validation-input artifact binding changed")
+    binding = _decode_stored(
+        OrdinaryValidationInputBindingV1,
+        payload["binding"],
+        "validation-input binding",
+    )
+    if (
+        semantic_validation is None
+        or reader_validation is None
+        or python_qualification is None
+        or binding.candidate_sha256 != receipt.candidate_sha256
+        or binding.semantic_request_sha256 != canonical_sha256(semantic_validation.request)
+        or binding.semantic_custody_sha256 != canonical_sha256(semantic_validation.custody)
+        or binding.reader_request_sha256 != canonical_sha256(reader_validation.request)
+        or binding.reader_custody_sha256 != canonical_sha256(reader_validation.custody)
+        or python_qualification.validation_input_binding_sha256 != binding.binding_sha256
+    ):
+        raise StateConflictError("accepted validation-input custody changed")
+    return binding
+
+
 def _load_reader_validation_artifact(
     turn_dir: Path,
     *,
@@ -3038,12 +3295,12 @@ def _verify_python_qualification_artifact(
     receipt: LeanAcceptedTurnReceiptV1,
     semantic_validation: BoundSemanticValidationV1 | None,
     reader_validation: Any | None,
-) -> None:
+) -> OrdinaryPythonQualificationV1 | None:
     path = turn_dir / "PYTHON_QUALIFICATION.json"
     if reader_validation is None:
         if path.exists():
             raise StateConflictError("legacy accepted turn has Python qualification")
-        return
+        return None
     if not path.is_file() or path.is_symlink():
         raise StateConflictError("qualified ordinary turn lacks Python custody")
     payload = _read_json(path)
@@ -3087,6 +3344,7 @@ def _verify_python_qualification_artifact(
         )
     ):
         raise StateConflictError("stored Python qualification changed accepted authority")
+    return qualification
 
 
 def _verify_semantic_validation_artifact(

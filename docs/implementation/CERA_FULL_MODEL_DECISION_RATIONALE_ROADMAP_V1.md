@@ -86,6 +86,40 @@ Pi route must adapt those closed contracts to its own candidate, retry,
 accounting, HTTP, and SillyTavern lifecycle rather than transplanting an older
 runtime wholesale. Reader acceptance alone never creates canon.
 
+### 1.3 Creator-approved delta D-220 - 2026-08-13
+
+D-220 narrows only D-219's ordinary soft-rejection disposition. It does not
+weaken Python, privacy, custody, adult, or hard semantic gates.
+
+The immutable authority is `standing_creator_policy`
+`ordinary_provisional_continuity` v1. Its exact policy text SHA-256 is
+`1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2`; its
+canonical policy-object SHA-256 is
+`47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23`.
+
+| Signal | Disposition |
+|---|---|
+| Luna `omitted_decision`, `presence_violation`, `stopping_boundary`, or `capability_restriction` | Soft |
+| Reader rejection whose every issue scope is `exact_quote` or `omitted_planner_item` | Soft |
+| Python failure or inconclusive | Hard |
+| Any other Luna class | Hard |
+| Reader inconclusive or any `whole_candidate` issue | Hard |
+
+Hard wins whenever signals are mixed. With Python pass and only soft signals,
+Python accepts the first exact Writer candidate exactly once as provisional
+continuity. It makes no second Writer call and requires no manual creator
+action. The Luna/Reader rejection evidence remains attached, and the accepted
+artifact carries separate nonforgeable policy provenance. Adult remains strict
+and unchanged. Ordinary review V2 is historical; V3 is current.
+The matching qualification contracts are manifest V23, phase result V6, and
+complete result V5, with a separate standing-policy provisional counter and
+hash-only evidence rather than automatic/manual acceptance relabeling.
+
+This is controlling design authority. Source integration and focused
+provider-free evidence are complete; the complete no-selector gate and fresh
+fixture qualification remain pending. This text does not authorize a provider
+call, live rerun, route promotion, or installed-client sync.
+
 ## 2. Supersession and preservation
 
 ### 2.1 This roadmap supersedes these assumptions
@@ -103,9 +137,11 @@ Where an older draft conflicts, this roadmap supersedes:
 - a semantic rule or prompt patch for every isolated Writer mistake;
 - a shared mutable world or provider session treated as durable story memory.
 
-The normal accepted path is now automatic after required semantic and
-deterministic checks. A failed candidate remains available for Ted to inspect
-and may be accepted only as explicitly marked provisional canon.
+The normal accepted path is automatic after required semantic and deterministic
+checks. A hard-failed candidate remains available for Ted to inspect and is not
+accepted automatically. The one exception is D-220's ordinary soft-only first
+candidate, which enters provisional continuity automatically under the frozen
+standing policy and attached audit provenance.
 
 Regenerate now repeats the same accepted state, exact user source, settings,
 and evidence revision, but asks the logic owner to make a fresh realistic
@@ -238,13 +274,23 @@ must explain the material interaction instead of applying a rigid clause rule.
 Normal candidate disposition is:
 
 ```text
-semantic pass + deterministic pass -> automatic Accept
+Python pass + Luna pass + Reader pass
+-> automatic Accept, or explicit Accept in Manual Review mode
+
+Python pass + at least one rejection + only D-220 soft signals
+-> standing-policy Accept exactly once as provisional continuity
+
+any Python non-pass or any hard Luna/Reader signal
+-> hard rejection
 ```
 
 Critical authoritative defects may receive one complete automatic repair. A
-repair is a complete replacement, not an edited fragment. If the repair fails,
-or the problem is not an automatically repairable critical defect, CERA shows
-the candidate, the replacement when present, and concise findings to Ted.
+repair is a complete replacement, not an edited fragment. D-220 soft signals
+never enter that repair path: the first exact Writer candidate is retained and
+accepted provisionally without a second Writer call or a manual action. If a
+hard repair fails, or the problem is not an automatically repairable hard
+defect, CERA shows the candidate, the replacement when present, and concise
+findings to Ted.
 
 Ted may then:
 
@@ -259,6 +305,12 @@ dependent. The first chosen working assumption for a dependent lineage remains
 pinned through that lineage so CERA does not alternate between treating the
 same event as true and false on consecutive turns. Later confirmation,
 correction, rejection, or supersession updates every dependency explicitly.
+
+Standing-policy acceptance is not an implicit validator pass or a rewritten
+verdict. The current V3 review and accepted receipt retain the original
+Luna/Reader rejection hashes and a separate policy audit bound to the candidate,
+Python qualification, immutable policy object, and exact soft reason codes.
+Any unbound, mismatched, client-authored, or incomplete provenance fails closed.
 
 ### 3.5 Regenerate and Replan
 
@@ -316,8 +368,8 @@ Core business logic must depend on ports, not provider product names.
 | `AdultScenePort` | Pi-hosted DeepSeek | complete adult logic and prose | independent self-approval, canon writes |
 | `AdultFilterPort` | separate Pi-hosted DeepSeek Filter/Validator | adult semantic fidelity, protected record, safe projection, next-route proposal | prose rewrite, canon writes |
 | `RecorderPort` | ordinary DeepSeek Recorder | future-relevant secondary continuity from accepted ordinary prose | candidate approval, primary decision replacement |
-| deterministic services | Python | route custody, world/branch/head, indexes, visibility, schemas, hashes, transactions, recovery, provider accounting, read-model generation | psychology, social meaning, character voice, prose quality |
-| creator interface | Ted through SillyTavern | product settings, exceptional provisional acceptance, Decline, Regenerate, Replan, inspection | mechanical identity and persistence |
+| deterministic services | Python | route custody, world/branch/head, indexes, visibility, schemas, hashes, transactions, recovery, provider accounting, D-220 hard/soft policy evaluation and provenance, read-model generation | psychology, social meaning, character voice, prose quality |
+| creator interface | Ted through SillyTavern | product settings, hard-rejection controls, exceptional provisional override, Decline, Regenerate, Replan, inspection | mechanical identity, persistence, or fabrication of standing-policy acceptance |
 
 Provider sessions are soft continuity. Prefix cache is performance. Python's
 accepted branch state is authority.
@@ -756,14 +808,20 @@ facts, permissions, knowledge, route, accepted decisions, or branch state.
     stopping failure.
 11. Python durably binds both verdicts and revalidates candidate identity,
     deterministic rules, custody, and privacy.
-12. Both pass -> automatic atomic Accept by default. Per-chat Manual Review
-    waits for explicit creator Accept instead.
-13. Any rejection preserves the exact prose and exposes each concise applicable
-    failure with Regenerate, Decline, and auditable creator override.
-14. Ordinary Recorder derives future-relevant secondary continuity only after
+12. With Python pass, Luna pass, and Reader pass, automatic mode performs one
+    atomic Accept; per-chat Manual Review waits for explicit creator Accept.
+13. With Python pass and at least one rejection, Python evaluates the immutable
+    D-220 policy. Only the four exact Luna classes and Reader issues whose every
+    scope is `exact_quote` or `omitted_planner_item` are soft. A soft-only first
+    candidate is accepted exactly once as provisional continuity, without a
+    second Writer call or creator action. Original rejection evidence remains.
+14. Python non-pass, any other Luna class, Reader inconclusive, or any
+    `whole_candidate` issue is hard. Hard wins over soft and retains the
+    D-219 hard-rejection controls; it cannot be converted by the client.
+15. Ordinary Recorder derives future-relevant secondary continuity only after
     acceptance and at most once.
-15. Python validates and attaches the record bundle.
-16. Python incrementally rebuilds affected dossiers and indexes.
+16. Python validates and attaches the record bundle.
+17. Python incrementally rebuilds affected dossiers and indexes.
 ```
 
 Luna checks material meaning, not wording. It rejects omitted decisions,
@@ -773,9 +831,11 @@ contradictions, and severe incompleteness. It permits compatible gestures,
 interiority, dialogue wording, chronology, atmosphere, staging, and harmless
 interpolation.
 
-On a critical failure, one complete repair may be attempted automatically. On
-continued failure, both candidates and the findings remain visible. Ted can
-Decline, Regenerate, Replan, or accept provisionally.
+On a hard critical failure, one complete repair may be attempted automatically.
+On continued hard failure, both candidates and the findings remain visible.
+Ted can Decline, Regenerate, Replan, or accept provisionally when separately
+authorized. D-220 soft rejection never makes that repair call and never waits
+for a creator click.
 
 Recorder failure does not erase accepted prose. The branch becomes visibly
 `recording_pending`; dependent derived fields remain non-authoritative until
@@ -1189,13 +1249,19 @@ Work:
 5. Show exact prose provisionally while Luna and Reader run concurrently.
 6. Persist independent pending/pass/reject verdict state and reconcile it across
    reload and restart without automatic provider redispatch.
-7. Implement critical one-repair behavior and retained candidate inspection.
+7. Implement hard critical one-repair behavior and retained candidate
+   inspection; exclude every D-220 soft-only candidate from that repair path.
 8. Implement exact-once automatic Accept after both verdicts and deterministic
-   checks, plus an optional per-chat Manual Review mode.
-9. Implement Regenerate as fresh realistic logic-owner judgment and Replan as
+   checks, plus an optional per-chat Manual Review mode for the fully passing
+   path.
+9. Implement D-220 standing-policy evaluation after the independent check join:
+   hard wins, Python must pass, all rejected reasons must be exactly allowlisted,
+   and a qualifying first candidate is accepted once as provisional continuity
+   with immutable policy/audit provenance and zero additional Writer calls.
+10. Implement Regenerate as fresh realistic logic-owner judgment and Replan as
    explicit reasoning correction.
-10. Keep ordinary Recorder post-Accept, sequence-subordinate, and exact-once.
-11. Rebuild affected dossiers and indexes after recording.
+11. Keep ordinary Recorder post-Accept, sequence-subordinate, and exact-once.
+12. Rebuild affected dossiers and indexes after recording.
 
 Exit gate:
 
@@ -1207,6 +1273,12 @@ Exit gate:
 - Luna and Reader run independently and concurrent execution is accounting-safe;
 - automatic Accept is atomic and idempotent only after both pass;
 - Manual Review remains provisional until explicit Accept;
+- each exact soft Luna class and permitted Reader scope reaches one V3
+  provisional acceptance with the first candidate, zero second Writer calls,
+  no creator action, retained rejected evidence, and nonforgeable policy
+  provenance;
+- mixed soft/hard, Python non-pass, every non-allowlisted Luna class, Reader
+  inconclusive, and `whole_candidate` remain hard and cannot be downgraded;
 - failed repair remains inspectable;
 - provisional acceptance and pinned dependencies work;
 - Recorder failure leaves accepted prose intact and repairable.
@@ -1249,6 +1321,7 @@ Work:
 
 1. Propagate every configured control through HTTP to runtime contracts.
 2. Make review/candidate IDs durable, typed, idempotent, and restart-safe.
+   Ordinary review V3 is current; V2 remains historical decode only.
 3. Make successor generation transactional so failure cannot strand the old
    review.
 4. Add logic-owner, validation, recording, and route indicators.
@@ -1262,6 +1335,8 @@ Exit gate:
 
 - Accept, provisional acceptance, Decline, Regenerate, Replan, restart, and
   new-chat flows work without stale IDs;
+- the browser can display but cannot originate, alter, or replay the output-only
+  `standing_policy_accept_provisional` decision or its hash-bound audit;
 - an eligible transport failure can be retried once per backend-issued identity
   and explicit click, up to two Retry actions and three total attempts, without
   resuming an interrupted provider thread or duplicating accepted state;
@@ -1307,7 +1382,12 @@ Work:
    trace/path/provider prose, and returns only the exact closed terminal
    projection. Reduced or partially shaped direct envelopes fail closed.
 9. Run one complete clean-checkout suite after bytes stop changing.
-10. Freeze exact source, prompts, schemas, tools, profiles, fixtures, and
+10. Exercise every D-220 soft class/scope, mixed hard-plus-soft precedence,
+    Python non-pass, Reader inconclusive/`whole_candidate`, exact-once commit,
+    crash/restart recovery, retained verdict evidence, policy/audit tamper,
+    zero second Writer calls, and unchanged Adult disposition through the
+    actual backend and generated V3 browser contracts.
+11. Freeze exact source, prompts, schemas, tools, profiles, fixtures, and
    provider ledgers.
 
 Exit gate:
@@ -1336,7 +1416,10 @@ Order:
 
 Use frozen inputs and exact accounting. Fix deterministic backend defects
 provider-free. Treat isolated stochastic Writer variation as model variation
-unless a generalized cause recurs across varied fixtures.
+unless a generalized cause recurs across varied fixtures. D-220 soft ordinary
+variation must exercise standing-policy provisional continuity on the first
+candidate; qualification must not spend a second Writer call to make a soft
+candidate satisfy the validators.
 
 Exit gate:
 
@@ -1508,10 +1591,21 @@ Material decisions should remain semantically stable.
 - Luna rejects missing intent, wrong outcome, false locked fact, invented Ted
   dialogue/private state, knowledge leak, and unauthorized consequential E.
 - Luna does not reject harmless staging or prose style.
+- D-220 classifies only `omitted_decision`, `presence_violation`,
+  `stopping_boundary`, and `capability_restriction` as soft Luna rejection
+  classes for ordinary provisional continuity; the validator verdict itself is
+  not rewritten.
+- A Reader rejection is D-220 soft only when every issue scope is
+  `exact_quote` or `omitted_planner_item`; Reader inconclusive and any
+  `whole_candidate` issue are hard.
+- Python non-pass or any hard Luna/Reader signal defeats every simultaneous
+  soft signal. Policy or audit hash drift fails closed.
 - Adult Filter preserves full/safe event binding and route state.
 - Failed validation cannot alter accepted state.
 - Critical repair retains the removed candidate for Ted.
-- Provisional acceptance marks every dependent scene.
+- Standing-policy provisional acceptance uses the first candidate, makes zero
+  second Writer calls, needs no creator action, retains rejected evidence, and
+  marks every dependent scene.
 
 ### 14.6 Transaction and recovery tests
 
@@ -1660,11 +1754,12 @@ CERA reaches initial full-model creator readiness only when:
 - every material decision has a concise evidence-linked record;
 - mind/body autonomy behaves according to the global setting;
 - locked factual contradictions are corrected rather than canonized;
-- ordinary prose is independently Luna-validated;
+- ordinary prose is independently Luna- and Reader-checked, with pass or exact
+  D-220 soft-only standing-policy provisional disposition recorded in V3;
 - adult prose is independently Filter-validated;
 - accepted prose, decisions, records, and projections commit atomically or
   enter an explicit repairable state;
-- rejected candidates never contaminate accepted retrieval;
+- hard-rejected and unresolved candidates never contaminate accepted retrieval;
 - provisional dependencies remain pinned and traceable;
 - route transitions preserve one logic owner per candidate;
 - prompt context is compact, tool-driven, and branch-confined;

@@ -1,6 +1,39 @@
 # Current CERA Handoff
 
-**Updated:** 2026-08-03
+**Updated:** 2026-08-13
+
+## 2026-08-13 D-220 ordinary provisional-continuity handoff
+
+The creator has accepted ordinary DeepSeek's small, typed validation deviations
+as provisional continuity instead of routinely spending a second Writer call.
+The immutable `standing_creator_policy` is
+`ordinary_provisional_continuity` v1. Exact policy text SHA-256 is
+`1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2`; canonical
+policy-object SHA-256 is
+`47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23`.
+
+- Soft Luna classes are exactly `omitted_decision`, `presence_violation`,
+  `stopping_boundary`, and `capability_restriction`.
+- A Reader rejection is soft only if every issue scope is `exact_quote` or
+  `omitted_planner_item`.
+- Python failure/inconclusive, every other Luna class, Reader inconclusive, and
+  any `whole_candidate` issue are hard. Hard always wins.
+- With Python pass and only soft signals, the first Writer candidate is accepted
+  exactly once as provisional continuity. There is no second Writer call and no
+  manual creator action. Rejected verdict evidence remains visible and the
+  accepted record carries separate nonforgeable policy provenance.
+- Adult remains strict and unchanged. D-220 supersedes D-219 only for ordinary
+  soft-rejection disposition.
+
+Ordinary review V2 is historical and V3 is current. Concurrent source/schema
+integration uses qualification manifest V23, phase result V6, and complete
+result V5. Focused provider-free evidence is green: the exact soft-policy
+qualification case passed with one Writer, zero Regenerate, and zero manual
+action; 67 focused Python tests and 85 SillyTavern Node tests passed; generated
+contracts, Ruff, strict focused mypy, compilation, and diff checks passed. The
+complete no-selector gate and fresh V20/V24 qualification remain pending. Do
+not claim this change fully qualified, resume a provider run, or synchronize
+installed SillyTavern from this checkpoint alone.
 
 ## 2026-08-09 C78 planning handoff
 

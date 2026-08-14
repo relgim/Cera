@@ -29,6 +29,57 @@ semantic self-certification duties. D-204 controls the V3 successor while D-180
 remains the active product route.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 
+## D-220 Pi Scene ordinary review V3 disposition
+
+This state path is ordinary-only and narrows D-219 only after the independent
+Luna, Reader, and Python lanes have joined for one exact frozen candidate.
+Ordinary review V2 is historical; V3 is current.
+
+```text
+WRITER_CANDIDATE_FROZEN
+-> CHECKS_PENDING (Luna || Reader || Python)
+-> JOIN_EXACT_CANDIDATE_BINDINGS
+   -> all required checks pass
+      -> AUTOMATIC_ACCEPTED
+      or -> MANUAL_REVIEW_READY -> creator Accept | Regenerate | Decline
+   -> Python pass + at least one reject + every signal D-220 soft
+      -> STANDING_POLICY_PROVISIONAL_ACCEPTED (exactly once)
+   -> Python failure/inconclusive or any hard Luna/Reader signal
+      -> HARD_REJECTION_REVIEW_READY
+```
+
+Soft Luna classes are exactly `omitted_decision`, `presence_violation`,
+`stopping_boundary`, and `capability_restriction`. A Reader rejection is soft
+only when every issue scope is `exact_quote` or `omitted_planner_item`.
+Everything else is hard, including Python failure/inconclusive, every other
+Luna class, Reader inconclusive, and any `whole_candidate` issue. Hard wins over
+soft. Pending, missing, malformed, stale, or candidate-mismatched evidence is
+not soft.
+
+`STANDING_POLICY_PROVISIONAL_ACCEPTED` uses the first exact Writer candidate,
+performs no second Writer call, and waits for no manual action. It retains the
+original rejected Luna/Reader evidence and commits once through the normal
+atomic acceptance boundary with `canon_status=provisional`. Its terminal V3
+decision identity is output-only `standing_policy_accept_provisional`.
+Qualification projects this state through manifest V23, phase result V6, and
+complete result V5. It does not increment manual-action or Regenerate counters
+and is never relabeled as `checks_passed` or automatic first-pass acceptance.
+
+The acceptance transition requires immutable, separate policy provenance:
+`standing_creator_policy` `ordinary_provisional_continuity` v1, policy text
+SHA-256 `1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2`, and
+canonical policy-object SHA-256
+`47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23`.
+Python recomputes the audit from the candidate, both validator bindings, Python
+qualification, exact tolerated reason codes, and immutable policy object. A
+client cannot submit, derive, repair, or replay this decision. Provenance drift
+or a partial acceptance write fails closed and restart reconciles the same
+durable exact-once transition without provider redispatch.
+
+Adult review, Adult Filter, consent/capacity, protected custody, and strict
+acceptance are unchanged. Source integration and provider-free evidence remain
+pending; this lifecycle text is not a passed-gate claim.
+
 ## 1. Normal turn
 
 ```text
@@ -442,6 +493,12 @@ Deployment readiness is a second independent gate. Missing role qualification, h
 ## 10. Repair policy
 
 Default remains zero automatic repairs. The separately authorized provider-free Adult ON/EX gate implements one production-prohibited, validation-directed beat replacement when exactly one beat fails deterministic or semantic specificity. It cannot change provider, source, authority packet, route, decision, branch, or locked non-target text. Python splices the replacement, runs a new no-retry semantic verification, and then reruns all deterministic and structural checks. Semantic failure after the splice ends the turn without a second repair. Live use still requires qualification, promotion evidence, and creator authorization.
+
+D-220 ordinary soft rejection is a disposition, not repair. It preserves and
+provisionally accepts the first candidate exactly once, makes no Writer call,
+and does not turn a rejected validator result into a pass. Hard ordinary repair
+and rejection behavior remains governed separately by D-219 and the active
+execution policy.
 
 ## 11. D-186 shadow continuous candidate and Scene Change states (historical role allocation)
 

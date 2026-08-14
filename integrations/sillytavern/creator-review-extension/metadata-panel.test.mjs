@@ -263,13 +263,15 @@ export function updateMessageBlock() {}
             'utf8',
         ),
     );
-    await writeFile(
-        path.join(extension, 'generated', 'ordinary-review-contracts-v2.mjs'),
-        await readFile(
-            path.join(sourceRoot, 'generated', 'ordinary-review-contracts-v2.mjs'),
-            'utf8',
-        ),
-    );
+    for (const name of [
+        'ordinary-review-contracts-v2.mjs',
+        'ordinary-review-contracts-v3.mjs',
+    ]) {
+        await writeFile(
+            path.join(extension, 'generated', name),
+            await readFile(path.join(sourceRoot, 'generated', name), 'utf8'),
+        );
+    }
 
     class TestCustomEvent extends Event {
         constructor(type, options = {}) {
@@ -3548,6 +3550,32 @@ test('accepted auditable override keeps frozen rejection failures visible', asyn
         const text = elementText(environment.testDocument.body.querySelector('.cera-creator-review'));
         assert.match(text, /ACCEPTED OVERRIDE/);
         assert.match(text, /Frozen Luna conflict/);
+        assert.equal(environment.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
+    } finally {
+        await rm(environment.root, { recursive: true, force: true });
+    }
+});
+
+test('accepted standing policy is distinct and keeps provenance plus failures visible', async () => {
+    const fixtureSet = JSON.parse(await readFile(path.resolve(
+        sourceRoot,
+        '../../../tests/fixtures/generated/ordinary_review_v3_positive.json',
+    ), 'utf8'));
+    const review = fixtureSet.cases.find(
+        value => value.case_id === 'review.schema.positive.accepted_standing_policy',
+    ).value;
+    const environment = await loadExtension({
+        initialChat: [{ name: 'Sakura', is_user: false, mes: review.story_text }],
+        fetchImpl: async () => jsonResponse(review),
+    });
+    try {
+        await attachLifecycleCompletion(environment, review, review.story_text);
+        const text = elementText(environment.testDocument.body.querySelector('.cera-creator-review'));
+        assert.match(text, /STANDING CREATOR POLICY APPLIED/);
+        assert.match(text, /ordinary_provisional_continuity v1/);
+        assert.match(text, new RegExp(review.acceptance.standing_policy.audit_sha256));
+        assert.match(text, /The candidate contradicts one required current-plan item/);
+        assert.doesNotMatch(text, /ACCEPTED OVERRIDE/);
         assert.equal(environment.scriptModule.chat[0].extra.cera_creator_review.provisional, false);
     } finally {
         await rm(environment.root, { recursive: true, force: true });

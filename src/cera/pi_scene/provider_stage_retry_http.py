@@ -31,6 +31,11 @@ from cera.generated.ordinary_review_contracts_v2 import (
     validate_ordinary_review_lifecycle_v1,
     validate_ordinary_review_v2,
 )
+from cera.generated.ordinary_review_contracts_v3 import (
+    validate_ordinary_review_decision_v3,
+    validate_ordinary_review_lifecycle_v2,
+    validate_ordinary_review_v3,
+)
 from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryActionV1,
     ProviderStageRetryStatusEnvelopeV1,
@@ -1386,11 +1391,13 @@ def _project_terminal_result(
     if projected.get("schema_version") in {
         "cera.pi_scene.review_decision.v1",
         "cera.pi_scene.review_decision.v2",
+        "cera.pi_scene.review_decision.v3",
     }:
         return _project_review_decision(projected, identity=identity)
     if projected.get("schema_version") in {
         "cera.pi_scene.review.v1",
         "cera.pi_scene.review.v2",
+        "cera.pi_scene.review.v3",
     }:
         return _project_review_payload(projected)
     return _project_standard_chat_completion(projected, identity=identity)
@@ -1476,7 +1483,13 @@ def validate_ordinary_successor_completion(value: object) -> dict[str, Any]:
     result = validate_standard_chat_completion(value)
     cera = result["cera"]
     assert isinstance(cera, dict)
-    lifecycle = validate_ordinary_review_lifecycle_v1(cera.get("review_lifecycle"))
+    raw_lifecycle = cera.get("review_lifecycle")
+    lifecycle = (
+        validate_ordinary_review_lifecycle_v2(raw_lifecycle)
+        if isinstance(raw_lifecycle, Mapping)
+        and raw_lifecycle.get("schema_version") == "cera.pi_scene.review_lifecycle.v2"
+        else validate_ordinary_review_lifecycle_v1(raw_lifecycle)
+    )
     if (
         result["model"] != PI_SCENE_ORDINARY_MODEL
         or cera.get("route_mode") != "ordinary"
@@ -1498,6 +1511,13 @@ def _project_review_decision(
     *,
     identity: ProviderStageRetryHttpRequestIdentityV1,
 ) -> dict[str, Any]:
+    if projected.get("schema_version") == "cera.pi_scene.review_decision.v3":
+        return dict(
+            validate_ordinary_review_decision_v3(
+                projected,
+                successor_validator=validate_ordinary_successor_completion,
+            )
+        )
     if projected.get("schema_version") == "cera.pi_scene.review_decision.v2":
         return dict(
             validate_ordinary_review_decision_v2(
@@ -1587,6 +1607,8 @@ def _project_review_decision(
 
 def _project_review_payload(value: object) -> dict[str, Any]:
     review = _require_mapping(value, "review-decision review")
+    if review.get("schema_version") == "cera.pi_scene.review.v3":
+        return dict(validate_ordinary_review_v3(review))
     if review.get("schema_version") == "cera.pi_scene.review.v2":
         return _project_review_payload_v2(review)
     base_keys = {
@@ -1793,6 +1815,7 @@ def _terminal_result_releases_request(value: Mapping[str, Any]) -> bool:
     if value.get("schema_version") in {
         "cera.pi_scene.review_decision.v1",
         "cera.pi_scene.review_decision.v2",
+        "cera.pi_scene.review_decision.v3",
     }:
         successor = value.get("successor")
         if successor is None:

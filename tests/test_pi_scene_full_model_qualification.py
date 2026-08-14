@@ -17,6 +17,10 @@ from typing import Any, cast
 from unittest.mock import call, patch
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.pi_scene.ordinary_rejection_policy import (
+    build_ordinary_policy_acceptance_audit_from_bindings,
+    ordinary_policy_acceptance_projection,
+)
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
@@ -43,6 +47,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V19,
     QUALIFICATION_MANIFEST_SCHEMA_V20,
     QUALIFICATION_MANIFEST_SCHEMA_V21,
+    QUALIFICATION_MANIFEST_SCHEMA_V22,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
@@ -248,6 +253,7 @@ class _FakeQualificationClient:
         *,
         reject_first: bool = False,
         reject_fixture_id: str | None = None,
+        standing_policy_fixture_id: str | None = None,
         automatic_repair_fixture_id: str | None = None,
         recording_repair_fixture_id: str | None = None,
         planner_durations_ms: tuple[int, ...] = (),
@@ -257,6 +263,7 @@ class _FakeQualificationClient:
         self.runtime_root.mkdir(parents=True, exist_ok=True)
         self.reject_first = reject_first
         self.reject_fixture_id = reject_fixture_id
+        self.standing_policy_fixture_id = standing_policy_fixture_id
         self.automatic_repair_fixture_id = automatic_repair_fixture_id
         self.recording_repair_fixture_id = recording_repair_fixture_id
         self.planner_durations_ms = planner_durations_ms
@@ -301,13 +308,16 @@ class _FakeQualificationClient:
             rejected = (reject_now or self.automatic_repair_fixture_id == fixture.fixture_id) and (
                 not self.rejected
             )
+            standing_policy = self.standing_policy_fixture_id == fixture.fixture_id and not rejected
             recording_repair = (
-                self.recording_repair_fixture_id == fixture.fixture_id and not rejected
+                self.recording_repair_fixture_id == fixture.fixture_id
+                and not rejected
+                and not standing_policy
             )
             self.rejected = self.rejected or rejected
             self._append_ordinary_attempt(
                 planner=planner,
-                accepted=not rejected and not recording_repair,
+                accepted=(not rejected and not recording_repair),
             )
             review_id = "review-" + text_sha256(f"{fixture.fixture_id}:{self.calls}:initial")[:28]
             story = self._ordinary_story(fixture, suffix="initial")
@@ -316,7 +326,8 @@ class _FakeQualificationClient:
                 review_id=review_id,
                 story=story,
                 planner=planner,
-                accepted=not rejected,
+                accepted=not rejected and not standing_policy,
+                standing_policy=standing_policy,
                 attempt_number=1,
                 attempts=None,
             )
@@ -326,7 +337,14 @@ class _FakeQualificationClient:
                 review["provider_operations"]["recorder"] = 0
             self.reviews[review_id] = review
             if not rejected:
-                self._bind_terminal_decision(review_id, creator_action="automatic_accept")
+                self._bind_terminal_decision(
+                    review_id,
+                    creator_action=(
+                        "standing_policy_accept_provisional"
+                        if standing_policy
+                        else "automatic_accept"
+                    ),
+                )
             body = self._ordinary_provisional_body(
                 fixture,
                 review_id=review_id,
@@ -407,7 +425,7 @@ class _FakeQualificationClient:
         )
         decision = self._decision_with_terminal_pointer(
             {
-                "schema_version": "cera.pi_scene.review_decision.v2",
+                "schema_version": "cera.pi_scene.review_decision.v3",
                 "status": "review_transitioned",
                 "creator_action": "regenerate",
                 "story_state_committed": False,
@@ -544,7 +562,7 @@ class _FakeQualificationClient:
     @staticmethod
     def _pending_checks() -> dict[str, Any]:
         return {
-            "schema_version": "cera.pi_scene.review_checks.v1",
+            "schema_version": "cera.pi_scene.review_checks.v2",
             "luna": {
                 "role": "luna_semantic_validator",
                 "required": True,
@@ -580,7 +598,12 @@ class _FakeQualificationClient:
         }
 
     @classmethod
-    def _joined_checks(cls, *, accepted: bool) -> dict[str, Any]:
+    def _joined_checks(
+        cls,
+        *,
+        accepted: bool,
+        standing_policy: bool = False,
+    ) -> dict[str, Any]:
         checks = cls._pending_checks()
         checks["luna"] = {
             "role": "luna_semantic_validator",
@@ -592,8 +615,16 @@ class _FakeQualificationClient:
                 if accepted
                 else [
                     {
-                        "code": "severe_incompleteness",
-                        "concise_explanation": "The candidate omitted one required decision.",
+                        "code": (
+                            "omitted_decision" if standing_policy else "severe_incompleteness"
+                        ),
+                        "concise_explanation": (
+                            "The candidate omitted one planned beat."
+                            if standing_policy
+                            else "The candidate omitted one required decision."
+                        ),
+                        "source_kind": "verdict_conflict",
+                        "feedback_scope": None,
                     }
                 ]
             ),
@@ -625,6 +656,7 @@ class _FakeQualificationClient:
         story: str,
         planner: int,
         accepted: bool,
+        standing_policy: bool = False,
         attempt_number: int,
         attempts: list[dict[str, Any]] | None,
     ) -> dict[str, Any]:
@@ -648,34 +680,53 @@ class _FakeQualificationClient:
             role: sum(int(value["provider_operations"][role]) for value in provider_attempts)
             for role in ("planner", "writer", "validator", "reader")
         }
-        operations["recorder"] = 1 if accepted else 0
-        acceptance = (
-            {
+        committed = accepted or standing_policy
+        operations["recorder"] = 1 if committed else 0
+        candidate_sha256 = text_sha256(f"candidate:{candidate_id}")
+        acceptance: dict[str, Any] | None = None
+        if standing_policy:
+            audit = build_ordinary_policy_acceptance_audit_from_bindings(
+                candidate_sha256=candidate_sha256,
+                semantic_validation_sha256="1" * 64,
+                reader_validation_sha256="2" * 64,
+                python_qualification_sha256="3" * 64,
+                tolerated_reason_codes=("luna:omitted_decision",),
+            )
+            acceptance = {
+                "mode": "standing_policy",
+                "accepted_turn_id": f"turn-{text_sha256(review_id)[:16]}",
+                "accepted_receipt_sha256": text_sha256(f"receipt:{review_id}"),
+                "canon_status": "provisional",
+                "standing_policy": ordinary_policy_acceptance_projection(audit),
+            }
+        elif accepted:
+            acceptance = {
                 "mode": "automatic",
                 "accepted_turn_id": f"turn-{text_sha256(review_id)[:16]}",
                 "accepted_receipt_sha256": text_sha256(f"receipt:{review_id}"),
                 "canon_status": "accepted",
+                "standing_policy": None,
             }
-            if accepted
-            else None
-        )
         return {
-            "schema_version": "cera.pi_scene.review.v2",
+            "schema_version": "cera.pi_scene.review.v3",
             "review_id": review_id,
-            "state": "accepted" if accepted else "review_ready",
+            "state": "accepted" if committed else "review_ready",
             "review_mode": "automatic",
             "route": "ordinary",
             "story_text": story,
             "candidate_id": candidate_id,
-            "candidate_sha256": text_sha256(f"candidate:{candidate_id}"),
+            "candidate_sha256": candidate_sha256,
             "primary_authority_kind": "codex_cognition_plan",
             "primary_authority_sha256": text_sha256(f"authority:{candidate_id}"),
             "warnings": [],
-            "recording_status": "complete" if accepted else None,
+            "recording_status": "complete" if committed else None,
             "gate_status": "pass" if accepted else "reject",
-            "checks": self._joined_checks(accepted=accepted),
+            "checks": self._joined_checks(
+                accepted=accepted,
+                standing_policy=standing_policy,
+            ),
             "acceptance": acceptance,
-            "actions": self._ordinary_actions(rejected=not accepted),
+            "actions": self._ordinary_actions(rejected=not committed),
             "request_controls": self._ordinary_controls(),
             "creator_guidance": None,
             "provider_attempts": provider_attempts,
@@ -695,7 +746,7 @@ class _FakeQualificationClient:
         pending_checks = self._pending_checks()
         actions = self._ordinary_actions()
         lifecycle = {
-            "schema_version": "cera.pi_scene.review_lifecycle.v1",
+            "schema_version": "cera.pi_scene.review_lifecycle.v2",
             "review_id": review_id,
             "review_url": f"/v1/cera/reviews/{review_id}",
             "review_mode": "automatic",
@@ -778,7 +829,7 @@ class _FakeQualificationClient:
             raise AssertionError("terminal decision requires accepted review")
         decision = self._decision_with_terminal_pointer(
             {
-                "schema_version": "cera.pi_scene.review_decision.v2",
+                "schema_version": "cera.pi_scene.review_decision.v3",
                 "status": "story_committed",
                 "creator_action": creator_action,
                 "story_state_committed": True,
@@ -1494,7 +1545,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         transitioned["actions"] = self._ordinary_actions()
         decision = self._decision_with_terminal_pointer(
             {
-                "schema_version": "cera.pi_scene.review_decision.v2",
+                "schema_version": "cera.pi_scene.review_decision.v3",
                 "status": "review_transitioned",
                 "creator_action": "regenerate",
                 "story_state_committed": False,
@@ -1772,7 +1823,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
 
 
 class _FakeNestedValidationRetryClient(_FakeProviderStageRetryClient):
-    """Production-shaped Luna/Reader failure nested in polled review.v2."""
+    """Production-shaped Luna/Reader failure nested in polled review.v3."""
 
     def __init__(self, runtime_root: Path, **kwargs: Any) -> None:
         super().__init__(runtime_root, **kwargs)
@@ -1845,6 +1896,8 @@ class _FakeNestedValidationRetryClient(_FakeProviderStageRetryClient):
                     {
                         "code": "provider_transport_unavailable",
                         "concise_explanation": "The validation provider did not return a verdict.",
+                        "source_kind": "runtime_failure",
+                        "feedback_scope": None,
                     }
                 ],
                 "provider_stage_retry_status": envelope,
@@ -1988,7 +2041,7 @@ class _StaleReviewAuthorityClient(_FakeQualificationClient):
         if self.review_reads.count(review_id) != 2:
             return response
         changed = cast(dict[str, Any], deepcopy(response.body))
-        if changed.get("schema_version") == "cera.pi_scene.review.v2":
+        if changed.get("schema_version") == "cera.pi_scene.review.v3":
             changed["primary_authority_sha256"] = "e" * 64
         else:
             changed["candidate_sha256"] = "e" * 64
@@ -2232,7 +2285,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v22_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v23_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -2265,6 +2318,14 @@ class FullModelQualificationTests(unittest.TestCase):
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         with self.assertRaisesRegex(StateConflictError, "fixture ancestry changed"):
             validate_qualification_manifest(manifest)
+
+    def test_historical_manifest_v22_remains_readable_without_standing_policy(self) -> None:
+        manifest = _manifest()
+        manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V22
+        del manifest["execution_policy"]["ordinary_standing_creator_policy"]
+        unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
+        manifest["manifest_sha256"] = canonical_sha256(unsigned)
+        validate_qualification_manifest(manifest)
 
     def test_v19_stress_fixtures_are_cumulatively_novel_and_history_remains_readable(
         self,
@@ -3115,7 +3176,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     spent_manifests=(prior_second,),
                 )
 
-    def test_v22_closure_ingests_root_g_v5_through_w_v21(self) -> None:
+    def test_v23_closure_ingests_root_g_v5_through_w_v21(self) -> None:
         manifest_v5 = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-historical-source-20260811",
@@ -3378,7 +3439,7 @@ class FullModelQualificationTests(unittest.TestCase):
             {key: value for key, value in manifest_v21.items() if key != "manifest_sha256"}
         )
         validate_qualification_manifest(manifest_v21)
-        manifest_v22 = build_qualification_manifest(
+        manifest_v23 = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-next-source-20260813",
             source_commit="a" * 40,
@@ -3388,9 +3449,9 @@ class FullModelQualificationTests(unittest.TestCase):
             external_artifacts={"external_fixture": (FIXTURES,)},
             spent_manifests=(manifest_v21,),
         )
-        self.assertEqual(manifest_v22["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
+        self.assertEqual(manifest_v23["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
         self.assertEqual(
-            set(manifest_v22["spent_manifest_sha256s"]),
+            set(manifest_v23["spent_manifest_sha256s"]),
             {
                 manifest_v5["manifest_sha256"],
                 manifest_v6["manifest_sha256"],
@@ -3412,7 +3473,7 @@ class FullModelQualificationTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            set(manifest_v22["spent_fixture_set_sha256s"]),
+            set(manifest_v23["spent_fixture_set_sha256s"]),
             {
                 manifest_v5["fixture_set_sha256"],
                 manifest_v6["fixture_set_sha256"],
@@ -3433,8 +3494,8 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v21["fixture_set_sha256"],
             },
         )
-        self.assertEqual(len(manifest_v22["spent_manifest_sha256s"]), 17)
-        self.assertEqual(len(manifest_v22["spent_fixture_set_sha256s"]), 17)
+        self.assertEqual(len(manifest_v23["spent_manifest_sha256s"]), 17)
+        self.assertEqual(len(manifest_v23["spent_fixture_set_sha256s"]), 17)
         expected_novelty = {
             value["novelty_id"]
             for manifest in (
@@ -3481,10 +3542,10 @@ class FullModelQualificationTests(unittest.TestCase):
             )
             for value in manifest["fixture_novelty"]
         }
-        self.assertEqual(set(manifest_v22["spent_novelty_ids"]), expected_novelty)
-        self.assertEqual(set(manifest_v22["spent_source_sha256s"]), expected_sources)
-        self.assertEqual(len(manifest_v22["spent_novelty_ids"]), 510)
-        self.assertEqual(len(manifest_v22["spent_source_sha256s"]), 510)
+        self.assertEqual(set(manifest_v23["spent_novelty_ids"]), expected_novelty)
+        self.assertEqual(set(manifest_v23["spent_source_sha256s"]), expected_sources)
+        self.assertEqual(len(manifest_v23["spent_novelty_ids"]), 510)
+        self.assertEqual(len(manifest_v23["spent_source_sha256s"]), 510)
         with tempfile.TemporaryDirectory() as temporary:
             parent = Path(temporary)
             sibling_v5 = parent / "root-g-v5" / "QUALIFICATION_MANIFEST.json"
@@ -3571,7 +3632,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     explicit_paths=(Path("linked-manifest.json"),),
                 )
 
-    def test_v22_manifest_rejects_v19_schema_or_baseline_tampering(self) -> None:
+    def test_v23_manifest_rejects_v19_schema_or_baseline_tampering(self) -> None:
         manifest = _manifest()
         self.assertEqual(manifest["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
 
@@ -4494,7 +4555,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(action_2["retry_action_ordinal"], 2)
         self.assertEqual(exhausted.body["status"]["state"], "attempts_exhausted")
         self.assertEqual(exhausted.body["actions"], [])
-        self.assertEqual(completion.body["schema_version"], "cera.pi_scene.review_decision.v2")
+        self.assertEqual(completion.body["schema_version"], "cera.pi_scene.review_decision.v3")
         self.assertEqual(completion.body["creator_action"], "automatic_accept")
         self.assertEqual(recovery.body["status"]["state"], "recovery_required")
         self.assertEqual(blocked.body["status"]["state"], "blocked_ambiguous")
@@ -4502,7 +4563,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse(prepared_action["consumes_retry_action"])
         self.assertEqual(
             prepared_completion.body["schema_version"],
-            "cera.pi_scene.review_decision.v2",
+            "cera.pi_scene.review_decision.v3",
         )
         self.assertEqual(repair_action["action_kind"], "repair_recording")
         self.assertFalse(repair_action["consumes_retry_action"])
@@ -4512,14 +4573,14 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         self.assertEqual(
             repair_completion.body["schema_version"],
-            "cera.pi_scene.review_decision.v2",
+            "cera.pi_scene.review_decision.v3",
         )
         self.assertEqual(repair_completion.body["creator_action"], "repair_recording")
         self.assertEqual(repair_terminal.body["actions"], [])
         self.assertEqual(proof["exact_action_posts"], 7)
         self.assertEqual(proof["provider_calls"], 0)
 
-    def test_isolated_probe_validates_v2_reader_successor_and_terminal_reloads(
+    def test_isolated_probe_validates_v3_reader_successor_and_terminal_reloads(
         self,
     ) -> None:
         token = "relay-token-" + "y" * 32
@@ -4674,7 +4735,74 @@ class FullModelQualificationTests(unittest.TestCase):
                     payload=action,
                 )
 
-    def test_one_noncritical_rejection_allows_one_explicit_regenerate(self) -> None:
+    def test_soft_ordinary_rejection_uses_one_writer_and_standing_policy_only(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        fixture_id = "backend-ordinary-01"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            runner = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            )
+            client = _FakeQualificationClient(
+                runtime,
+                standing_policy_fixture_id=fixture_id,
+            )
+            campaign = runner.start_phase(QualificationPhase.BACKEND, fixtures)
+            campaign.run_segment(client=client, runtime_root=runtime, turn_count=1)
+
+            self.assertIsNone(campaign.failure)
+            result = campaign.results[0]
+            self.assertEqual(result["fixture_id"], fixture_id)
+            self.assertFalse(result["first_pass_accepted"])
+            self.assertTrue(result["first_pass_policy_provisional"])
+            self.assertEqual(result["standing_policy_provisional_acceptances"], 1)
+            self.assertEqual(result["explicit_regenerate_actions"], 0)
+            self.assertEqual(result["externally_authorized_manual_actions"], 0)
+            self.assertEqual(result["automatic_manual_actions"], 0)
+            self.assertEqual(result["provider_operations"]["writer"], 1)
+            self.assertEqual(client.calls, 1)
+            self.assertEqual(client.regenerates, 0)
+
+            review = next(iter(client.reviews.values()))
+            self.assertEqual(review["schema_version"], "cera.pi_scene.review.v3")
+            self.assertEqual(review["state"], "accepted")
+            self.assertEqual(review["gate_status"], "reject")
+            self.assertEqual(review["acceptance"]["mode"], "standing_policy")
+            self.assertEqual(review["acceptance"]["canon_status"], "provisional")
+            self.assertEqual(len(review["provider_attempts"]), 1)
+            self.assertEqual(review["provider_attempts"][0]["disposition"], "luna_rejected")
+            self.assertEqual(
+                review["checks"]["luna"]["failures"],
+                [
+                    {
+                        "code": "omitted_decision",
+                        "concise_explanation": "The candidate omitted one planned beat.",
+                        "source_kind": "verdict_conflict",
+                        "feedback_scope": None,
+                    }
+                ],
+            )
+            self.assertFalse(any(review["actions"].values()))
+
+            evidence = _jsonl(root / "evidence" / "QUALIFICATION_EVENTS.jsonl")
+            policy_events = [
+                value for value in evidence if value.get("event") == "first_pass_policy_provisional"
+            ]
+            self.assertEqual(len(policy_events), 1)
+            self.assertEqual(
+                policy_events[0]["tolerated_reason_codes"],
+                ["luna:omitted_decision"],
+            )
+            self.assertRegex(str(policy_events[0]["audit_sha256"]), r"^[a-f0-9]{64}$")
+            self.assertFalse(any(value.get("event") == "first_pass_rejected" for value in evidence))
+            self.assertFalse(
+                any(value.get("event") == "manual_action_required" for value in evidence)
+            )
+
+    def test_hard_ordinary_rejection_remains_one_explicit_regenerate(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -4685,11 +4813,35 @@ class FullModelQualificationTests(unittest.TestCase):
                 evidence_root=root / "evidence",
             )
             client = _FakeQualificationClient(runtime, reject_first=True)
-            result = runner.run_phase(QualificationPhase.BACKEND, fixtures, client)
-            self.assertEqual(result["passed_fixtures"], 20)
-            self.assertEqual(result["first_pass_accepted"], 19)
+            campaign = runner.start_phase(QualificationPhase.BACKEND, fixtures)
+            campaign.run_segment(client=client, runtime_root=runtime, turn_count=1)
+            self.assertIsNone(campaign.failure)
+            result = campaign.results[0]
+            self.assertFalse(result["first_pass_accepted"])
+            self.assertFalse(result["first_pass_policy_provisional"])
+            self.assertEqual(result["standing_policy_provisional_acceptances"], 0)
             self.assertEqual(result["explicit_regenerate_actions"], 1)
+            self.assertEqual(result["externally_authorized_manual_actions"], 1)
+            self.assertEqual(result["provider_operations"]["writer"], 2)
             self.assertEqual(client.regenerates, 1)
+            predecessor = next(iter(client.reviews.values()))
+            self.assertEqual(predecessor["gate_status"], "reject")
+            self.assertEqual(
+                predecessor["checks"]["luna"]["failures"][0]["code"],
+                "severe_incompleteness",
+            )
+            evidence = _jsonl(root / "evidence" / "QUALIFICATION_EVENTS.jsonl")
+            self.assertEqual(
+                sum(value.get("event") == "first_pass_rejected" for value in evidence),
+                1,
+            )
+            self.assertEqual(
+                sum(value.get("event") == "manual_action_required" for value in evidence),
+                1,
+            )
+            self.assertFalse(
+                any(value.get("event") == "first_pass_policy_provisional" for value in evidence)
+            )
 
     def test_adult_continuation_uses_no_planner_and_its_review_id_regenerates(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
@@ -4705,13 +4857,24 @@ class FullModelQualificationTests(unittest.TestCase):
                 runtime,
                 reject_fixture_id="backend-adult-02",
             )
-            result = runner.run_phase(QualificationPhase.BACKEND, fixtures, client)
+            campaign = runner.start_phase(QualificationPhase.BACKEND, fixtures)
+            campaign.run_segment(client=client, runtime_root=runtime, turn_count=7)
+            self.assertIsNone(campaign.failure)
             adult_two = next(
-                value for value in result["results"] if value["fixture_id"] == "backend-adult-02"
+                value for value in campaign.results if value["fixture_id"] == "backend-adult-02"
             )
             self.assertEqual(adult_two["provider_operations"]["planner"], 0)
             self.assertFalse(adult_two["first_pass_accepted"])
+            self.assertFalse(adult_two["first_pass_policy_provisional"])
+            self.assertEqual(adult_two["standing_policy_provisional_acceptances"], 0)
             self.assertEqual(adult_two["explicit_regenerate_actions"], 1)
+            self.assertEqual(
+                sum(
+                    int(value["standing_policy_provisional_acceptances"])
+                    for value in campaign.results
+                ),
+                0,
+            )
             self.assertEqual(client.regenerates, 1)
 
     def test_joined_rejection_regenerate_accounts_luna_and_reader_exactly(self) -> None:

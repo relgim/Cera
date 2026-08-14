@@ -5,6 +5,10 @@ import {
     normalizeOrdinaryReviewLifecycleV1,
     normalizeOrdinaryReviewV2,
 } from './generated/ordinary-review-contracts-v2.mjs';
+import {
+    normalizeOrdinaryReviewLifecycleV2,
+    normalizeOrdinaryReviewV3,
+} from './generated/ordinary-review-contracts-v3.mjs';
 
 export function validReviewId(value) {
     return typeof value === 'string' && /^review-[a-f0-9]{28}$/.test(value);
@@ -61,13 +65,17 @@ export function normalizeCompletionMetadata(value) {
 /** Closed v2 lifecycle carried by the initial Writer completion. */
 export function normalizeReviewLifecycle(value, route = 'ordinary') {
     return route === 'ordinary'
-        ? normalizeOrdinaryReviewLifecycleV1(value)
+        ? value?.schema_version === 'cera.pi_scene.review_lifecycle.v2'
+            ? normalizeOrdinaryReviewLifecycleV2(value)
+            : normalizeOrdinaryReviewLifecycleV1(value)
         : null;
 }
 
 /** Closed browser projection of the durable review lifecycle. */
 export function normalizeReviewPayloadV2(value) {
-    return normalizeOrdinaryReviewV2(value);
+    return value?.schema_version === 'cera.pi_scene.review.v3'
+        ? normalizeOrdinaryReviewV3(value)
+        : normalizeOrdinaryReviewV2(value);
 }
 
 function completionMatchesLifecycle(completion) {

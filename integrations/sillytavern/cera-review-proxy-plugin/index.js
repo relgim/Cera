@@ -10,6 +10,11 @@ import {
     normalizeOrdinaryReviewLifecycleV1,
     normalizeOrdinaryReviewV2,
 } from './generated/ordinary-review-contracts-v2.mjs';
+import {
+    normalizeOrdinaryReviewDecisionV3,
+    normalizeOrdinaryReviewLifecycleV2,
+    normalizeOrdinaryReviewV3,
+} from './generated/ordinary-review-contracts-v3.mjs';
 
 const DEFAULT_CERA_LOOPBACK_ROOT = 'http://127.0.0.1:5101';
 const MAX_UPSTREAM_BYTES = 2_000_000;
@@ -271,13 +276,20 @@ export function projectProviderStageRetryResult(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new TypeError('CERA provider stage retry result is invalid');
     }
-    if (value.schema_version === 'cera.pi_scene.review_decision.v2') {
-        const decision = normalizeOrdinaryReviewDecisionV2(value, {
+    if (value.schema_version === 'cera.pi_scene.review_decision.v3') {
+        const decision = normalizeOrdinaryReviewDecisionV3(value, {
             successorValidator: projectOrdinarySuccessorCompletion,
         });
         if (!decision) {
             throw new TypeError('CERA provider stage retry decision is invalid');
         }
+        return decision;
+    }
+    if (value.schema_version === 'cera.pi_scene.review_decision.v2') {
+        const decision = normalizeOrdinaryReviewDecisionV2(value, {
+            successorValidator: projectOrdinarySuccessorCompletion,
+        });
+        if (!decision) throw new TypeError('CERA provider stage retry decision is invalid');
         return decision;
     }
     if (value.object === 'chat.completion') {
@@ -353,7 +365,10 @@ function projectOrdinarySuccessorCompletion(value) {
         requireProviderStageBinding: false,
     });
     const cera = completion.cera;
-    const lifecycle = normalizeOrdinaryReviewLifecycleV1(cera.review_lifecycle);
+    const lifecycle = cera.review_lifecycle?.schema_version
+        === 'cera.pi_scene.review_lifecycle.v2'
+        ? normalizeOrdinaryReviewLifecycleV2(cera.review_lifecycle)
+        : normalizeOrdinaryReviewLifecycleV1(cera.review_lifecycle);
     if (
         cera.route_mode !== 'ordinary'
         || cera.provisional !== true
@@ -441,7 +456,9 @@ function projectReviewPayloadOrNull(value) {
 }
 
 function projectReviewV2(value) {
-    return normalizeOrdinaryReviewV2(value);
+    return value?.schema_version === 'cera.pi_scene.review.v3'
+        ? normalizeOrdinaryReviewV3(value)
+        : normalizeOrdinaryReviewV2(value);
 }
 function safeCountMap(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;

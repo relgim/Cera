@@ -406,8 +406,11 @@ class DurableReviewStateStore:
                         accepted_receipt=accepted,
                         recording_attempt=self.scene_store.load_recording_attempt(accepted),
                     )
+                    policy_audit = self.scene_store.load_policy_acceptance_audit(accepted)
                     decision_action = (
-                        "accept_provisional"
+                        "standing_policy_accept_provisional"
+                        if policy_audit is not None
+                        else "accept_provisional"
                         if accepted.creator_action == "provisional_accept"
                         else "automatic_accept"
                         if accepted.creator_action == "automatic_accept"
@@ -460,7 +463,12 @@ class DurableReviewStateStore:
                 raise StateConflictError(
                     "Pi Scene review state contains duplicate decision receipts"
                 )
-            if decision.action in {"accept", "automatic_accept", "accept_provisional"}:
+            if decision.action in {
+                "accept",
+                "automatic_accept",
+                "accept_provisional",
+                "standing_policy_accept_provisional",
+            }:
                 accepted = decision.result.review.accepted_receipt
                 if accepted is None:
                     raise StateConflictError("Accept decision omitted its receipt")
@@ -574,6 +582,7 @@ def decision_request_sha256(
         "replan",
         "automatic_repair",
         "accept_provisional",
+        "standing_policy_accept_provisional",
     }:
         raise ContractValidationError("Pi Scene decision action is invalid")
     return canonical_sha256(
@@ -937,6 +946,7 @@ def _decision_from_state_payload(
             "replan",
             "automatic_repair",
             "accept_provisional",
+            "standing_policy_accept_provisional",
         }
         or not isinstance(request_sha256, str)
         or not re.fullmatch(r"[0-9a-f]{64}", request_sha256)
@@ -955,6 +965,7 @@ def _decision_from_state_payload(
         "accept": LeanReviewState.ACCEPTED,
         "automatic_accept": LeanReviewState.ACCEPTED,
         "accept_provisional": LeanReviewState.ACCEPTED,
+        "standing_policy_accept_provisional": LeanReviewState.ACCEPTED,
         "decline": LeanReviewState.DECLINED,
         "regenerate": LeanReviewState.REGENERATED,
         "replan": LeanReviewState.REPLANNED,

@@ -12,7 +12,7 @@ from contextvars import copy_context
 from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import RLock
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.generated.provider_stage_retry_contracts_v1 import (
@@ -56,6 +56,10 @@ from .http_contracts import (
     LeanSceneRequestControlsV3,
 )
 from .lineage import LeanAcceptedRegenerationBaseV1
+from .ordinary_rejection_policy import (
+    OrdinaryPolicyAcceptanceAuditV1,
+    build_ordinary_policy_acceptance_audit,
+)
 from .pi_adapter import PiSceneAdapter, PiSceneInvocationResultV1, PiSceneInvocationV1
 from .review_lifecycle import (
     OrdinaryPythonQualificationV1,
@@ -1019,6 +1023,19 @@ class LeanPiSceneCoordinator:
                 python_qualification=qualification,
             )
             self._replace_review_durably(review, rejected)
+            policy_audit = build_ordinary_policy_acceptance_audit(
+                candidate_sha256=rejected.candidate.candidate_sha256,
+                semantic=semantic,
+                reader=reader,
+                python_qualification=qualification,
+            )
+            if policy_audit is not None:
+                return self.accept(
+                    rejected.review_id,
+                    acceptance_action="standing_policy_accept",
+                    policy_acceptance_audit=policy_audit,
+                    dispatch_recorder=dispatch_recorder,
+                ).review
             return rejected
         qualified = replace(
             review,
@@ -1381,6 +1398,25 @@ class LeanPiSceneCoordinator:
             raise StateConflictError("ordinary validation result lacks its review binding")
         review_id = binding_payload["review_id"]
         with self._lock:
+            observed = self.get_review(review_id, reconcile=False)
+            if owner is OrdinaryValidationOwner.LUNA:
+                if type(result) is not BoundSemanticValidationV1:
+                    raise ContractValidationError("Luna recovery returned another result type")
+                if observed.semantic_validation is not None:
+                    if observed.semantic_validation != result:
+                        raise StateConflictError(
+                            "ordinary validation verdict changed after binding"
+                        )
+                    return observed
+            else:
+                if type(result) is not BoundReaderValidationV1:
+                    raise ContractValidationError("Reader recovery returned another result type")
+                if observed.reader_validation is not None:
+                    if observed.reader_validation != result:
+                        raise StateConflictError(
+                            "ordinary validation verdict changed after binding"
+                        )
+                    return observed
             current = self._current_review(review_id)
             remaining_failures = tuple(
                 failure for failure in current.validation_failures if failure.owner is not owner
@@ -1391,40 +1427,22 @@ class LeanPiSceneCoordinator:
                 else OrdinaryReviewPhase.VALIDATION_BLOCKED
             )
             if owner is OrdinaryValidationOwner.LUNA:
-                if type(result) is not BoundSemanticValidationV1:
-                    raise ContractValidationError("Luna recovery returned another result type")
-                prior_semantic = current.semantic_validation
-                if prior_semantic is not None:
-                    if prior_semantic != result:
-                        raise StateConflictError(
-                            "ordinary validation verdict changed after binding"
-                        )
-                    return current
                 if current.state is LeanReviewState.ACCEPTED:
                     raise StateConflictError("accepted ordinary review lacks its lane verdict")
                 updated = replace(
                     current,
                     review_phase=resumed_phase,
-                    semantic_validation=result,
+                    semantic_validation=cast(BoundSemanticValidationV1, result),
                     luna_provider_stage_retry_status=None,
                     validation_failures=remaining_failures,
                 )
             else:
-                if type(result) is not BoundReaderValidationV1:
-                    raise ContractValidationError("Reader recovery returned another result type")
-                prior_reader = current.reader_validation
-                if prior_reader is not None:
-                    if prior_reader != result:
-                        raise StateConflictError(
-                            "ordinary validation verdict changed after binding"
-                        )
-                    return current
                 if current.state is LeanReviewState.ACCEPTED:
                     raise StateConflictError("accepted ordinary review lacks its lane verdict")
                 updated = replace(
                     current,
                     review_phase=resumed_phase,
-                    reader_validation=result,
+                    reader_validation=cast(BoundReaderValidationV1, result),
                     reader_provider_stage_retry_status=None,
                     validation_failures=remaining_failures,
                 )
@@ -1850,6 +1868,7 @@ class LeanPiSceneCoordinator:
         allow_replay: bool = False,
         acceptance_action: str = "accept",
         override_feedback: str | None = None,
+        policy_acceptance_audit: OrdinaryPolicyAcceptanceAuditV1 | None = None,
         dispatch_recorder: bool = True,
     ) -> LeanDecisionResultV1:
         with self._lock:
@@ -1861,6 +1880,7 @@ class LeanPiSceneCoordinator:
                 "accept",
                 "automatic_accept",
                 "provisional_accept",
+                "standing_policy_accept",
             }:
                 raise ContractValidationError("Accept action is invalid")
             if acceptance_action == "provisional_accept" and override_feedback is not None:
@@ -1877,10 +1897,17 @@ class LeanPiSceneCoordinator:
                 raise ContractValidationError(
                     "ordinary Accept received unrelated override feedback"
                 )
+            if (acceptance_action == "standing_policy_accept") != (
+                policy_acceptance_audit is not None
+            ):
+                raise ContractValidationError(
+                    "ordinary standing-policy Accept lacks its typed authority"
+                )
             decision_action = {
                 "accept": "accept",
                 "automatic_accept": "automatic_accept",
                 "provisional_accept": "accept_provisional",
+                "standing_policy_accept": "standing_policy_accept_provisional",
             }[acceptance_action]
             request_sha256 = decision_request_sha256(
                 action=decision_action,
@@ -1912,6 +1939,19 @@ class LeanPiSceneCoordinator:
                     or override_feedback is None
                 ):
                     raise StateConflictError("creator override lacks rejected semantic custody")
+                if acceptance_action == "standing_policy_accept" and (
+                    review.review_phase is not OrdinaryReviewPhase.VALIDATION_REJECTED
+                    or review.python_qualification is None
+                    or policy_acceptance_audit is None
+                ):
+                    raise StateConflictError(
+                        "standing-policy acceptance lacks rejected semantic custody"
+                    )
+            store_acceptance_action = (
+                "provisional_accept"
+                if acceptance_action == "standing_policy_accept"
+                else acceptance_action
+            )
             head = self.store.load_head(
                 world_id=review.candidate.world_id,
                 branch_id=review.candidate.branch_id,
@@ -1928,15 +1968,18 @@ class LeanPiSceneCoordinator:
                     semantic_validation=review.semantic_validation,
                     reader_validation=review.reader_validation,
                     python_qualification=review.python_qualification,
-                    acceptance_action=acceptance_action,
+                    validation_input_binding=review.validation_input_binding,
+                    acceptance_action=store_acceptance_action,
                     acceptance_decision_request_sha256=(
                         None
-                        if acceptance_action == "provisional_accept" and override_feedback is None
+                        if acceptance_action == "standing_policy_accept"
+                        or (acceptance_action == "provisional_accept" and override_feedback is None)
                         else request_sha256
                     ),
                     override_feedback_sha256=(
                         None if override_feedback is None else text_sha256(override_feedback)
                     ),
+                    policy_acceptance_audit=policy_acceptance_audit,
                 )
             else:
                 accepted = self.store.accept(
@@ -1944,15 +1987,18 @@ class LeanPiSceneCoordinator:
                     semantic_validation=review.semantic_validation,
                     reader_validation=review.reader_validation,
                     python_qualification=review.python_qualification,
-                    acceptance_action=acceptance_action,
+                    validation_input_binding=review.validation_input_binding,
+                    acceptance_action=store_acceptance_action,
                     acceptance_decision_request_sha256=(
                         None
-                        if acceptance_action == "provisional_accept" and override_feedback is None
+                        if acceptance_action == "standing_policy_accept"
+                        or (acceptance_action == "provisional_accept" and override_feedback is None)
                         else request_sha256
                     ),
                     override_feedback_sha256=(
                         None if override_feedback is None else text_sha256(override_feedback)
                     ),
+                    policy_acceptance_audit=policy_acceptance_audit,
                 )
             # The review becomes terminal immediately after the immutable
             # receipt. Any later session or Recorder exception therefore
@@ -2323,8 +2369,11 @@ class LeanPiSceneCoordinator:
             self._reviews[review_id] = terminal
             accepted_decision = self._decisions.get(review_id)
             if accepted_decision is None:
+                policy_audit = self.store.load_policy_acceptance_audit(review.accepted_receipt)
                 decision_action = (
-                    "accept_provisional"
+                    "standing_policy_accept_provisional"
+                    if policy_audit is not None
+                    else "accept_provisional"
                     if review.accepted_receipt.creator_action == "provisional_accept"
                     else "automatic_accept"
                     if review.accepted_receipt.creator_action == "automatic_accept"
@@ -2352,6 +2401,7 @@ class LeanPiSceneCoordinator:
                 "accept",
                 "automatic_accept",
                 "accept_provisional",
+                "standing_policy_accept_provisional",
             }:
                 raise StateConflictError(
                     "recording repair review has a conflicting decision receipt"

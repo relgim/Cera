@@ -898,6 +898,10 @@ class PiSceneWorldWorkspaceManager:
             )
             for changed_path in (
                 path.parent / "SEMANTIC_VALIDATION.json",
+                path.parent / "READER_VALIDATION.json",
+                path.parent / "PYTHON_QUALIFICATION.json",
+                path.parent / "VALIDATION_INPUT_BINDING.json",
+                path.parent / "POLICY_ACCEPTANCE_AUDIT.json",
                 path.parent / "PROVISIONAL_CANON.json",
                 path.parent / "ADULT_ACCEPTANCE_ENVELOPE.json",
                 path.parent / "ADULT_PROMOTION_RECEIPT.json",
@@ -1025,16 +1029,17 @@ class PiSceneWorldWorkspaceManager:
         """
 
         semantic_path = turn_dir / "SEMANTIC_VALIDATION.json"
+        semantic_binding_sha256: str | None = None
+        semantic_custody_sha256: str | None = None
         if semantic_path.exists():
             semantic = read_json_object(semantic_path, "semantic validation")
             validation = semantic.get("validation")
-            if not isinstance(validation, dict):
+            if not isinstance(validation, dict) or not isinstance(validation.get("custody"), dict):
                 raise StateConflictError("fork semantic validation is invalid")
-            custody = validation.get("custody")
-            if not isinstance(custody, dict):
-                raise StateConflictError("fork semantic custody is invalid")
-            custody["branch_id"] = child_branch_id
-            custody["accepted_head_sha256"] = child_parent_sha256
+            validation["custody"]["branch_id"] = child_branch_id
+            validation["custody"]["accepted_head_sha256"] = child_parent_sha256
+            semantic_custody_sha256 = canonical_sha256(validation["custody"])
+            semantic_binding_sha256 = canonical_sha256(validation)
             semantic_body = {
                 "schema_version": semantic.get("schema_version"),
                 "candidate_sha256": semantic.get("candidate_sha256"),
@@ -1042,34 +1047,137 @@ class PiSceneWorldWorkspaceManager:
             }
             write_json(
                 semantic_path,
+                {**semantic_body, "artifact_sha256": canonical_sha256(semantic_body)},
+            )
+
+        reader_path = turn_dir / "READER_VALIDATION.json"
+        reader_binding_sha256: str | None = None
+        reader_custody_sha256: str | None = None
+        if reader_path.exists():
+            reader = read_json_object(reader_path, "Reader validation")
+            validation = reader.get("validation")
+            if not isinstance(validation, dict) or not isinstance(validation.get("custody"), dict):
+                raise StateConflictError("fork Reader validation is invalid")
+            validation["custody"]["branch_id"] = child_branch_id
+            validation["custody"]["accepted_head_sha256"] = child_parent_sha256
+            reader_custody_sha256 = canonical_sha256(validation["custody"])
+            reader_binding_sha256 = canonical_sha256(validation)
+            reader_body = {
+                "schema_version": reader.get("schema_version"),
+                "candidate_sha256": reader.get("candidate_sha256"),
+                "validation": validation,
+            }
+            write_json(
+                reader_path,
+                {**reader_body, "artifact_sha256": canonical_sha256(reader_body)},
+            )
+
+        binding_path = turn_dir / "VALIDATION_INPUT_BINDING.json"
+        validation_input_binding_sha256: str | None = None
+        if binding_path.exists():
+            binding_artifact = read_json_object(
+                binding_path,
+                "validation-input binding",
+            )
+            binding = binding_artifact.get("binding")
+            if (
+                not isinstance(binding, dict)
+                or semantic_binding_sha256 is None
+                or reader_binding_sha256 is None
+                or semantic_custody_sha256 is None
+                or reader_custody_sha256 is None
+            ):
+                raise StateConflictError("fork validation-input binding is invalid")
+            binding["semantic_custody_sha256"] = semantic_custody_sha256
+            binding["reader_custody_sha256"] = reader_custody_sha256
+            binding_body = {key: value for key, value in binding.items() if key != "binding_sha256"}
+            binding["binding_sha256"] = canonical_sha256(binding_body)
+            validation_input_binding_sha256 = binding["binding_sha256"]
+            binding_artifact_body = {
+                key: value for key, value in binding_artifact.items() if key != "artifact_sha256"
+            }
+            write_json(
+                binding_path,
                 {
-                    **semantic_body,
-                    "artifact_sha256": canonical_sha256(semantic_body),
+                    **binding_artifact_body,
+                    "artifact_sha256": canonical_sha256(binding_artifact_body),
                 },
             )
-            provisional_path = turn_dir / "PROVISIONAL_CANON.json"
-            if provisional_path.exists():
-                provisional = read_json_object(
-                    provisional_path,
-                    "provisional canon",
-                )
-                provisional["validation_binding_sha256"] = canonical_sha256(validation)
-                provisional_body = {
-                    key: value
-                    for key, value in provisional.items()
-                    if key != "artifact_sha256"
-                }
-                write_json(
-                    provisional_path,
-                    {
-                        **provisional_body,
-                        "artifact_sha256": canonical_sha256(provisional_body),
-                    },
-                )
 
-        for manifest_path in sorted(
-            turn_dir.glob("RECORDING_BUNDLE_*/BUNDLE_MANIFEST.json")
-        ):
+        python_path = turn_dir / "PYTHON_QUALIFICATION.json"
+        python_qualification_sha256: str | None = None
+        if python_path.exists():
+            python_artifact = read_json_object(python_path, "Python qualification")
+            qualification = python_artifact.get("qualification")
+            if (
+                not isinstance(qualification, dict)
+                or semantic_binding_sha256 is None
+                or reader_binding_sha256 is None
+                or validation_input_binding_sha256 is None
+            ):
+                raise StateConflictError("fork Python qualification is invalid")
+            qualification["validation_input_binding_sha256"] = validation_input_binding_sha256
+            qualification["semantic_validation_sha256"] = semantic_binding_sha256
+            qualification["reader_validation_sha256"] = reader_binding_sha256
+            child_receipt = read_json_object(
+                turn_dir / "ACCEPTED_RECEIPT.json",
+                "accepted receipt",
+            )
+            qualification["accepted_head_before_sha256"] = child_parent_sha256 or canonical_sha256(
+                {
+                    "schema_version": "cera.pi_scene.unaccepted_root_head.v1",
+                    "world_id": child_receipt["world_id"],
+                    "branch_id": child_branch_id,
+                }
+            )
+            qualification_body = {
+                key: value for key, value in qualification.items() if key != "qualification_sha256"
+            }
+            qualification["qualification_sha256"] = canonical_sha256(qualification_body)
+            python_qualification_sha256 = qualification["qualification_sha256"]
+            python_body = {
+                "schema_version": python_artifact.get("schema_version"),
+                "candidate_sha256": python_artifact.get("candidate_sha256"),
+                "qualification": qualification,
+            }
+            write_json(
+                python_path,
+                {**python_body, "artifact_sha256": canonical_sha256(python_body)},
+            )
+
+        provisional_path = turn_dir / "PROVISIONAL_CANON.json"
+        if provisional_path.exists():
+            provisional = read_json_object(provisional_path, "provisional canon")
+            if semantic_binding_sha256 is None:
+                raise StateConflictError("fork provisional canon lost semantic custody")
+            provisional["validation_binding_sha256"] = semantic_binding_sha256
+            if "reader_validation_sha256" in provisional:
+                provisional["reader_validation_sha256"] = reader_binding_sha256
+            provisional_body = {
+                key: value for key, value in provisional.items() if key != "artifact_sha256"
+            }
+            write_json(
+                provisional_path,
+                {**provisional_body, "artifact_sha256": canonical_sha256(provisional_body)},
+            )
+
+        policy_path = turn_dir / "POLICY_ACCEPTANCE_AUDIT.json"
+        if policy_path.exists():
+            policy = read_json_object(policy_path, "policy acceptance audit")
+            if (
+                semantic_binding_sha256 is None
+                or reader_binding_sha256 is None
+                or python_qualification_sha256 is None
+            ):
+                raise StateConflictError("fork policy acceptance lost qualification custody")
+            policy["semantic_validation_sha256"] = semantic_binding_sha256
+            policy["reader_validation_sha256"] = reader_binding_sha256
+            policy["python_qualification_sha256"] = python_qualification_sha256
+            policy_body = {key: value for key, value in policy.items() if key != "audit_sha256"}
+            policy["audit_sha256"] = canonical_sha256(policy_body)
+            write_json(policy_path, policy)
+
+        for manifest_path in sorted(turn_dir.glob("RECORDING_BUNDLE_*/BUNDLE_MANIFEST.json")):
             manifest = read_json_object(manifest_path, "recording bundle manifest")
             if "accepted_receipt_sha256" in manifest:
                 manifest["accepted_receipt_sha256"] = child_receipt_sha256

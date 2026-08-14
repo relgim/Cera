@@ -119,9 +119,9 @@ fully passing candidate for creator Accept, Regenerate, or Decline. The setting 
 SillyTavern chat. This toggle does not change Adult behavior: Adult Filter stays
 synchronous and its existing creator-review rejection path remains in force.
 
-Semantically rejected v2 candidates remain visible and noncanonical with only
-concise frozen failures and backend-authorized Regenerate, Decline, and
-auditable Override actions. Legacy v1 keeps its existing Replan behavior; v2
+Hard-rejected V3 candidates remain visible and noncanonical with only concise
+frozen failures and backend-authorized Regenerate, Decline, and auditable
+Override actions. Legacy v1 keeps its existing Replan behavior; V3
 does not expose Replan in this release. A blocked technical lane or an
 inconclusive gate exposes no creator acceptance/override action in this release.
 If Luna or Reader rejects while another required lane is still pending, the
@@ -129,21 +129,29 @@ known concise failure is visible but all creator actions remain disabled until
 the backend publishes the joined `review_ready` result.
 Override is never available for a failed Python gate. An accepted override
 retains the original Luna/Reader verdicts in the message audit panel. Adult
-Filter override remains disabled unless the backend explicitly authorizes it. Rejected/provisional
-text is excluded from accepted continuity and ordinary exports. Creator
-decisions make no hidden scene-regeneration call. Review GET exposes creator
+Filter override remains disabled unless the backend explicitly authorizes it.
+Rejected/provisional text is excluded from accepted continuity and ordinary
+exports except for an exact D-220 standing-policy provisional acceptance. That
+ordinary-only output uses the first candidate, makes no second Writer call or
+creator POST, retains the rejected Luna/Reader evidence, and carries a
+hash-bound `cera.pi_scene.ordinary_policy_acceptance_audit.v1`. Any hard signal
+wins, and Adult remains strict. Creator decisions make no hidden
+scene-regeneration call. Review GET exposes creator
 guidance only as the exact hash-bound
 `cera.pi_scene.creator_guidance_projection.v1`; raw feedback is sent once in
 the explicit decision POST and is never stored or replayed by SillyTavern.
 Auditable Override requires a nonempty creator reason; an empty editor performs
 no POST, and only the backend's hash projection may return to the chat.
-The output-only v2 `automatic_accept` identity is rendered only from a durable
+The output-only V3 `automatic_accept` identity is rendered only from a durable
 backend decision; the browser never exposes or submits it as a creator action.
+The same applies to V3 `standing_policy_accept_provisional`: the browser may
+render/reconcile it but cannot originate, alter, or replay it.
 
-The readable ordinary-review v2 JSON schemas are the contract source. The
+The readable ordinary-review V3 JSON schemas are the current contract source;
+V2 is historical. The
 deterministic generator produces the Python and staged JavaScript validators;
 the extension and relay import those generated modules instead of maintaining
-separate handwritten v2 contract copies.
+separate handwritten V3 contract copies.
 
 The full-model UI metadata dispatch contract is documented in
 [`CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md`](CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md).
@@ -187,9 +195,9 @@ browser counts are advisory defense-in-depth and never create authority. No raw
 prompt, response, provider exception, protected prose, or local path is retained
 in the persisted UI status.
 
-Review lifecycle GET uses the closed `cera.pi_scene.review.v2` projection. Its
+Review lifecycle GET uses the closed `cera.pi_scene.review.v3` projection. Its
 `checks` object has independent `luna`, `reader`, `adult_filter`, and `python`
-lanes. This v2 resource is ordinary-only: Luna, Reader, and Python are required,
+lanes. This V3 resource is ordinary-only: Luna, Reader, and Python are required,
 and Adult Filter is explicitly not applicable. Adult stays on the existing
 synchronous v1 creator-review projection and has no Reader lane. Each
 provider-backed required lane may carry its own complete generated

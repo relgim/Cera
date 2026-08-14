@@ -15,6 +15,7 @@ import {
 } from '../../../../script.js';
 import { oai_settings } from '../../../../scripts/openai.js';
 import { normalizeOrdinaryReviewDecisionV2 } from './generated/ordinary-review-contracts-v2.mjs';
+import { normalizeOrdinaryReviewDecisionV3 } from './generated/ordinary-review-contracts-v3.mjs';
 import {
     completionIdentity,
     normalizeCompletionMetadata,
@@ -73,6 +74,19 @@ const PROVIDER_STAGE_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.provider_stage_
 const PROVIDER_STAGE_REQUEST_SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const PROVIDER_STAGE_REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const REVIEW_CHECK_LANES = Object.freeze(['luna', 'reader', 'adult_filter', 'python']);
+const isOrdinaryReview = value => [
+    'cera.pi_scene.review.v2',
+    'cera.pi_scene.review.v3',
+].includes(value?.schema_version);
+const isOrdinaryDecision = value => [
+    'cera.pi_scene.review_decision.v2',
+    'cera.pi_scene.review_decision.v3',
+].includes(value?.schema_version);
+const normalizeOrdinaryDecision = (value, options) => (
+    value?.schema_version === 'cera.pi_scene.review_decision.v3'
+        ? normalizeOrdinaryReviewDecisionV3(value, options)
+        : normalizeOrdinaryReviewDecisionV2(value, options)
+);
 const SHA256_K = Object.freeze([
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
     0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -1923,7 +1937,7 @@ async function poll(messageId, reviewId) {
         let review;
         try {
             review = await requestJson(`/v1/cera/reviews/${encodeURIComponent(reviewId)}`);
-            if (review?.schema_version === 'cera.pi_scene.review.v2') {
+            if (isOrdinaryReview(review)) {
                 const normalized = normalizeReviewPayloadV2(review);
                 if (!normalized || !reviewMatchesDisplayedCandidate(messageId, normalized)) {
                     renderInvalidReviewProjection(
@@ -1994,6 +2008,11 @@ function renderStoredCompletionMetadata(messageId) {
         return;
     }
     if (acceptedReview?.state === 'accepted'
+        && acceptedReview.acceptance?.mode === 'standing_policy') {
+        renderStandingPolicyAudit(messageId, acceptedReview, panel);
+        return;
+    }
+    if (acceptedReview?.state === 'accepted'
         && acceptedReview.actions.repair_recording_enabled) {
         renderAcceptedRecordingRepair(messageId, acceptedReview, panel);
         return;
@@ -2033,7 +2052,7 @@ async function refreshReviewStatus(messageId, reviewId) {
         const review = await requestJson(
             `/v1/cera/reviews/${encodeURIComponent(reviewId)}`,
         );
-        if (review?.schema_version === 'cera.pi_scene.review.v2') {
+        if (isOrdinaryReview(review)) {
             const normalized = normalizeReviewPayloadV2(review);
             if (!normalized || !reviewMatchesDisplayedCandidate(messageId, normalized)) {
                 renderInvalidReviewProjection(
@@ -2092,7 +2111,7 @@ class CeraReviewRequestError extends Error {
 function renderReview(messageId, review) {
     const panel = panelFor(messageId);
     if (!panel) return;
-    if (review?.schema_version === 'cera.pi_scene.review.v2') {
+    if (isOrdinaryReview(review)) {
         const normalized = normalizeReviewPayloadV2(review);
         if (!normalized) {
             renderInvalidReviewProjection(messageId);
@@ -2115,6 +2134,8 @@ function renderReview(messageId, review) {
             });
             if (normalized.acceptance.mode === 'auditable_override') {
                 renderAcceptedOverrideAudit(messageId, normalized, panelFor(messageId));
+            } else if (normalized.acceptance.mode === 'standing_policy') {
+                renderStandingPolicyAudit(messageId, normalized, panelFor(messageId));
             } else if (normalized.actions.repair_recording_enabled) {
                 renderAcceptedRecordingRepair(messageId, normalized, panelFor(messageId));
             }
@@ -2224,6 +2245,32 @@ function renderAcceptedOverrideAudit(messageId, review, panel) {
     result.className = 'cera-review-result cera-review-severity-concern';
     result.textContent = 'The backend accepted this candidate by auditable creator override. Original check failures remain attached below.';
     panel.append(badge, heading, result);
+    appendReviewChecks(panel, review, messageId);
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+    if (review.actions.repair_recording_enabled) {
+        appendAcceptedRecordingRepair(messageId, review, panel);
+    }
+}
+
+function renderStandingPolicyAudit(messageId, review, panel) {
+    if (!panel) return;
+    const policy = review.acceptance?.standing_policy;
+    panel.innerHTML = '';
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge cera-review-accepted';
+    badge.textContent = 'CERA - PROVISIONAL CONTINUITY';
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = 'STANDING CREATOR POLICY APPLIED';
+    const result = document.createElement('div');
+    result.className = 'cera-review-result cera-review-severity-concern';
+    result.textContent = 'The first Writer candidate was retained as provisional canon under the standing ordinary-continuity policy. Original check failures remain attached below.';
+    const authority = document.createElement('div');
+    authority.className = 'cera-review-reason';
+    authority.textContent = policy
+        ? `Policy ${policy.policy_id} v${policy.policy_version}; audit ${policy.audit_sha256}`
+        : 'Standing-policy provenance is unavailable.';
+    panel.append(badge, heading, result, authority);
     appendReviewChecks(panel, review, messageId);
     appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
     if (review.actions.repair_recording_enabled) {
@@ -2866,8 +2913,8 @@ async function decide(messageId, review, action, feedback = null) {
 }
 
 async function applyDecisionResult(messageId, review, action, result) {
-    if (result?.schema_version === 'cera.pi_scene.review_decision.v2') {
-        const decision = normalizeOrdinaryReviewDecisionV2(result, {
+    if (isOrdinaryDecision(result)) {
+        const decision = normalizeOrdinaryDecision(result, {
             successorValidator: normalizeReviewDecisionSuccessor,
         });
         if (!decision) {
@@ -2880,7 +2927,7 @@ async function applyDecisionResult(messageId, review, action, result) {
         result = decision;
     }
     if (
-        result?.schema_version === 'cera.pi_scene.review_decision.v2'
+        isOrdinaryDecision(result)
         && result.creator_action !== action
     ) {
         renderInvalidReviewProjection(
@@ -2890,7 +2937,7 @@ async function applyDecisionResult(messageId, review, action, result) {
         return null;
     }
     const resolvedReview = result?.review ?? result;
-    if (resolvedReview?.schema_version === 'cera.pi_scene.review.v2') {
+    if (isOrdinaryReview(resolvedReview)) {
         const normalized = normalizeReviewPayloadV2(resolvedReview);
         if (!normalized) {
             renderInvalidReviewProjection(messageId);
@@ -3090,7 +3137,7 @@ async function recoverTerminalDecision(messageId, review) {
     const result = await requestJson(terminal.url);
     const expectedAction = normalized.state === 'regenerated' ? 'regenerate' : 'replan';
     if (
-        result?.schema_version !== 'cera.pi_scene.review_decision.v2'
+        !isOrdinaryDecision(result)
         || result.creator_action !== expectedAction
         || result.review?.review_id !== normalized.review_id
         || result.review?.terminal_decision?.decision_sha256 !== terminal.decision_sha256
@@ -3135,7 +3182,7 @@ function markCanonical(messageId, result = null, { canonStatus = 'accepted' } = 
                 metadata.completion.accepted_receipt_sha256 = acceptedReceiptSha256;
             }
         }
-        if (result?.schema_version === 'cera.pi_scene.review.v2') {
+        if (isOrdinaryReview(result)) {
             metadata.review_status = structuredClone(result);
         }
     }
@@ -3208,10 +3255,10 @@ function removeProvisionalMessage(messageId) {
 function updateStoredState(messageId, review) {
     const metadata = chat[messageId]?.extra?.[META_KEY];
     if (!metadata) return;
-    const reviewV2 = review?.schema_version === 'cera.pi_scene.review.v2'
+    const reviewV2 = isOrdinaryReview(review)
         ? normalizeReviewPayloadV2(review)
         : null;
-    if (review?.schema_version === 'cera.pi_scene.review.v2' && !reviewV2) return;
+    if (isOrdinaryReview(review) && !reviewV2) return;
     if (reviewV2) {
         if (!reviewMatchesDisplayedCandidate(messageId, reviewV2)) return;
         metadata.review_id = reviewV2.review_id;

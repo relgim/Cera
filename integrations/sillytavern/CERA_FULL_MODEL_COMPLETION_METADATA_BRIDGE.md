@@ -67,55 +67,69 @@ backend supplies a review ID matching `review-[a-f0-9]{28}`. The client never
 derives or repairs a review ID.
 
 An initial ordinary provisional completion may carry the closed
-`cera.pi_scene.review_lifecycle.v1` summary. The extension immediately shows
+`cera.pi_scene.review_lifecycle.v2` summary. The extension immediately shows
 the exact Writer message and then reconciles the durable
-`cera.pi_scene.review.v2` resource. The v2 `checks` object contains exact
+`cera.pi_scene.review.v3` resource. The V3 `checks` object, validated as
+`cera.pi_scene.review_checks.v2`, contains exact
 `luna`, `reader`, `adult_filter`, and `python` lanes. Each provider-backed lane
 has its own optional complete generated Retry envelope; Python has no provider
 action. Ordinary requires Luna, Reader, and Python, while Adult Filter is
-`not_applicable`. This v2 resource is ordinary-only. It does not enable Adult
+`not_applicable`. This V3 resource is ordinary-only. It does not enable Adult
 background/manual review: Adult Filter remains synchronous on the existing v1
 creator-review path, the deterministic Python gate remains backend-enforced,
 and no Adult Reader operation or status exists.
 
 Only `state=accepted` with a non-null exact acceptance receipt/turn identity,
 and matching review, candidate, and displayed-message bindings removes the
-provisional marker. `acceptance.canon_status` is the sole v2 canon authority;
+provisional marker. `acceptance.canon_status` is the sole V3 canon authority;
 there is no duplicate top-level committed or canon field. After every required
 check passes, Manual Review exposes Accept, Regenerate, and Decline. A semantic
 Luna/Reader rejection shows concise frozen failures plus backend-authorized
 Regenerate, Decline, and optional auditable Override. Legacy v1 retains its
-existing Replan path; v2 does not expose Replan in this release.
+existing Replan path; V3 does not expose Replan in this release.
 Blocked technical lanes and the reserved inconclusive gate expose no acceptance
 or override action in this release. Python failure is never overrideable.
 When one semantic lane has already rejected but another required lane remains
-pending, v2 may report `state=checks_pending` with `gate_status=reject`. The
+pending, V3 may report `state=checks_pending` with `gate_status=reject`. The
 known concise failure is shown, polling continues, and every creator action
 remains false until the backend publishes the joined `review_ready` result.
 An accepted override retains the rejected semantic checks for audit. Reload and
 restart use GET reconciliation; the client never invents a verdict, action,
 receipt, provider retry identity, or canonical state.
 
+D-220 adds one backend-owned V3 terminal disposition. When Python passes and
+all rejections are exactly soft-allowlisted, the backend accepts the first
+candidate once as provisional continuity with
+`acceptance.mode=standing_policy`, `canon_status=provisional`, and a separate
+`cera.pi_scene.ordinary_policy_acceptance_audit.v1`. The extension displays the
+retained Luna/Reader failures and provenance, but it never submits a creator
+action or requests Regenerate. The output-only terminal decision is
+`standing_policy_accept_provisional`. Any hard signal, missing/mismatched audit,
+or policy-object hash drift remains blocked. Adult behavior is unchanged.
+
 `creator_guidance` is null or the exact safe three-field
 `cera.pi_scene.creator_guidance_projection.v1` reference containing only the
 creator action and `text_sha256`. Auditable Override requires nonempty creator
 feedback, but that text is submitted once and is never persisted or replayed by
-the extension. The v2 projection never carries raw feedback.
+the extension. The V3 projection never carries raw feedback.
 
-The ordinary-review v2 JSON schemas are the readable source of truth. A
+The ordinary-review V3 JSON schemas are the current readable source of truth;
+V2 remains historical. A
 deterministic `--check` generator owns the Python and staged JavaScript
 normalizers used by the backend, relay, and extension. Those consumers do not
-duplicate the v2 shape or cross-field invariants in handwritten validators.
+duplicate the V3 shape or cross-field invariants in handwritten validators.
 
-Every resolved v2 review carries a hash-only `terminal_decision` pointer. A
+Every resolved V3 review carries a hash-only `terminal_decision` pointer. A
 lost Regenerate POST response (or a durable recovery-only Replan result) is
 recovered with provider-free GET
 `/v1/cera/reviews/:reviewId/terminal-decision`, which replays the exact durable
-`review_decision.v2` and its successor completion. The relay fixes and validates
+`review_decision.v3` and its successor completion. The relay fixes and validates
 that path; the browser does not retain raw feedback, repost the creator action,
 or infer a successor.
 The output-only `automatic_accept` decision may also be verified through that
-GET, but is never exposed or submitted as a browser action.
+GET, but is never exposed or submitted as a browser action. The same is true of
+output-only `standing_policy_accept_provisional`; the browser may reconcile its
+durable result but cannot originate or replay it.
 
 The authoritative provider-stage UI boundary is
 `cera.provider_stage_retry_status_envelope.v1`. It contains the generated

@@ -18,8 +18,8 @@ from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, ErrorCode, StateConflictError
-from cera.generated.ordinary_review_contracts_v2 import (
-    validate_ordinary_review_decision_v2,
+from cera.generated.ordinary_review_contracts_v3 import (
+    validate_ordinary_review_decision_v3,
 )
 from cera.reader_validation import BoundReaderValidationV1
 from cera.semantic_validation import BoundSemanticValidationV1, SemanticVerdict
@@ -2222,6 +2222,7 @@ class PiSceneHttpAdapter:
         if result.get("schema_version") not in {
             "cera.pi_scene.review_decision.v1",
             "cera.pi_scene.review_decision.v2",
+            "cera.pi_scene.review_decision.v3",
         }:
             raise StateConflictError("Pi Scene review decision response changed identity")
 
@@ -2544,6 +2545,11 @@ class PiSceneHttpAdapter:
                 self.coordinator.validation_provider_operation_attempts(review)
             ),
             "recording_repair_authorized": recording_repair_authorized,
+            "policy_acceptance_audit": (
+                None
+                if review.accepted_receipt is None
+                else self.coordinator.store.load_policy_acceptance_audit(review.accepted_receipt)
+            ),
         }
         if not detached_hash_basis or review.review_phase is OrdinaryReviewPhase.LEGACY:
             projector_kwargs["terminal_decision"] = terminal_decision
@@ -2584,7 +2590,7 @@ class PiSceneHttpAdapter:
     ) -> dict[str, Any]:
         body = {
             "schema_version": (
-                "cera.pi_scene.review_decision.v2"
+                "cera.pi_scene.review_decision.v3"
                 if decision.review.review_phase is not OrdinaryReviewPhase.LEGACY
                 else "cera.pi_scene.review_decision.v1"
             ),
@@ -2619,13 +2625,13 @@ class PiSceneHttpAdapter:
         if decision.review.accepted_receipt is not None:
             body["accepted_receipt_sha256"] = decision.review.accepted_receipt.receipt_sha256
             body["accepted_turn_id"] = decision.review.accepted_receipt.accepted_turn_id
-        if body["schema_version"] == "cera.pi_scene.review_decision.v2":
+        if body["schema_version"] == "cera.pi_scene.review_decision.v3":
             if not include_terminal_decision:
                 # This exact non-public intermediate is used solely to derive
                 # the detached terminal-decision hash.
                 return body
             return dict(
-                validate_ordinary_review_decision_v2(
+                validate_ordinary_review_decision_v3(
                     body,
                     successor_validator=validate_ordinary_successor_completion,
                 )

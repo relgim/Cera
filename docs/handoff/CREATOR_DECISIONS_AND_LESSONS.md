@@ -116,6 +116,13 @@ When a scene depends on provisional canon:
 Provisional canon is not an invitation for CERA to resolve ambiguity on Ted's
 behalf.
 
+D-220 adds one explicit, ordinary-only exception to manual disposition. When
+Python passes and every Luna/Reader rejection is on the frozen soft allowlist,
+the first Writer candidate enters provisional continuity exactly once under a
+hash-bound standing creator policy. This is not silent: the original rejected
+verdict evidence and policy provenance remain visible and durable. Any hard
+signal wins, and Adult remains on its existing strict path.
+
 ## 4. Runtime Codex retrieval
 
 Python's initial packet is direction, not a complete dossier. It should contain
@@ -196,8 +203,8 @@ The ordinary route is:
 Python authority and direction
 -> persistent Codex Planner with world-directory retrieval
 -> DeepSeek Writer
--> provisional visible candidate
--> creator review
+-> provisional visible candidate + independent Luna/Reader/Python checks
+-> pass, hard rejection, or standing-policy provisional disposition
 -> minimal accepted commit
 -> Recorder-derived records
 ```
@@ -575,8 +582,10 @@ HTTP security, and no-fallback strengths while replacing the unsafe seams.
    overcome a tendency when the logic owner finds that realistic.
 7. A normally valid candidate is accepted automatically after its required
    semantic and deterministic checks pass. One complete automatic repair is
-   permitted for a critical authoritative defect. Continued failures remain
-   visible and may be accepted only as explicitly marked provisional canon.
+   reserved for a hard critical authoritative defect. Under D-220, an ordinary
+   first candidate with Python pass and only allowlisted soft Luna/Reader
+   rejections instead enters provisional continuity exactly once, with no
+   second Writer call or manual action. Other failures remain visible and hard.
 8. Regenerate reuses the exact accepted state, user source, controls, and
    evidence revision, then asks the logic owner for another realistic complete
    outcome. It may change the sequence only when another character-consistent
@@ -618,6 +627,24 @@ HTTP security, and no-fallback strengths while replacing the unsafe seams.
    the narrow severe-quality responsibility without another adult provider call.
    This durable provisional lifecycle must be provider-free qualified before
    live qualification. Controlling decision: D-219.
+18. Ordinary soft rejection disposition is now controlled by D-220 and the
+   immutable `standing_creator_policy` `ordinary_provisional_continuity` v1.
+   Its exact policy text SHA-256 is
+   `1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2`;
+   its canonical policy-object SHA-256 is
+   `47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23`.
+   Soft Luna classes are exactly `omitted_decision`, `presence_violation`,
+   `stopping_boundary`, and `capability_restriction`. A Reader rejection is
+   soft only when every issue scope is `exact_quote` or
+   `omitted_planner_item`. Python failure/inconclusive, all other Luna classes,
+   Reader inconclusive, and `whole_candidate` are hard, and hard always wins.
+   A soft-only first ordinary candidate is accepted once as provisional
+   continuity without another Writer call or creator click; rejected evidence
+   remains attached under separate nonforgeable policy provenance. Adult
+   remains strict. D-220 supersedes D-219 only on this soft-rejection
+   disposition. Review V2 is historical and V3 is current. Source integration
+   and focused provider-free evidence are complete; the complete no-selector
+   gate and fresh-fixture qualification remain pending.
 
 ## 14. Update discipline
 
