@@ -26,7 +26,8 @@ Ordinary review V2 is historical. The current ordinary-only public family is:
 | `cera.pi_scene.ordinary_standing_creator_policy.v1` | immutable Python authority | Closed D-220 policy object; it is not client input |
 | `cera.pi_scene.ordinary_policy_acceptance_audit.v1` | Python over bound validator and qualification evidence | Hash-only proof that one exact candidate qualified for standing-policy provisional continuity |
 | `cera.pi_scene.full_model_qualification_manifest.v23` | historical Python qualification authority | Introduced the standing-policy identity, text/object hashes, exact soft allowlists, hard-wins rule, and ordinary-only/no-second-Writer boundary |
-| `cera.pi_scene.full_model_qualification_manifest.v24` | current Python qualification authority | Retains the exact V23 standing-policy authority while binding fresh fixture V20 and cumulative V1-V19 ancestry |
+| `cera.pi_scene.full_model_qualification_manifest.v24` | historical Python qualification authority | Retains the exact V23 standing-policy authority while binding spent fixture V20 and cumulative V1-V19 ancestry |
+| `cera.pi_scene.full_model_qualification_manifest.v25` | current Python qualification authority | Retains the exact standing-policy authority while binding fresh fixture V21 and cumulative V1-V20 ancestry |
 | `cera.pi_scene.full_model_qualification_result.v6` | Python phase evidence | Adds independently recomputed standing-policy provisional counters and hash-only per-fixture evidence without relabeling first-pass acceptance |
 | `cera.pi_scene.full_model_complete_qualification.v5` | Python complete evidence | Aggregates backend plus SillyTavern V6 phase totals, including the distinct standing-policy provisional counter |
 
@@ -56,9 +57,11 @@ are unchanged.
 
 Readable V3 schemas and their generated contract summary are under
 `schemas/pi_scene/ordinary_review/v3/` and
-`docs/generated/ORDINARY_REVIEW_CONTRACTS_V3.md`. Their source integration and
-provider-free qualification are pending; this catalog entry does not claim a
-passed implementation gate.
+`docs/generated/ORDINARY_REVIEW_CONTRACTS_V3.md`. Source integration and the
+prior exact-candidate provider-free gate passed. Root Y then exposed a localized
+Recorder wrapper-compatibility defect after successful provider transport; the
+fresh V21/V25 candidate remains pending its final complete gate and live
+qualification. This catalog entry does not claim a completed live result.
 
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 active schema family

@@ -61,8 +61,9 @@ performs no second Writer call, and waits for no manual action. It retains the
 original rejected Luna/Reader evidence and commits once through the normal
 atomic acceptance boundary with `canon_status=provisional`. Its terminal V3
 decision identity is output-only `standing_policy_accept_provisional`.
-Qualification projects this state through current manifest V24 (introduced in
-historical manifest V23), phase result V6, and complete result V5. It does not
+Qualification projects this state through current manifest V25 over fixture
+V21 (introduced in historical manifest V23 and first exercised by spent
+manifest V24), phase result V6, and complete result V5. It does not
 increment manual-action or Regenerate counters
 and is never relabeled as `checks_passed` or automatic first-pass acceptance.
 
@@ -78,8 +79,9 @@ or a partial acceptance write fails closed and restart reconciles the same
 durable exact-once transition without provider redispatch.
 
 Adult review, Adult Filter, consent/capacity, protected custody, and strict
-acceptance are unchanged. Source integration and provider-free evidence remain
-pending; this lifecycle text is not a passed-gate claim.
+acceptance are unchanged. Source integration and focused provider-free evidence
+pass; the fresh V21/V25 complete gate and live qualification remain pending.
+This lifecycle text is not a completed-live-result claim.
 
 ## 1. Normal turn
 

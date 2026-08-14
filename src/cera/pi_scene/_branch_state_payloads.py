@@ -20,7 +20,11 @@ from ._branch_state_models import (
     ProvisionalCanonLineageEntryV1,
     require_sha,
 )
-from .contracts import AdultCodexProjectionV1, AdultCodexProjectionV2
+from .contracts import (
+    AdultCodexProjectionV1,
+    AdultCodexProjectionV2,
+    primary_sequence_authority,
+)
 
 _ALLOWED_PAYLOAD_FIELDS = frozenset(
     {
@@ -436,7 +440,7 @@ def _primary_authority(receipt: Mapping[str, Any]) -> Mapping[str, Any]:
         raise ContractValidationError("accepted primary authority is invalid JSON") from exc
     if not isinstance(authority, Mapping):
         raise ContractValidationError("accepted primary authority must be an object")
-    return authority
+    return primary_sequence_authority(authority)
 
 
 def _presence_changes(authority: Mapping[str, Any]) -> tuple[PresenceChangeV1, ...]:

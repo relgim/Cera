@@ -29,6 +29,21 @@ def _sequence() -> dict[str, object]:
 
 
 class CognitionRecorderBindingTests(unittest.TestCase):
+    def test_production_cognition_wrapper_exposes_its_exact_nested_sequence_items(self) -> None:
+        sequence = _sequence()
+        sequence.pop("schema_version")
+        authority = {
+            "sequence": sequence,
+            "decision_records": [],
+            "decision_item_links": [],
+            "provisional_dependencies": [],
+            "route_transition": None,
+        }
+        self.assertEqual(
+            primary_item_keys(json.dumps(authority)),
+            ("hana_answers",),
+        )
+
     def test_cognition_wrapper_exposes_its_exact_nested_sequence_items(self) -> None:
         authority = {
             "schema_version": "cera.cognition.plan.v1",
@@ -52,6 +67,20 @@ class CognitionRecorderBindingTests(unittest.TestCase):
             "provisional_dependencies": [],
             "route_transition": None,
             "items": _sequence()["items"],
+        }
+        with self.assertRaisesRegex(ContractValidationError, "shape changed"):
+            primary_item_keys(json.dumps(authority))
+
+    def test_production_wrapper_rejects_a_noncanonical_nested_sequence(self) -> None:
+        sequence = _sequence()
+        sequence.pop("schema_version")
+        sequence["unexpected"] = []
+        authority = {
+            "sequence": sequence,
+            "decision_records": [],
+            "decision_item_links": [],
+            "provisional_dependencies": [],
+            "route_transition": None,
         }
         with self.assertRaisesRegex(ContractValidationError, "shape changed"):
             primary_item_keys(json.dumps(authority))

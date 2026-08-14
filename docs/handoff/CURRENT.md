@@ -25,16 +25,22 @@ policy-object SHA-256 is
 - Adult remains strict and unchanged. D-220 supersedes D-219 only for ordinary
   soft-rejection disposition.
 
-Ordinary review V2 is historical and V3 is current. Current source/schema
-integration uses fixture V20, qualification manifest V24, phase result V6, and
-complete result V5. Focused provider-free evidence is green: the exact
-soft-policy qualification case passed with one Writer, zero Regenerate, and
-zero manual action; the V20/V24 qualification subsystem passed 68/68 tests;
-the staged SillyTavern suites and generated-contract checks passed. The
-complete no-selector gate and genuine live V20/V24 qualification remain
-pending. Do
-not claim this change fully qualified, resume a provider run, or synchronize
-installed SillyTavern from this checkpoint alone.
+Ordinary review V2 is historical and V3 is current. The current fresh candidate
+uses fixture V21, qualification manifest V25, phase result V6, and complete
+result V5. Root Y spent V20/V24 while exercising backend ordinary fixture 1:
+the first Writer candidate was accepted once through the standing policy with
+one Writer, zero Regenerate, and zero manual semantic action. Recorder provider
+transport then succeeded, but the recording join stayed pending because
+the primary-sequence parser rejected the production schema-less canonical
+`CognitionPlanV1` wrapper. The exact Root Y Recorder result reproduces this as a
+deterministic Python compatibility defect. One shared parser now exposes the
+exact supported sequence shape consistently to Recorder and branch-state
+projection while retaining historical labelled support and fail-closed
+unknown-shape behavior. Focused Recorder replay,
+V21 ancestry/novelty, V25 closure, and tamper tests pass. The complete
+no-selector gate and genuine live V21/V25 qualification remain pending. Do not
+claim full qualification or synchronize installed SillyTavern from this
+checkpoint alone.
 
 ## 2026-08-09 C78 planning handoff
 

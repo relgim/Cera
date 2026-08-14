@@ -17,10 +17,13 @@ is exactly soft-allowlisted. Hard always wins; evidence remains attached; no
 second Writer call or manual creator action occurs. Adult remains strict.
 Ordinary review V2 is historical and V3 is current. The policy text and object
 hashes, exact allowlists, and supersession boundary are recorded in D-220. The
-current qualification family is manifest V24 over fixture V20, phase result V6,
-and complete result V5; manifest V23 and older versions remain historical
-evidence. Source integration and the focused V20/V24 provider-free subsystem
-are complete locally. The complete no-selector gate and genuine live
+current qualification family is manifest V25 over fixture V21, phase result V6,
+and complete result V5; manifest V24 over spent fixture V20 and older versions
+remain historical evidence. Root Y proved the standing-policy path but stopped
+during fixture 1 after a successful Recorder transport exposed a deterministic
+schema-less cognition-plan wrapper compatibility defect. The smallest Recorder
+parser correction and fresh V21/V25 fixture/closure checks pass locally. The
+complete no-selector gate for this new candidate and genuine live
 fresh-fixture qualification remain pending;
 this index grants no provider call, live rerun, route promotion, or
 installed-client sync.

@@ -687,12 +687,11 @@ class LeanRecordingAttemptV1:
             raise ContractValidationError("recording attempt status is invalid")
 
 
-def primary_item_keys(primary_authority_json: str) -> tuple[str, ...]:
-    """Extract exact Planner item keys without interpreting narrative meaning."""
+def primary_sequence_authority(
+    primary_authority: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Return the exact sequence surface from a supported primary authority."""
 
-    data = json.loads(primary_authority_json)
-    if not isinstance(data, Mapping):
-        raise ContractValidationError("Codex primary authority is not an object")
     legacy_keys = {
         "items",
         "durable_changes",
@@ -701,26 +700,44 @@ def primary_item_keys(primary_authority_json: str) -> tuple[str, ...]:
         "unresolved_threads",
         "stopping_boundary",
     }
-    if set(data) == legacy_keys:
-        sequence = data
-    elif data.get("schema_version") == SequenceDraftV1.SCHEMA_VERSION:
-        sequence = data
-    elif data.get("schema_version") == "cera.cognition.plan.v1":
-        expected = {
-            "schema_version",
-            "sequence",
-            "decision_records",
-            "decision_item_links",
-            "provisional_dependencies",
-            "route_transition",
-        }
-        if set(data) != expected or not isinstance(data.get("sequence"), Mapping):
+    cognition_keys = {
+        "sequence",
+        "decision_records",
+        "decision_item_links",
+        "provisional_dependencies",
+        "route_transition",
+    }
+    if set(primary_authority) == legacy_keys:
+        return primary_authority
+    if primary_authority.get("schema_version") == SequenceDraftV1.SCHEMA_VERSION:
+        return primary_authority
+    if set(primary_authority) == cognition_keys:
+        # ``CognitionPlanV1.SCHEMA_VERSION`` is a ClassVar and therefore is
+        # not present in the canonical ``to_primitive(plan)`` mapping used as
+        # production candidate authority.  Accept that exact closed shape;
+        # the labelled form below remains readable for historical artifacts.
+        candidate_sequence = primary_authority.get("sequence")
+        if not isinstance(candidate_sequence, Mapping) or set(candidate_sequence) != legacy_keys:
             raise ContractValidationError("Codex cognition authority shape changed")
-        sequence = data["sequence"]
-        if sequence.get("schema_version") != SequenceDraftV1.SCHEMA_VERSION:
+        return candidate_sequence
+    if primary_authority.get("schema_version") == "cera.cognition.plan.v1":
+        expected = {"schema_version", *cognition_keys}
+        candidate_sequence = primary_authority.get("sequence")
+        if set(primary_authority) != expected or not isinstance(candidate_sequence, Mapping):
+            raise ContractValidationError("Codex cognition authority shape changed")
+        if candidate_sequence.get("schema_version") != SequenceDraftV1.SCHEMA_VERSION:
             raise ContractValidationError("Codex cognition sequence schema changed")
-    else:
-        raise ContractValidationError("Codex primary authority schema is unsupported")
+        return candidate_sequence
+    raise ContractValidationError("Codex primary authority schema is unsupported")
+
+
+def primary_item_keys(primary_authority_json: str) -> tuple[str, ...]:
+    """Extract exact Planner item keys without interpreting narrative meaning."""
+
+    data = json.loads(primary_authority_json)
+    if not isinstance(data, Mapping):
+        raise ContractValidationError("Codex primary authority is not an object")
+    sequence = primary_sequence_authority(data)
     values = sequence.get("items")
     if not isinstance(values, list):
         raise ContractValidationError("Codex sequence does not expose ordered items")

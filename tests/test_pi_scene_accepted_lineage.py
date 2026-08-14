@@ -282,7 +282,7 @@ class PiSceneAcceptedLineageTests(unittest.TestCase):
                     branch_id="branch-child",
                     allow_pending=True,
                 )[0]["recording_status"],
-                "pending_repair",
+                "complete",
             )
 
     def test_fork_rebinds_completed_record_manifest_to_child_receipt(self) -> None:
