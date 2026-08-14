@@ -2210,6 +2210,24 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(finalized, action_identity)
         self.assertEqual(request_receipt.disposition, "active")
+        # A successor stage may be prepared by the action, then reach its
+        # first durable chain binding only after the action is tombstoned.
+        # Recreate that crash window and require the content-free tombstone
+        # identity to remain sufficient for the exact chain binding.
+        action_chain_path = self.custody._review_action_chain_path(chain_id)
+        action_chain_path.unlink()
+        chain_context = self.custody.chain_context(chain_id)
+        chain_scope = self.service.scope_for_chain(chain_id)
+        self.assertEqual(
+            self.custody.bind_review_action_chain(
+                chain_id=chain_id,
+                action_id=action_identity.action_id,
+                request_id=chain_context.request_id,
+                request_sha256=chain_scope.request_sha256,
+                context_sha256=chain_context.context_sha256,
+            ),
+            action_identity,
+        )
         self.assertEqual(
             self.integration.finalize_review_action(action_identity.action_id),
             (finalized, request_receipt),

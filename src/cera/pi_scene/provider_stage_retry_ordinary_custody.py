@@ -1234,7 +1234,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         _require_request_id(request_id)
         _require_sha256(request_sha256, "review action provider-stage request hash")
         _require_sha256(context_sha256, "review action chain context hash")
-        identity, _, _ = self.load_review_action(action_id)
+        identity, _ = self._review_action_identity_any(action_id)
         if identity.request_id != request_id or identity.context_sha256 != context_sha256:
             raise StateConflictError("ordinary review action chain changed Request A")
         chain = self.chain_context(chain_id)
