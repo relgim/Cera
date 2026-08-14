@@ -2222,6 +2222,39 @@ class _TransientTerminalDecisionNotReadyClient(_FakeQualificationClient):
         return super().terminal_review_decision(review_id=review_id)
 
 
+class _PermanentTerminalDecisionNotReadyClient(_FakeQualificationClient):
+    """Never expose a terminal decision, proving reconciliation stays bounded."""
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        self.terminal_decision_reads.append(review_id)
+        return ClientResponseV1(
+            transport="fake-terminal-decision-pending",
+            path=f"/v1/cera/reviews/{review_id}/terminal-decision",
+            status_code=404,
+            duration_ms=1,
+            body={"error": "not durable yet"},
+        )
+
+
+class _TransientTerminalAcceptanceAuthorityClient(_FakeQualificationClient):
+    """Return one valid terminal DTO carrying stale acceptance authority."""
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        response = super().terminal_review_decision(review_id=review_id)
+        if self.terminal_decision_reads.count(review_id) != 1:
+            return response
+        changed = cast(dict[str, Any], deepcopy(response.body))
+        changed["creator_action"] = "repair_recording"
+        changed = self._decision_with_terminal_pointer(changed, review_id=review_id)
+        return ClientResponseV1(
+            transport=response.transport,
+            path=response.path,
+            status_code=response.status_code,
+            duration_ms=response.duration_ms,
+            body=changed,
+        )
+
+
 class _LostOrdinaryRegenerateResponseClient(_FakeQualificationClient):
     def regenerate(
         self,
@@ -6706,6 +6739,7 @@ class FullModelQualificationTests(unittest.TestCase):
         for label, client_type in (
             ("mixed_snapshot", _TransientTerminalReviewProjectionClient),
             ("terminal_not_ready", _TransientTerminalDecisionNotReadyClient),
+            ("acceptance_authority", _TransientTerminalAcceptanceAuthorityClient),
         ):
             with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
@@ -6731,6 +6765,38 @@ class FullModelQualificationTests(unittest.TestCase):
                 self.assertGreaterEqual(client.review_reads.count(review_id), 2)
                 self.assertEqual(client.regenerates, 0)
                 self.assertEqual(client.review_actions, [])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            client = _PermanentTerminalDecisionNotReadyClient(runtime)
+            campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            with (
+                patch(
+                    "cera.pi_scene.qualification.PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS",
+                    0,
+                ),
+                patch(
+                    "cera.pi_scene.qualification.PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS",
+                    0,
+                ),
+            ):
+                campaign.run_segment(
+                    client=client,
+                    runtime_root=runtime,
+                    turn_count=1,
+                )
+            self.assertIsInstance(campaign.failure, StateConflictError)
+            self.assertEqual(
+                str(campaign.failure),
+                "ordinary terminal decision GET returned HTTP 404",
+            )
+            self.assertEqual(client.regenerates, 0)
+            self.assertEqual(client.review_actions, [])
 
     def test_hash_only_manual_receipts_and_approval_cli_are_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
