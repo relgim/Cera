@@ -2344,6 +2344,35 @@ class _TransientAcceptedQualificationProjectionClient(_FakeQualificationClient):
         )
 
 
+class _TransientCrossArtifactReviewClient(_FakeQualificationClient):
+    """Expose one schema-valid review GET from a stale candidate snapshot."""
+
+    _stale_emitted = False
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        response = super().review(review_id=review_id)
+        if self._stale_emitted or response.body.get("state") != "accepted":
+            return response
+        self._stale_emitted = True
+        changed = cast(dict[str, Any], deepcopy(response.body))
+        changed["candidate_sha256"] = "0" * 64
+        return ClientResponseV1(
+            transport=response.transport,
+            path=response.path,
+            status_code=response.status_code,
+            duration_ms=response.duration_ms,
+            body=changed,
+        )
+
+
+class _PermanentCrossArtifactReviewClient(_TransientCrossArtifactReviewClient):
+    """Keep returning a stale candidate snapshot to prove fail-closed timeout."""
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        self._stale_emitted = False
+        return super().review(review_id=review_id)
+
+
 class _LostOrdinaryRegenerateResponseClient(_FakeQualificationClient):
     def regenerate(
         self,
@@ -7267,6 +7296,60 @@ class FullModelQualificationTests(unittest.TestCase):
                 self.assertGreaterEqual(client.review_reads.count(review_id), 2)
                 self.assertEqual(client.regenerates, 0)
                 self.assertEqual(client.review_actions, [])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            client = _TransientCrossArtifactReviewClient(runtime)
+            campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            with patch(
+                "cera.pi_scene.qualification.PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS",
+                0,
+            ):
+                campaign.run_segment(
+                    client=client,
+                    runtime_root=runtime,
+                    turn_count=1,
+                )
+            self.assertIsNone(campaign.failure)
+            review_id = "review-" + text_sha256("backend-ordinary-01:1:initial")[:28]
+            self.assertGreaterEqual(client.review_reads.count(review_id), 2)
+            self.assertEqual(client.terminal_decision_reads.count(review_id), 1)
+            self.assertEqual(client.regenerates, 0)
+            self.assertEqual(client.review_actions, [])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            client = _PermanentCrossArtifactReviewClient(runtime)
+            campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            with patch(
+                "cera.pi_scene.qualification.time.monotonic",
+                side_effect=(
+                    0.0,
+                    float(PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS + 1),
+                ),
+            ):
+                campaign.run_segment(
+                    client=client,
+                    runtime_root=runtime,
+                    turn_count=1,
+                )
+            self.assertIsNotNone(campaign.failure)
+            self.assertEqual(
+                str(campaign.failure),
+                "ordinary review changed its provisional candidate",
+            )
+            self.assertEqual(client.regenerates, 0)
+            self.assertEqual(client.review_actions, [])
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

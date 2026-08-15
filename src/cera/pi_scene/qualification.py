@@ -2464,11 +2464,24 @@ class QualificationCampaignRun:
                 # is the sole canonical projection after recording is repaired.
                 current_response = None
                 continue
-            review = _validate_ordinary_review_response(
-                fixture,
-                current_response,
-                provisional=provisional,
-            )
+            try:
+                review = _validate_ordinary_review_response(
+                    fixture,
+                    current_response,
+                    provisional=provisional,
+                )
+            except StateConflictError:
+                # The review GET is assembled from append-only validation,
+                # acceptance, and recording artifacts.  A read can briefly
+                # observe a cross-artifact projection while the backend-owned
+                # transition is still being published.  Re-read only: the same
+                # strict validator must pass before qualification can progress,
+                # and this seam never authorizes an action or provider call.
+                if time.monotonic() - started >= PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS:
+                    raise
+                time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
+                current_response = None
+                continue
 
             lane_envelopes = _ordinary_review_lane_retry_envelopes(review)
             if lane_envelopes:
