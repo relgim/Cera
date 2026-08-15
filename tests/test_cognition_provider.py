@@ -233,16 +233,16 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v9")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v10")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
-            "cera.cognition.codex_planner_adapter.v7",
+            "cera.cognition.codex_planner_adapter.v8",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
-            "cera.cognition.codex_planner_prompt.v8",
+            "cera.cognition.codex_planner_prompt.v9",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v8")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v9")
         self.assertIn(
             "Call get_turn_context first with character_ids omitted",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -273,6 +273,31 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertIn("never count, truncate, or summarize", COGNITION_PLANNER_BASE_INSTRUCTIONS)
         self.assertIn(
             "include at least one NPC-owned action",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Every action, dialogue_intent, private_state, perception, and remote_communication "
+            "item must set owner_id",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "source-supplied, environmental, mechanical, anonymous, or off-cast occurrence",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "material_continuity or scene_transition instead",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "never use an owner-required kind with a null owner_id or invent an owner",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Do not create a Ted-owned sequence item for compatible visible behavior",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "only when it copies an exact supplied-source contribution",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
         )
         self.assertIn(

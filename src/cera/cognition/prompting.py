@@ -8,7 +8,7 @@ from cera.serialization import canonical_json
 from .citations import cognition_static_citation_scope
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v9"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v10"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
@@ -68,6 +68,16 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     "For every ordinary plan that does not hand off to the adult logic owner, "
     "include at least one NPC-owned action, dialogue_intent, private_state, "
     "perception, or remote_communication item and its matching decision record. "
+    "Every action, dialogue_intent, private_state, perception, and "
+    "remote_communication item must set owner_id to its exact responsible known "
+    "character. Represent a source-supplied, environmental, mechanical, anonymous, "
+    "or off-cast occurrence without an authorized character owner as "
+    "material_continuity or scene_transition instead; never use an owner-required "
+    "kind with a null owner_id or invent an owner. "
+    "Do not create a Ted-owned sequence item for compatible visible behavior; "
+    "leave that secondary realization to the Writer. A Ted-owned item is permitted "
+    "only when it copies an exact supplied-source contribution and includes its "
+    "protected_user_claim_keys or protected_user_exact_quotes. "
     "A current source that explicitly establishes a different setting authorizes "
     "planning the requested scene transition when protected facts remain intact; "
     "bridge the time or place change in the sequence instead of canceling the new "
