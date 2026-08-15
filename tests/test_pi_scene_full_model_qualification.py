@@ -2292,6 +2292,52 @@ class _TransientTerminalAcceptanceAuthorityClient(_FakeQualificationClient):
         )
 
 
+class _TransientAcceptedQualificationProjectionClient(_FakeQualificationClient):
+    """Return one self-consistent terminal pair with stale request accounting."""
+
+    _stale_review: dict[str, Any] | None = None
+    _stale_emitted = False
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        response = super().review(review_id=review_id)
+        if (
+            self._stale_emitted
+            or self._stale_review is not None
+            or response.body.get("state") != "accepted"
+        ):
+            return response
+        changed = cast(dict[str, Any], deepcopy(response.body))
+        operations = cast(dict[str, Any], deepcopy(changed["provider_operations"]))
+        operations["recorder"] = cast(int, operations["recorder"]) + 1
+        changed["provider_operations"] = operations
+        self._stale_review = changed
+        self._stale_emitted = True
+        return ClientResponseV1(
+            transport=response.transport,
+            path=response.path,
+            status_code=response.status_code,
+            duration_ms=response.duration_ms,
+            body=changed,
+        )
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        response = super().terminal_review_decision(review_id=review_id)
+        stale = self._stale_review
+        if stale is None:
+            return response
+        changed = cast(dict[str, Any], deepcopy(response.body))
+        changed["review"] = stale
+        changed = self._decision_with_terminal_pointer(changed, review_id=review_id)
+        self._stale_review = None
+        return ClientResponseV1(
+            transport=response.transport,
+            path=response.path,
+            status_code=response.status_code,
+            duration_ms=response.duration_ms,
+            body=changed,
+        )
+
+
 class _LostOrdinaryRegenerateResponseClient(_FakeQualificationClient):
     def regenerate(
         self,
@@ -7121,6 +7167,7 @@ class FullModelQualificationTests(unittest.TestCase):
             ("mixed_snapshot", _TransientTerminalReviewProjectionClient),
             ("terminal_not_ready", _TransientTerminalDecisionNotReadyClient),
             ("acceptance_authority", _TransientTerminalAcceptanceAuthorityClient),
+            ("accepted_projection", _TransientAcceptedQualificationProjectionClient),
         ):
             with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)

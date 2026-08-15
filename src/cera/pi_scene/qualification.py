@@ -2524,6 +2524,13 @@ class QualificationCampaignRun:
                             terminal_response,
                             review=review,
                         )
+                        projection = _validate_ordinary_accepted_review(
+                            fixture,
+                            review,
+                            standing_policy_after_regenerate=(
+                                standing_policy_after_regenerate
+                            ),
+                        )
                     except StateConflictError as exc:
                         terminal_projection_failure = exc
                     if terminal_projection_failure is not None:
@@ -2542,11 +2549,6 @@ class QualificationCampaignRun:
                         time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
                         current_response = None
                         continue
-                    projection = _validate_ordinary_accepted_review(
-                        fixture,
-                        review,
-                        standing_policy_after_regenerate=(standing_policy_after_regenerate),
-                    )
                     return OrdinaryReviewResolutionV1(
                         result=projection,
                         review=review,
