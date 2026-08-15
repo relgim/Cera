@@ -164,8 +164,6 @@ class MaterialPressureV1:
         _unique(self.evidence_refs, "material_pressure.evidence_refs")
         for value in self.evidence_refs:
             _identity(value, "material_pressure.evidence_refs")
-        if self.level is PressureLevel.NONE and self.evidence_refs:
-            raise ContractValidationError("a none-level pressure cannot cite decisive evidence")
 
 
 @dataclass(frozen=True, slots=True)

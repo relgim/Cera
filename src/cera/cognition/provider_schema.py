@@ -131,6 +131,11 @@ def cognition_plan_json_schema(
             "level": {
                 "type": "string",
                 "enum": ["none", "low", "moderate", "high", "overwhelming"],
+                "description": (
+                    "Qualitative influence on this decision. A none-level pressure "
+                    "may still cite evidence that supports the assessed absence of "
+                    "that pressure."
+                ),
             },
             "direction": _local_key(),
             "evidence_refs": _citation_array(citation_description),

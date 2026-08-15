@@ -177,6 +177,24 @@ class CognitionContractTests(unittest.TestCase):
     def test_valid_material_decision_bundle(self) -> None:
         validate_cognition_plan(_plan(), turn=_turn(), context=_context())
 
+    def test_none_pressure_may_cite_evidence_for_assessed_absence(self) -> None:
+        decision = _decision(CharacterAutonomyMode.BOTH)
+        absence = replace(
+            decision.material_pressures[0],
+            kind="interpersonal_uncertainty",
+            level=PressureLevel.NONE,
+            direction="seek_or_infer_a_response",
+        )
+        plan = replace(
+            _plan(),
+            decision_records=(replace(decision, material_pressures=(absence,)),),
+        )
+
+        decoded = from_mapping(CognitionPlanV1, to_primitive(plan))
+
+        self.assertEqual(decoded.decision_records[0].material_pressures, (absence,))
+        validate_cognition_plan(decoded, turn=_turn(), context=_context())
+
     def test_ordinary_plan_requires_an_npc_responder_before_writer_dispatch(self) -> None:
         sequence = SequenceDraftV1(
             items=(
