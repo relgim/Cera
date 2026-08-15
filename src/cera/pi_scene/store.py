@@ -3800,7 +3800,10 @@ def _publish_atomic_recording_bundle(
         if existing != bundle:
             raise StateConflictError("immutable recording bundle changed")
         return
-    stage = turn_dir / f".{final.name}.{uuid4().hex}.tmp"
+    # Keep the staging component compact.  Repeating the full bundle name made
+    # an otherwise valid qualification root hit Windows MAX_PATH while writing
+    # the nested RECORDING_ATTEMPT.json.
+    stage = turn_dir / f".rb.{uuid4().hex}.tmp"
     stage.mkdir(parents=False, exist_ok=False)
     try:
         _write_new_json(stage / "BUNDLE_MANIFEST.json", to_primitive(manifest))

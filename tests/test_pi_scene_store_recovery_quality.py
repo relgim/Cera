@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import patch
 
+import cera.pi_scene.store as store_module
 from cera.errors import StateConflictError
 from cera.pi_scene.contracts import RecordingStatus
 from cera.pi_scene.store import LeanSceneStore
-import cera.pi_scene.store as store_module
 from cera.serialization import canonical_json, text_sha256
 from tests.test_pi_scene_store_quality import _candidate, _ordinary_record
 
@@ -47,6 +47,37 @@ def _leave_orphan_failure(
 
 
 class PiSceneStoreRecoveryQualityTests(unittest.TestCase):
+    def test_atomic_recording_staging_path_keeps_bounded_overhead(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root)
+            accepted = store.accept(_candidate())
+            turn_dir = _turn_dir(root)
+            observed: list[Path] = []
+            real_write_new_json = store_module._write_new_json
+
+            def capture(path: Path, value) -> None:
+                observed.append(path)
+                real_write_new_json(path, value)
+
+            with patch.object(store_module, "_write_new_json", side_effect=capture):
+                store.attach_ordinary_record(
+                    accepted,
+                    _ordinary_record(accepted),
+                    recorder_request_sha256=text_sha256("record-request"),
+                    recorder_output_sha256=text_sha256("record-output"),
+                    provider_operations=1,
+                )
+
+            staging_paths = [
+                path for path in observed if path.parent.name.startswith(".rb.")
+            ]
+            self.assertTrue(staging_paths)
+            self.assertLessEqual(
+                max(len(str(path)) - len(str(turn_dir)) for path in staging_paths),
+                64,
+            )
+
     def test_stale_session_is_soft_and_old_repair_cannot_downgrade_head(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
