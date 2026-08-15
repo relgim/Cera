@@ -35,6 +35,10 @@ orchestration and unrelated cleanup were excluded.
    still had a 30-minute socket cutoff. Current V46 declares
    `observe_until_terminal` and uses a one-day infrastructure wait. Historical
    V43-V45 timeout metadata remains unchanged.
+8. **Staged UI test version drift.** The first provider-free readiness check
+   rendered the correct standing-policy v2 metadata, but one staged
+   SillyTavern assertion still expected v1. The assertion was advanced to v2
+   and the exact two-suite staged Node command was rerun before live use.
 
 ## Reviewed and retained hard stops
 
