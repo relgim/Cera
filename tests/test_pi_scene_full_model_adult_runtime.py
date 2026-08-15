@@ -265,6 +265,107 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
         self.assertEqual(len(public_relationship), 1)
         self.assertEqual(public_relationship[0].visibility, "public")
 
+    def test_context_compacts_large_receipts_without_losing_story_records(self) -> None:
+        safe_records = tuple(
+            {
+                "receipt": {
+                    "route": "ordinary",
+                    "accepted_turn_id": f"turn:ordinary:{index}",
+                    "exact_accepted_prose": f"ordinary prose {index} " + "x" * 30_000,
+                },
+                "recording_status": "complete",
+                "ordinary_record": {
+                    "schema_version": "cera.pi_scene.ordinary_record.v1",
+                    "resulting_public_state": f"Accepted story state {index}.",
+                    "unresolved_threads": [f"Open story thread {index}."],
+                },
+            }
+            for index in range(5)
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            store = _Store(_route_state(), safe_records=safe_records)
+            factory = self._factory(Path(temporary), store)
+            context = factory.execution_context(_turn(), store.route_state)
+
+        projection = json.loads(context.accepted_safe_projection)
+        self.assertLessEqual(len(context.accepted_safe_projection), 40_000)
+        self.assertEqual(projection["omitted_older_completed_records"], 0)
+        self.assertEqual(len(projection["accepted_records"]), 5)
+        for index, record in enumerate(projection["accepted_records"]):
+            self.assertEqual(
+                record["ordinary_record"]["resulting_public_state"],
+                f"Accepted story state {index}.",
+            )
+            self.assertNotIn("exact_accepted_prose", record)
+            self.assertEqual(len(record["source_receipt_sha256"]), 64)
+
+    def test_context_compacts_genesis_records_and_preserves_visibility(self) -> None:
+        large_payload = "private expanded Genesis payload " * 2_000
+        private_projection = {
+            "visibility": "owner_private",
+            "knowledge_owner_id": "character:hana",
+            "source_content_sha256": text_sha256(large_payload),
+            "record": {
+                "record_id": "genesis:hana:identity",
+                "record_type": "character_identity",
+                "claim": "Hana is Sakura's mother.",
+                "authority": "creator",
+                "certainty": "established",
+                "truth_status": "accepted",
+                "payload_json": large_payload,
+            },
+        }
+        shared_projection = {
+            "visibility": "shared",
+            "knowledge_owner_id": "character:hana",
+            "source_content_sha256": text_sha256("shared relationship fact"),
+            "record": {
+                "record_id": "genesis:hana:relationship",
+                "record_type": "relationship",
+                "claim": "Hana and Sakura share accepted family continuity.",
+                "truth_status": "accepted",
+                "payload_json": large_payload,
+            },
+        }
+        turn = replace(
+            _turn(),
+            characters={
+                "character:hana": {
+                    "character_id": "character:hana",
+                    "genesis_record_projections": [private_projection],
+                }
+            },
+            relationships={
+                "relationship:hana_sakura": {
+                    "genesis_record_projections": [shared_projection],
+                }
+            },
+            relevant_memories={},
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            store = _Store(_route_state())
+            context = self._factory(Path(temporary), store).execution_context(
+                turn,
+                store.route_state,
+            )
+
+        private = next(
+            value
+            for value in context.current_facts
+            if "Hana is Sakura's mother." in value.authoritative_fact
+        )
+        shared = next(
+            value
+            for value in context.current_facts
+            if "accepted family continuity" in value.authoritative_fact
+        )
+        self.assertEqual(private.subject_id, "character:hana")
+        self.assertEqual(private.visibility, "adult_role_private")
+        self.assertEqual(shared.subject_id, "character:hana")
+        self.assertEqual(shared.visibility, "public")
+        self.assertNotIn(large_payload, private.authoritative_fact)
+        self.assertNotIn(large_payload, shared.authoritative_fact)
+
     def test_candidate_factory_binds_exact_request_turn_route_and_parent_session(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -301,6 +402,10 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
             self.assertEqual(
                 scene.materializer.root,
                 first_scope.protected_root / "WRITER_VIEWS",
+            )
+            self.assertEqual(
+                first_scope.protected_root,
+                root / "protected-adult" / "c" / first_scope.scope_sha256[:24],
             )
             self.assertNotEqual(first_scope.protected_root, second_scope.protected_root)
             self.assertFalse((root / "protected-adult").exists())

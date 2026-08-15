@@ -55,12 +55,15 @@ _STORY_STATE_FACT_KEYS = frozenset(
 _PRIVATE_VISIBILITIES = frozenset(
     {
         "adult_role_private",
-        "branch_internal_unspecified",
         "character_private",
         "creator_private",
         "creator-only",
+        "owner_private",
+        "private",
+        "system_private",
     }
 )
+_PUBLIC_VISIBILITIES = frozenset({"branch_internal_unspecified", "public", "shared"})
 
 
 class FullModelAdultRuntimeStore(Protocol):
@@ -159,19 +162,11 @@ class FullModelAdultRuntimeFactory:
             value for value in protected_records if _accepted_route(value) == "adult"
         )
 
-        safe_projection = canonical_json(
-            {
-                "schema_version": "cera.pi_scene.adult_safe_projection.v1",
-                "world_id": turn.world_id,
-                "branch_id": turn.branch_id,
-                "scene_id": turn.scene_id,
-                "accepted_head_sha256": route_state.accepted_head_sha256,
-                "current_state": turn.current_state,
-                "accepted_records": safe_records,
-            }
+        safe_projection = _bounded_safe_projection(
+            turn=turn,
+            route_state=route_state,
+            safe_records=safe_records,
         )
-        if len(safe_projection) > _MAX_SAFE_PROJECTION_CHARS:
-            raise ContractValidationError("adult safe projection exceeds its bounded input")
 
         protected_continuity = (
             None
@@ -191,24 +186,25 @@ class FullModelAdultRuntimeFactory:
             and len(protected_continuity) > _MAX_PROTECTED_CONTINUITY_CHARS
         ):
             raise ContractValidationError("protected adult continuity exceeds its bounded input")
-        if (
-            route_state.current_logic_route is AdultNextRoute.ADULT
-            and protected_continuity is None
-        ):
+        if route_state.current_logic_route is AdultNextRoute.ADULT and protected_continuity is None:
             raise StateConflictError("accepted adult route has no protected adult continuity")
 
         facts = _current_facts(turn)
         boundaries = _product_story_boundaries(turn.current_state)
         _assert_no_protected_prose_leak(
             protected_adult_records,
+            safe_records=safe_records,
             safe_projection=safe_projection,
             facts=facts,
             boundaries=boundaries,
         )
-        if self.store.current_logic_route(
-            world_id=turn.world_id,
-            branch_id=turn.branch_id,
-        ) != route_state:
+        if (
+            self.store.current_logic_route(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+            )
+            != route_state
+        ):
             raise StateConflictError("accepted adult context changed during construction")
         return AdultExecutionContextV1(
             accepted_safe_projection=safe_projection,
@@ -253,7 +249,11 @@ class FullModelAdultRuntimeFactory:
             turn_sha256=turn_sha256,
             route_state_sha256=route_state_sha256,
             scope_sha256=scope_sha256,
-            protected_root=self.protected_runtime_root / "candidates" / scope_sha256,
+            # Keep the protected identity in the typed scope while budgeting the
+            # physical path for Windows' legacy MAX_PATH behavior.  Writer-view
+            # staging adds world, branch, candidate, and UUID components below
+            # this root; the 96-bit prefix matches the bounded regeneration path.
+            protected_root=self.protected_runtime_root / "c" / scope_sha256[:24],
         )
 
     def orchestrator(
@@ -302,9 +302,7 @@ class FullModelAdultRuntimeFactory:
             characters={key: dict(value) for key, value in turn.characters.items()},
             relationships={key: dict(value) for key, value in turn.relationships.items()},
             recent_prose=_accepted_prose(protected_records),
-            relevant_memories={
-                key: dict(value) for key, value in turn.relevant_memories.items()
-            },
+            relevant_memories={key: dict(value) for key, value in turn.relevant_memories.items()},
             voice_examples=dict(turn.voice_examples),
             accepted_records=protected_records,
         )
@@ -322,9 +320,7 @@ class FullModelAdultRuntimeFactory:
             raise StateConflictError("adult candidate changed the verified craft catalog")
         return AutomaticAdultRouteOrchestrator(
             route_state=self.store,
-            preparation_builder=build_adult_turn_preparation_builder(
-                integration.craft_retrieval
-            ),
+            preparation_builder=build_adult_turn_preparation_builder(integration.craft_retrieval),
             pipeline=integration,
         )
 
@@ -345,8 +341,7 @@ class FullModelAdultRuntimeFactory:
         if (
             prepared.route_state.world_id != frozen_turn.world_id
             or prepared.route_state.branch_id != frozen_turn.branch_id
-            or prepared.scene_request.exact_current_source
-            != frozen_turn.exact_user_source
+            or prepared.scene_request.exact_current_source != frozen_turn.exact_user_source
         ):
             raise StateConflictError("adult Regenerate changed frozen turn authority")
         scope_sha256 = domain_sha256(
@@ -365,9 +360,7 @@ class FullModelAdultRuntimeFactory:
             candidate_id=prepared.candidate_id,
             current_state=dict(frozen_turn.current_state),
             characters={key: dict(value) for key, value in frozen_turn.characters.items()},
-            relationships={
-                key: dict(value) for key, value in frozen_turn.relationships.items()
-            },
+            relationships={key: dict(value) for key, value in frozen_turn.relationships.items()},
             recent_prose=tuple(frozen_turn.recent_prose),
             relevant_memories={
                 key: dict(value) for key, value in frozen_turn.relevant_memories.items()
@@ -375,9 +368,7 @@ class FullModelAdultRuntimeFactory:
             voice_examples=dict(frozen_turn.voice_examples),
             accepted_records=(),
         )
-        regeneration_root = (
-            self.protected_runtime_root / "r" / scope_sha256[:24]
-        ).resolve()
+        regeneration_root = (self.protected_runtime_root / "r" / scope_sha256[:24]).resolve()
         if not regeneration_root.is_relative_to(self.protected_runtime_root):
             raise ContractValidationError("adult Regenerate escaped protected runtime")
         regeneration_root.mkdir(parents=True, exist_ok=True)
@@ -448,9 +439,7 @@ def _product_story_boundaries(current_state: Mapping[str, Any]) -> tuple[str, ..
 def _current_facts(turn: LeanSceneTurnInputV1) -> tuple[AdultContextFactV1, ...]:
     facts: list[AdultContextFactV1] = []
     selected_state = {
-        key: value
-        for key, value in turn.current_state.items()
-        if key in _STORY_STATE_FACT_KEYS
+        key: value for key, value in turn.current_state.items() if key in _STORY_STATE_FACT_KEYS
     }
     facts.extend(
         _facts_for_record(
@@ -479,6 +468,9 @@ def _facts_for_record(
     *,
     default_visibility: str = "adult_role_private",
 ) -> tuple[AdultContextFactV1, ...]:
+    genesis_projections = value.get("genesis_record_projections")
+    if genesis_projections is not None:
+        return _genesis_projection_facts(namespace, record_id, genesis_projections)
     subject_id, visibility = _fact_scope(
         namespace,
         record_id,
@@ -517,6 +509,75 @@ def _facts_for_record(
                 subject_id=nested_subject,
                 authoritative_fact=fragment,
                 visibility=nested_visibility,
+            )
+        )
+    return tuple(output)
+
+
+def _genesis_projection_facts(
+    namespace: str,
+    record_id: str,
+    values: Any,
+) -> tuple[AdultContextFactV1, ...]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        raise ContractValidationError("adult Genesis projections changed shape")
+    output: list[AdultContextFactV1] = []
+    for index, projection in enumerate(values):
+        if not isinstance(projection, Mapping):
+            raise ContractValidationError("adult Genesis projection is not an object")
+        record = projection.get("record")
+        if not isinstance(record, Mapping):
+            raise ContractValidationError("adult Genesis projection omitted its record")
+        source_record_id = record.get("record_id")
+        claim = record.get("claim")
+        if (
+            not isinstance(source_record_id, str)
+            or not source_record_id.strip()
+            or not isinstance(claim, str)
+            or not claim.strip()
+        ):
+            raise ContractValidationError("adult Genesis projection omitted its concise claim")
+        subject_id, visibility = _fact_scope(
+            namespace,
+            record_id,
+            projection,
+            inherited=(_default_subject_id(namespace, record_id), "adult_role_private"),
+        )
+        concise_record = {
+            key: record[key]
+            for key in (
+                "adult_eligibility",
+                "authority",
+                "certainty",
+                "claim",
+                "record_id",
+                "record_type",
+                "truth_status",
+            )
+            if key in record
+        }
+        fragment = canonical_json(concise_record)
+        if len(fragment) > _MAX_FACT_CHARS:
+            raise ContractValidationError("adult Genesis claim exceeds its bounded fact input")
+        evidence_sha256 = domain_sha256(
+            "cera.pi_scene.adult_context_fact.v1",
+            {
+                "namespace": namespace,
+                "record_id": record_id,
+                "projection_index": index,
+                "source_record_id": source_record_id,
+                "source_content_sha256": projection.get("source_content_sha256"),
+                "fragment": fragment,
+                "subject_id": subject_id,
+                "visibility": visibility,
+            },
+        )
+        output.append(
+            AdultContextFactV1(
+                evidence_ref=f"evidence:adult_context:{evidence_sha256[:40]}",
+                subject_id=subject_id,
+                authoritative_fact=fragment,
+                visibility=visibility,
             )
         )
     return tuple(output)
@@ -606,8 +667,8 @@ def _fact_scope(
         raise ContractValidationError("adult context visibility is not text")
     if owner is not None and not isinstance(owner, str):
         raise ContractValidationError("adult context knowledge owner is invalid")
-    if raw_visibility == "public":
-        if owner is not None:
+    if raw_visibility in _PUBLIC_VISIBILITIES:
+        if raw_visibility == "public" and owner is not None:
             raise ContractValidationError("public adult context unexpectedly names an owner")
         visibility = "public"
     elif raw_visibility in _PRIVATE_VISIBILITIES:
@@ -634,24 +695,87 @@ def _default_subject_id(namespace: str, record_id: str) -> str:
 def _assert_no_protected_prose_leak(
     protected_records: Sequence[Mapping[str, Any]],
     *,
+    safe_records: Sequence[Mapping[str, Any]],
     safe_projection: str,
     facts: tuple[AdultContextFactV1, ...],
     boundaries: tuple[str, ...],
 ) -> None:
     safe_values = (
+        canonical_json(safe_records),
         safe_projection,
         *(value.authoritative_fact for value in facts),
         *boundaries,
     )
     for value in protected_records:
         receipt = value.get("receipt")
-        exact_prose = (
-            receipt.get("exact_accepted_prose") if isinstance(receipt, Mapping) else None
-        )
+        exact_prose = receipt.get("exact_accepted_prose") if isinstance(receipt, Mapping) else None
         if not isinstance(exact_prose, str) or not exact_prose.strip():
             raise StateConflictError("protected adult record omitted exact prose")
         if any(exact_prose in safe_value for safe_value in safe_values):
             raise StateConflictError("exact adult prose escaped into ordinary-safe context")
+
+
+def _bounded_safe_projection(
+    *,
+    turn: LeanSceneTurnInputV1,
+    route_state: AdultRouteStateSnapshotV1,
+    safe_records: Sequence[Mapping[str, Any]],
+) -> str:
+    projected_records = tuple(_safe_record_projection(value) for value in safe_records)
+    droppable = [
+        index
+        for index, value in enumerate(projected_records)
+        if value.get("recording_status") == "complete"
+    ]
+    dropped: set[int] = set()
+    while True:
+        retained = tuple(
+            value for index, value in enumerate(projected_records) if index not in dropped
+        )
+        projection = canonical_json(
+            {
+                "schema_version": "cera.pi_scene.adult_safe_projection.v1",
+                "world_id": turn.world_id,
+                "branch_id": turn.branch_id,
+                "scene_id": turn.scene_id,
+                "accepted_head_sha256": route_state.accepted_head_sha256,
+                "current_state": turn.current_state,
+                "accepted_records": retained,
+                "omitted_older_completed_records": len(dropped),
+            }
+        )
+        if len(projection) <= _MAX_SAFE_PROJECTION_CHARS:
+            return projection
+        if not droppable:
+            raise ContractValidationError("adult safe projection exceeds its bounded input")
+        dropped.add(droppable.pop(0))
+
+
+def _safe_record_projection(value: Mapping[str, Any]) -> dict[str, Any]:
+    receipt = value.get("receipt")
+    if not isinstance(receipt, Mapping):
+        raise ContractValidationError("adult safe continuity record lacks its receipt")
+    route = receipt.get("route")
+    accepted_turn_id = receipt.get("accepted_turn_id")
+    if route not in {"ordinary", "adult"} or not isinstance(accepted_turn_id, str):
+        raise ContractValidationError("adult safe continuity receipt changed shape")
+    output: dict[str, Any] = {
+        "route": route,
+        "accepted_turn_id": accepted_turn_id,
+        "source_receipt_sha256": canonical_sha256(receipt),
+        "recording_status": value.get("recording_status"),
+    }
+    for key in ("ordinary_record", "adult_projection", "provisional_canon"):
+        if key in value:
+            output[key] = value[key]
+    accepted_receipt_sha256 = value.get("accepted_receipt_sha256")
+    if accepted_receipt_sha256 is not None:
+        if not isinstance(accepted_receipt_sha256, str) or not re.fullmatch(
+            r"[a-f0-9]{64}", accepted_receipt_sha256
+        ):
+            raise ContractValidationError("adult safe continuity receipt hash is invalid")
+        output["accepted_receipt_sha256"] = accepted_receipt_sha256
+    return output
 
 
 def _is_stable_identity(value: str) -> bool:
