@@ -3205,36 +3205,36 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(
             [value.novelty_id for value in stress],
             [
-                "stress:bb_be_deep_sea_false_evacuation",
-                "stress:bb_be_glassworks_forged_contract",
-                "stress:bb_be_cable_car_synthetic_ted",
-                "stress:bb_be_seed_vault_false_donation",
-                "stress:bb_be_sluice_synthetic_approval",
-                "stress:bb_be_adult_conservatory_score",
-                "stress:bb_be_adult_spa_biofeedback_ring",
-                "stress:bb_be_adult_lighthouse_false_itinerary",
-                "stress:bb_be_adult_workshop_hydraulic_pause",
-                "stress:bb_be_adult_studio_false_release",
-                "stress:bb_be_film_set_synthetic_voice",
-                "stress:bb_be_bakery_forged_inspector",
-                "stress:bb_be_polar_false_weather_service",
-                "stress:bb_be_beach_trip_glass_float_addition",
-                "stress:bb_be_genealogy_false_identity_family",
-                "stress:bb_be_adult_masquerade_music_cues",
-                "stress:bb_be_adult_loft_biometric_couch",
-                "stress:bb_be_adult_ballet_archival_replay",
-                "stress:bb_be_adult_camp_propane_pause",
-                "stress:bb_be_adult_hotel_false_monitoring_waiver",
-                "stress:bb_st_floating_library_oracle",
-                "stress:bb_st_ice_sail_synthetic_ted",
-                "stress:bb_st_beach_sandcastle_addition",
-                "stress:bb_st_adult_board_game_prophecy",
-                "stress:bb_st_adult_painting_lights",
-                "stress:bb_st_adult_tram_brake_alarm",
-                "stress:bb_st_false_sakura_orbital_identity",
-                "stress:bb_st_false_hana_mia_archive",
-                "stress:bb_st_adult_theater_audience_pressure",
-                "stress:bb_st_adult_greenhouse_gas_alarm",
+                "stress:bc_be_mountain_false_beacon",
+                "stress:bc_be_theater_forged_rigging_plan",
+                "stress:bc_be_archaeology_synthetic_ted",
+                "stress:bc_be_wildlife_false_transfer",
+                "stress:bc_be_hydroponic_synthetic_approval",
+                "stress:bc_be_adult_jazz_rehearsal_chart",
+                "stress:bc_be_adult_bathhouse_sensor_bracelet",
+                "stress:bc_be_adult_forest_cabin_false_schedule",
+                "stress:bc_be_adult_pottery_electrical_pause",
+                "stress:bc_be_adult_loft_false_recording_release",
+                "stress:bc_be_radio_telescope_synthetic_voice",
+                "stress:bc_be_ceramics_forged_inspector",
+                "stress:bc_be_river_false_navigation_service",
+                "stress:bc_be_beach_trip_kite_addition",
+                "stress:bc_be_museum_false_identity_family",
+                "stress:bc_be_adult_cosplay_lighting_cues",
+                "stress:bc_be_adult_observatory_pressure_mat",
+                "stress:bc_be_adult_cinema_archival_replay",
+                "stress:bc_be_adult_boathouse_fuel_pause",
+                "stress:bc_be_adult_smart_home_false_waiver",
+                "stress:bc_st_clocktower_oracle",
+                "stress:bc_st_aerial_kite_synthetic_ted",
+                "stress:bc_st_beach_shell_mural_addition",
+                "stress:bc_st_adult_cooking_rulebook",
+                "stress:bc_st_adult_garden_lanterns",
+                "stress:bc_st_adult_funicular_brake_alarm",
+                "stress:bc_st_false_sakura_fantasy_identity",
+                "stress:bc_st_false_hana_mia_school_pageant",
+                "stress:bc_st_adult_livestream_audience_pressure",
+                "stress:bc_st_adult_sauna_carbon_alarm",
             ],
         )
         self.assertEqual(
@@ -3467,7 +3467,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertTrue(all("do not invent ted's dialogue" in value for value in ordinary_sources))
         self.assertTrue(
             all(
-                "thoughts, feelings, memories, or private state" in value
+                "thoughts, feelings, memories, motives, or private state" in value
                 for value in ordinary_sources
             )
         )
@@ -3553,11 +3553,11 @@ class FullModelQualificationTests(unittest.TestCase):
         metadata = qualification_fixture_manifest_metadata(stress)
         self.assertEqual(
             metadata["novelty_set_sha256"],
-            "bd40b7b30fa2240c39696c389526764eb7ced802b922a36aecb99283531908fb",
+            "4e1719372327a5d9bea7a96c2cbb0be0f9c6728956c4bd9983c343df1f0e4947",
         )
         self.assertEqual(
             bytes_sha256(FIXTURES.read_bytes()),
-            "876bfc72fe6a894d10c7f1c2b4139bf55eaa4bc4218eed36b505711117aaf132",
+            "1b9e72e4e2ed1567211ded57bfde15516135af825fb42ea00e74984faf4c01b9",
         )
         self.assertEqual(
             metadata["fixture_baseline"]["path"],
