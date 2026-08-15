@@ -209,6 +209,8 @@ class BranchRetrievalService:
     def get_turn_context(
         self,
         character_ids: Sequence[str] = (),
+        *,
+        authorized_default_character_ids: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """Return current scene custody and complete dossiers in one default call."""
 
@@ -220,10 +222,16 @@ class BranchRetrievalService:
             )
             requested = tuple(dict.fromkeys(character_ids))
             if not requested:
+                authorized_default = (
+                    None
+                    if authorized_default_character_ids is None
+                    else frozenset(authorized_default_character_ids)
+                )
                 requested = tuple(
                     value
                     for value in self._accepted_present_character_ids()
                     if value in index["characters"]
+                    and (authorized_default is None or value in authorized_default)
                 )
             if len(requested) > MAX_TURN_CHARACTERS:
                 raise ContractValidationError("turn context character budget exceeded")

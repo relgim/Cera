@@ -615,6 +615,37 @@ class NamedRetrievalToolTests(unittest.TestCase):
                 self.assertFalse(dispatcher.calls[-1].provider_request_failure)
                 self.assertEqual(handler.service.call_count, 1)
 
+    def test_cognition_default_excludes_present_protected_user(self) -> None:
+        dispatcher = self._dispatcher(
+            "request:cognition-authorized-present-default",
+            SAKURA,
+            role=RetrievalProviderRole.COGNITION_PLANNER,
+        )
+        handler = dispatcher.additional_tool_handler
+        self.assertIsInstance(handler, BoundNamedRetrievalTools)
+        assert isinstance(handler, BoundNamedRetrievalTools)
+
+        with patch.object(
+            handler.service,
+            "_accepted_present_character_ids",
+            return_value=(PROTECTED_USER_ID, SAKURA),
+        ):
+            result = dispatcher.invoke(
+                "get_turn_context",
+                {"character_ids": None},
+            )
+
+        self.assertEqual(
+            [value["character_id"] for value in result["data"]["character_dossiers"]],
+            [SAKURA],
+        )
+        self.assertIn(
+            PROTECTED_USER_ID,
+            result["data"]["omitted_character_ids"],
+        )
+        self.assertTrue(dispatcher.calls[-1].success)
+        self.assertFalse(dispatcher.calls[-1].provider_request_failure)
+
     @unittest.skipUnless(importlib.util.find_spec("mcp"), "optional MCP SDK not installed")
     def test_loopback_classifies_fastmcp_named_argument_rejection(self) -> None:
         async def exercise() -> None:

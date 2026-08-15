@@ -607,6 +607,11 @@ class BoundNamedRetrievalTools:
                 raise ProviderToolRequestError(
                     "turn-context explicit selection exceeds one distinct character"
                 )
+            if self.cognition_mode and not selected:
+                return self.service.get_turn_context(
+                    selected,
+                    authorized_default_character_ids=(self.binding.private_character_ids),
+                )
             return self.service.get_turn_context(selected)
         if tool_name == "get_character_context":
             return self.service.get_character_context(_character_argument(arguments))
