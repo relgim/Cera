@@ -27,7 +27,9 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_ACTION_BUDGETS,
     QUALIFICATION_COMPLETE_GENERATION_CEILINGS,
     QUALIFICATION_EXECUTION_POLICY,
+    QUALIFICATION_EXECUTION_POLICY_V22,
     QUALIFICATION_EXECUTION_POLICY_V31,
+    QUALIFICATION_EXECUTION_POLICY_V42,
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_MANIFEST_SCHEMA_V5,
@@ -67,6 +69,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V39,
     QUALIFICATION_MANIFEST_SCHEMA_V40,
     QUALIFICATION_MANIFEST_SCHEMA_V41,
+    QUALIFICATION_MANIFEST_SCHEMA_V42,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
@@ -116,6 +119,7 @@ from cera.pi_scene.qualification import (
     QualificationFixtureV36,
     QualificationFixtureV37,
     QualificationFixtureV38,
+    QualificationFixtureV39,
     QualificationManualActionAuthorizationV1,
     QualificationManualActionRequestV1,
     QualificationPhase,
@@ -250,7 +254,10 @@ HISTORICAL_FIXTURES_V36 = (
 HISTORICAL_FIXTURES_V37 = (
     ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v37.json"
 )
-FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v38.json"
+HISTORICAL_FIXTURES_V38 = (
+    ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v38.json"
+)
+FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v39.json"
 _ORIGINAL_PROVIDER_DISPATCH_DISABLED = os.environ.get("CERA_PROVIDER_DISPATCH_DISABLED")
 
 
@@ -2368,7 +2375,8 @@ class FullModelQualificationTests(unittest.TestCase):
             _provider_operation_records(delta(owner="reader", model="gpt-5.6-luna"))
 
     def test_outer_http_timeout_exceeds_every_bounded_provider_stage(self) -> None:
-        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 6_000)
+        self.assertEqual(QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS, 180)
+        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 1_800)
         self.assertGreater(
             QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
             QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES
@@ -2516,7 +2524,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v42_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v43_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -2526,6 +2534,8 @@ class FullModelQualificationTests(unittest.TestCase):
             "exact_adult_prose_in_qualification_evidence": True,
             "phase_order": ["sillytavern", "backend"],
             "planner_reasoning_effort": "xhigh",
+            "provider_stage_attempt_timeout_seconds": 181,
+            "provider_stage_retry_timeout_accounting": "combined_with_original",
         }
         for key, changed in mutations.items():
             with self.subTest(key=key):
@@ -2673,7 +2683,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V28.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V32
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2685,7 +2695,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V29.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V33
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2697,7 +2707,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V30.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V34
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2709,7 +2719,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V31.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V35
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2721,7 +2731,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V32.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V36
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2733,7 +2743,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V33.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V37
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2745,7 +2755,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V34.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V38
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2757,7 +2767,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V35.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V39
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2769,7 +2779,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V36.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V40
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
@@ -2781,12 +2791,24 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V37.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V41
-        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
 
-    def test_v38_practical_fixtures_are_cumulatively_novel_and_history_remains_readable(
+        manifest.update(
+            qualification_fixture_manifest_metadata(
+                load_qualification_fixtures(HISTORICAL_FIXTURES_V38)
+            )
+        )
+        manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V38.read_bytes())
+        manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V42
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
+        unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
+        manifest["manifest_sha256"] = canonical_sha256(unsigned)
+        validate_qualification_manifest(manifest)
+
+    def test_v39_story_capability_fixtures_are_cumulatively_novel_and_history_remains_readable(
         self,
     ) -> None:
         legacy = load_qualification_fixtures(LEGACY_FIXTURES)
@@ -2826,6 +2848,7 @@ class FullModelQualificationTests(unittest.TestCase):
         historical_v35 = load_qualification_fixtures(HISTORICAL_FIXTURES_V35)
         historical_v36 = load_qualification_fixtures(HISTORICAL_FIXTURES_V36)
         historical_v37 = load_qualification_fixtures(HISTORICAL_FIXTURES_V37)
+        historical_v38 = load_qualification_fixtures(HISTORICAL_FIXTURES_V38)
         stress = load_qualification_fixtures(FIXTURES)
         self.assertEqual(len(legacy), 30)
         self.assertEqual(len(historical_v2), 30)
@@ -2864,6 +2887,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(len(historical_v35), 30)
         self.assertEqual(len(historical_v36), 30)
         self.assertEqual(len(historical_v37), 30)
+        self.assertEqual(len(historical_v38), 30)
         self.assertEqual(len(stress), 30)
         self.assertTrue(all(type(value) is QualificationFixtureV1 for value in legacy))
         self.assertTrue(all(type(value) is QualificationFixtureV2 for value in historical_v2))
@@ -2902,7 +2926,8 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertTrue(all(type(value) is QualificationFixtureV35 for value in historical_v35))
         self.assertTrue(all(type(value) is QualificationFixtureV36 for value in historical_v36))
         self.assertTrue(all(type(value) is QualificationFixtureV37 for value in historical_v37))
-        self.assertTrue(all(type(value) is QualificationFixtureV38 for value in stress))
+        self.assertTrue(all(type(value) is QualificationFixtureV38 for value in historical_v38))
+        self.assertTrue(all(type(value) is QualificationFixtureV39 for value in stress))
         self.assertEqual(
             [value.fixture_id for value in stress],
             [
@@ -2919,41 +2944,41 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(
             [value.novelty_id for value in stress],
             [
-                "stress:v38_be_radio_observatory_false_distress",
-                "stress:v38_be_culinary_contest_anonymous_score",
-                "stress:v38_be_night_train_misdirected_luggage",
-                "stress:v38_be_desert_dig_forged_excavation_note",
-                "stress:v38_be_orbital_greenhouse_false_prediction",
-                "stress:v38_be_adult_dance_rehearsal_added_cue",
-                "stress:v38_be_adult_sauna_light_sequence",
-                "stress:v38_be_adult_private_theater_script_change",
-                "stress:v38_be_adult_resort_blackout_withdrawal",
-                "stress:v38_be_adult_masquerade_room_recording",
-                "stress:v38_be_live_radio_drama_false_script",
-                "stress:v38_be_snow_clinic_inventory_mismatch",
-                "stress:v38_be_projection_festival_future_endorsement",
-                "stress:v38_be_forest_archive_false_map_ownership",
-                "stress:v38_be_tidal_rescue_shared_beach_memory",
-                "stress:v38_be_adult_zero_gravity_training_prompt",
-                "stress:v38_be_adult_private_yacht_weather_shift",
-                "stress:v38_be_adult_fantasy_healer_new_ritual",
-                "stress:v38_be_adult_rain_cabin_stop_signal",
-                "stress:v38_be_adult_music_studio_live_feed",
-                "stress:v38_st_sky_archive_false_oracle",
-                "stress:v38_st_miniature_city_false_decree",
-                "stress:v38_st_lantern_festival_prior_event",
-                "stress:v38_st_adult_clockwork_ball_new_step",
-                "stress:v38_st_adult_crystal_cavern_resonance",
-                "stress:v38_st_adult_desert_palace_withdrawal",
-                "stress:v38_st_extreme_sakura_identity_rewrite",
-                "stress:v38_st_extreme_hanezawa_family_rewrite",
-                "stress:v38_st_adult_time_ship_privacy_alarm",
-                "stress:v38_st_adult_ice_palace_safety_shift",
+                "stress:v39_be_harbor_lighthouse_false_sos",
+                "stress:v39_be_antique_clock_false_bid",
+                "stress:v39_be_cable_car_false_authorization",
+                "stress:v39_be_aquarium_future_pledge",
+                "stress:v39_be_film_set_false_relationship",
+                "stress:v39_be_adult_rooftop_dance_signal",
+                "stress:v39_be_adult_enchanted_spa_temperature",
+                "stress:v39_be_adult_space_lounge_gravity_shift",
+                "stress:v39_be_adult_masquerade_cipher_dance",
+                "stress:v39_be_adult_beach_cabana_storm",
+                "stress:v39_be_bakery_festival_missing_recipe",
+                "stress:v39_be_museum_false_family_audio",
+                "stress:v39_be_rooftop_garden_false_cancellation",
+                "stress:v39_be_regatta_beach_continuity",
+                "stress:v39_be_snow_hotel_false_guestbook",
+                "stress:v39_be_adult_recording_studio_performance",
+                "stress:v39_be_adult_bathhouse_magical_vow",
+                "stress:v39_be_adult_night_train_signal",
+                "stress:v39_be_adult_yacht_stargazing_privacy",
+                "stress:v39_be_adult_time_loop_ballroom",
+                "stress:v39_st_floating_library_false_prophecy",
+                "stress:v39_st_toy_museum_false_plaque",
+                "stress:v39_st_fireworks_prior_event",
+                "stress:v39_st_adult_moonlit_hot_spring",
+                "stress:v39_st_adult_clock_tower_dance",
+                "stress:v39_st_adult_ocean_planet_dive",
+                "stress:v39_st_extreme_sakura_identity_rewrite",
+                "stress:v39_st_extreme_hana_mia_family_rewrite",
+                "stress:v39_st_adult_private_theater_improv",
+                "stress:v39_st_adult_ice_cave_shelter",
             ],
         )
         self.assertEqual(
             [value.stress_tags for value in stress],
-            [value.stress_tags for value in historical_v37],
+            [value.stress_tags for value in historical_v38],
         )
         self.assertEqual(
             [
@@ -3024,6 +3049,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse({value.user_source for value in historical_v35} & current_sources)
         self.assertFalse({value.user_source for value in historical_v36} & current_sources)
         self.assertFalse({value.user_source for value in historical_v37} & current_sources)
+        self.assertFalse({value.user_source for value in historical_v38} & current_sources)
         self.assertFalse(
             {value.novelty_id for value in historical_v2} & {value.novelty_id for value in stress}
         )
@@ -3132,6 +3158,9 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse(
             {value.novelty_id for value in historical_v37} & {value.novelty_id for value in stress}
         )
+        self.assertFalse(
+            {value.novelty_id for value in historical_v38} & {value.novelty_id for value in stress}
+        )
         self.assertEqual(
             DEFAULT_INITIAL_PRESENT_CHARACTER_IDS,
             ("character:sakura_hanezawa",),
@@ -3220,27 +3249,28 @@ class FullModelQualificationTests(unittest.TestCase):
                 historical_v35,
                 historical_v36,
                 historical_v37,
+                historical_v38,
             )
             for value in generation
         ]
         ancestral_source_hashes = {text_sha256(value) for value in ancestral_sources}
         current_source_hashes = {text_sha256(value.user_source) for value in stress}
-        self.assertEqual(len(ancestral_source_hashes), 1110)
+        self.assertEqual(len(ancestral_source_hashes), 1140)
         self.assertEqual(len(current_source_hashes), 30)
         self.assertFalse(ancestral_source_hashes & current_source_hashes)
 
         metadata = qualification_fixture_manifest_metadata(stress)
         self.assertEqual(
             metadata["novelty_set_sha256"],
-            "1e6a64336c533f2d629146f9ec4bd38219d1fe17821039cc81af34a49ffd7f6f",
+            "7d5df2ed04e9f26046a04e8f6bbd432d7e244360ba95f9f89cea88bdea66fe5f",
         )
         self.assertEqual(
             bytes_sha256(FIXTURES.read_bytes()),
-            "f062d5e31fac073f09325848b5345761be449381fb5fd5f44c86947ad354b4b4",
+            "d11e464c3de6e3027cd21218f93d5b113527943f948c3e455613aaed69a3bb29",
         )
         self.assertEqual(
             metadata["fixture_baseline"]["path"],
-            HISTORICAL_FIXTURES_V37.name,
+            HISTORICAL_FIXTURES_V38.name,
         )
         self.assertEqual(
             metadata["stress_coverage"],
@@ -3306,6 +3336,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 HISTORICAL_FIXTURES_V35.name,
                 HISTORICAL_FIXTURES_V36.name,
                 HISTORICAL_FIXTURES_V37.name,
+                HISTORICAL_FIXTURES_V38.name,
             ],
         )
         self.assertEqual(entrypoint.DEFAULT_FIXTURES, FIXTURES)
@@ -3550,12 +3581,14 @@ class FullModelQualificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
                 load_qualification_fixtures(current_path)
 
-    def test_v38_practical_fixture_contract_and_cumulative_ancestry_fail_closed(self) -> None:
+    def test_v39_story_capability_fixture_contract_and_cumulative_ancestry_fail_closed(
+        self,
+    ) -> None:
         source = json.loads(FIXTURES.read_text(encoding="utf-8"))
-        historical_v37 = json.loads(HISTORICAL_FIXTURES_V37.read_text(encoding="utf-8"))
+        historical_v38 = json.loads(HISTORICAL_FIXTURES_V38.read_text(encoding="utf-8"))
         cases: dict[str, Callable[[dict[str, Any]], None]] = {
             "baseline hash": lambda value: value.__setitem__("baseline_fixture_sha256", "0" * 64),
-            "ancestry hash": lambda value: value["baseline_ancestry"][36].__setitem__(
+            "ancestry hash": lambda value: value["baseline_ancestry"][37].__setitem__(
                 "sha256", "0" * 64
             ),
             "ancestry order": lambda value: value.__setitem__(
@@ -3570,11 +3603,11 @@ class FullModelQualificationTests(unittest.TestCase):
             "unsupported cast": lambda value: value["fixtures"][0].__setitem__(
                 "user_source", value["fixtures"][0]["user_source"].replace("Sakura", "Enne")
             ),
-            "v37 source reuse": lambda value: value["fixtures"][0].__setitem__(
-                "user_source", historical_v37["fixtures"][0]["user_source"]
+            "v38 source reuse": lambda value: value["fixtures"][0].__setitem__(
+                "user_source", historical_v38["fixtures"][0]["user_source"]
             ),
-            "v37 novelty reuse": lambda value: value["fixtures"][0].__setitem__(
-                "novelty_id", historical_v37["fixtures"][0]["novelty_id"]
+            "v38 novelty reuse": lambda value: value["fixtures"][0].__setitem__(
+                "novelty_id", historical_v38["fixtures"][0]["novelty_id"]
             ),
         }
         for label, mutate in cases.items():
@@ -3618,6 +3651,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     HISTORICAL_FIXTURES_V35,
                     HISTORICAL_FIXTURES_V36,
                     HISTORICAL_FIXTURES_V37,
+                    HISTORICAL_FIXTURES_V38,
                 ):
                     shutil.copy2(ancestor, root / ancestor.name)
                 changed = deepcopy(source)
@@ -3627,7 +3661,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 with self.assertRaises((ContractValidationError, StateConflictError)):
                     load_qualification_fixtures(candidate)
 
-    def test_v38_rejects_a_self_consistent_noncanonical_v37_baseline(self) -> None:
+    def test_v39_rejects_a_self_consistent_noncanonical_v38_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for ancestor in (
@@ -3667,22 +3701,23 @@ class FullModelQualificationTests(unittest.TestCase):
                 HISTORICAL_FIXTURES_V34,
                 HISTORICAL_FIXTURES_V35,
                 HISTORICAL_FIXTURES_V36,
+                HISTORICAL_FIXTURES_V37,
             ):
                 shutil.copy2(ancestor, root / ancestor.name)
-            historical = json.loads(HISTORICAL_FIXTURES_V37.read_text(encoding="utf-8"))
-            historical["fixtures"][0]["user_source"] += " Altered V37 marker."
-            historical_path = root / HISTORICAL_FIXTURES_V37.name
+            historical = json.loads(HISTORICAL_FIXTURES_V38.read_text(encoding="utf-8"))
+            historical["fixtures"][0]["user_source"] += " Altered V38 marker."
+            historical_path = root / HISTORICAL_FIXTURES_V38.name
             historical_path.write_text(json.dumps(historical), encoding="utf-8")
             changed_hash = bytes_sha256(historical_path.read_bytes())
             current = json.loads(FIXTURES.read_text(encoding="utf-8"))
             current["baseline_fixture_sha256"] = changed_hash
-            current["baseline_ancestry"][36]["sha256"] = changed_hash
+            current["baseline_ancestry"][37]["sha256"] = changed_hash
             current_path = root / FIXTURES.name
             current_path.write_text(json.dumps(current), encoding="utf-8")
             with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
                 load_qualification_fixtures(current_path)
 
-    def test_spent_v38_fixture_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
+    def test_spent_v39_fixture_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-stress-20260811",
@@ -3723,7 +3758,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 spent_manifests=(prior_with_different_set,),
             )
 
-    def test_spent_v38_fixture_manifest_rejects_renamed_sources_and_preserves_closure(self) -> None:
+    def test_spent_v39_fixture_manifest_rejects_renamed_sources_and_preserves_closure(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-source-20260811",
@@ -3772,6 +3807,7 @@ class FullModelQualificationTests(unittest.TestCase):
             shutil.copy2(HISTORICAL_FIXTURES_V35, root / HISTORICAL_FIXTURES_V35.name)
             shutil.copy2(HISTORICAL_FIXTURES_V36, root / HISTORICAL_FIXTURES_V36.name)
             shutil.copy2(HISTORICAL_FIXTURES_V37, root / HISTORICAL_FIXTURES_V37.name)
+            shutil.copy2(HISTORICAL_FIXTURES_V38, root / HISTORICAL_FIXTURES_V38.name)
             raw = json.loads(FIXTURES.read_text(encoding="utf-8"))
             renamed = deepcopy(raw)
             for index, row in enumerate(renamed["fixtures"], start=1):
@@ -3824,7 +3860,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     spent_manifests=(prior_second,),
                 )
 
-    def test_v42_closure_ingests_root_g_v5_through_aq_v41(self) -> None:
+    def test_v43_closure_ingests_root_g_v5_through_ar_v42(self) -> None:
         manifest_v5 = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-historical-source-20260811",
@@ -3835,7 +3871,7 @@ class FullModelQualificationTests(unittest.TestCase):
             external_artifacts={"external_fixture": (HISTORICAL_FIXTURES_V2,)},
         )
         manifest_v5["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V5
-        manifest_v5["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v5["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         del manifest_v5["fixture_ancestry"]
         unsigned_v5 = {key: value for key, value in manifest_v5.items() if key != "manifest_sha256"}
         manifest_v5["manifest_sha256"] = canonical_sha256(unsigned_v5)
@@ -3858,7 +3894,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v5,),
         )
         manifest_v6["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V6
-        manifest_v6["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v6["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v6["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v6.items() if key != "manifest_sha256"}
         )
@@ -3875,7 +3911,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v5, manifest_v6),
         )
         manifest_v7["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V7
-        manifest_v7["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v7["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v7["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v7.items() if key != "manifest_sha256"}
         )
@@ -3891,7 +3927,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v7,),
         )
         manifest_v8["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V8
-        manifest_v8["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v8["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v8["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v8.items() if key != "manifest_sha256"}
         )
@@ -3907,7 +3943,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v8,),
         )
         manifest_v9["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V9
-        manifest_v9["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v9["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v9["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v9.items() if key != "manifest_sha256"}
         )
@@ -3923,7 +3959,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v9,),
         )
         manifest_v10["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V10
-        manifest_v10["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v10["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v10["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v10.items() if key != "manifest_sha256"}
         )
@@ -3939,7 +3975,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v10,),
         )
         manifest_v11["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V11
-        manifest_v11["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v11["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v11["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v11.items() if key != "manifest_sha256"}
         )
@@ -3955,7 +3991,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v11,),
         )
         manifest_v12["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V12
-        manifest_v12["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v12["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v12["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v12.items() if key != "manifest_sha256"}
         )
@@ -3971,7 +4007,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v12,),
         )
         manifest_v13["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V13
-        manifest_v13["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v13["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v13["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v13.items() if key != "manifest_sha256"}
         )
@@ -3987,7 +4023,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v13,),
         )
         manifest_v14["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V14
-        manifest_v14["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v14["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v14["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v14.items() if key != "manifest_sha256"}
         )
@@ -4003,7 +4039,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v14,),
         )
         manifest_v15["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V15
-        manifest_v15["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v15["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v15["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v15.items() if key != "manifest_sha256"}
         )
@@ -4019,7 +4055,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v15,),
         )
         manifest_v16["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V16
-        manifest_v16["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v16["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v16["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v16.items() if key != "manifest_sha256"}
         )
@@ -4035,7 +4071,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v16,),
         )
         manifest_v17["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V17
-        manifest_v17["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v17["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v17["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v17.items() if key != "manifest_sha256"}
         )
@@ -4051,7 +4087,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v17,),
         )
         manifest_v18["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V18
-        manifest_v18["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v18["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v18["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v18.items() if key != "manifest_sha256"}
         )
@@ -4067,7 +4103,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v18,),
         )
         manifest_v19["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V19
-        manifest_v19["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v19["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v19["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v19.items() if key != "manifest_sha256"}
         )
@@ -4083,7 +4119,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v19,),
         )
         manifest_v20["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V20
-        manifest_v20["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v20["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v20["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v20.items() if key != "manifest_sha256"}
         )
@@ -4099,7 +4135,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v20,),
         )
         manifest_v21["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V21
-        manifest_v21["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v21["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v21["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v21.items() if key != "manifest_sha256"}
         )
@@ -4115,7 +4151,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v21,),
         )
         manifest_v22["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V22
-        manifest_v22["execution_policy"].pop("ordinary_standing_creator_policy")
+        manifest_v22["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         manifest_v22["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v22.items() if key != "manifest_sha256"}
         )
@@ -4259,7 +4295,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v31,),
         )
         manifest_v32["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V32
-        manifest_v32["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v32["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v32["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v32.items() if key != "manifest_sha256"}
         )
@@ -4275,7 +4311,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v32,),
         )
         manifest_v33["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V33
-        manifest_v33["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v33["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v33["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v33.items() if key != "manifest_sha256"}
         )
@@ -4291,7 +4327,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v33,),
         )
         manifest_v34["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V34
-        manifest_v34["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v34["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v34["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v34.items() if key != "manifest_sha256"}
         )
@@ -4307,7 +4343,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v34,),
         )
         manifest_v35["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V35
-        manifest_v35["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v35["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v35["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v35.items() if key != "manifest_sha256"}
         )
@@ -4323,7 +4359,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v35,),
         )
         manifest_v36["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V36
-        manifest_v36["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v36["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v36["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v36.items() if key != "manifest_sha256"}
         )
@@ -4339,7 +4375,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v36,),
         )
         manifest_v37["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V37
-        manifest_v37["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v37["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v37["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v37.items() if key != "manifest_sha256"}
         )
@@ -4355,7 +4391,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v37,),
         )
         manifest_v38["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V38
-        manifest_v38["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v38["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v38["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v38.items() if key != "manifest_sha256"}
         )
@@ -4371,7 +4407,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v38,),
         )
         manifest_v39["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V39
-        manifest_v39["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v39["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v39["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v39.items() if key != "manifest_sha256"}
         )
@@ -4387,7 +4423,7 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v39,),
         )
         manifest_v40["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V40
-        manifest_v40["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v40["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v40["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v40.items() if key != "manifest_sha256"}
         )
@@ -4403,12 +4439,28 @@ class FullModelQualificationTests(unittest.TestCase):
             spent_manifests=(manifest_v40,),
         )
         manifest_v41["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V41
-        manifest_v41["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+        manifest_v41["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
         manifest_v41["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in manifest_v41.items() if key != "manifest_sha256"}
         )
         validate_qualification_manifest(manifest_v41)
         manifest_v42 = build_qualification_manifest(
+            repository_root=ROOT,
+            qualification_id="qualification-root-ar-source-20260815",
+            source_commit="a" * 40,
+            source_tree="b" * 40,
+            fixture_path=HISTORICAL_FIXTURES_V38,
+            repository_artifacts={"fixture": (HISTORICAL_FIXTURES_V38,)},
+            external_artifacts={"external_fixture": (HISTORICAL_FIXTURES_V38,)},
+            spent_manifests=(manifest_v41,),
+        )
+        manifest_v42["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V42
+        manifest_v42["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V42)
+        manifest_v42["manifest_sha256"] = canonical_sha256(
+            {key: value for key, value in manifest_v42.items() if key != "manifest_sha256"}
+        )
+        validate_qualification_manifest(manifest_v42)
+        manifest_v43 = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-next-source-20260815",
             source_commit="a" * 40,
@@ -4416,11 +4468,11 @@ class FullModelQualificationTests(unittest.TestCase):
             fixture_path=FIXTURES,
             repository_artifacts={"fixture": (FIXTURES,)},
             external_artifacts={"external_fixture": (FIXTURES,)},
-            spent_manifests=(manifest_v41,),
+            spent_manifests=(manifest_v42,),
         )
-        self.assertEqual(manifest_v42["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
+        self.assertEqual(manifest_v43["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
         self.assertEqual(
-            set(manifest_v42["spent_manifest_sha256s"]),
+            set(manifest_v43["spent_manifest_sha256s"]),
             {
                 manifest_v5["manifest_sha256"],
                 manifest_v6["manifest_sha256"],
@@ -4458,10 +4510,11 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v39["manifest_sha256"],
                 manifest_v40["manifest_sha256"],
                 manifest_v41["manifest_sha256"],
+                manifest_v42["manifest_sha256"],
             },
         )
         self.assertEqual(
-            set(manifest_v42["spent_fixture_set_sha256s"]),
+            set(manifest_v43["spent_fixture_set_sha256s"]),
             {
                 manifest_v5["fixture_set_sha256"],
                 manifest_v6["fixture_set_sha256"],
@@ -4499,10 +4552,11 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v39["fixture_set_sha256"],
                 manifest_v40["fixture_set_sha256"],
                 manifest_v41["fixture_set_sha256"],
+                manifest_v42["fixture_set_sha256"],
             },
         )
-        self.assertEqual(len(manifest_v42["spent_manifest_sha256s"]), 36)
-        self.assertEqual(len(manifest_v42["spent_fixture_set_sha256s"]), 36)
+        self.assertEqual(len(manifest_v43["spent_manifest_sha256s"]), 37)
+        self.assertEqual(len(manifest_v43["spent_fixture_set_sha256s"]), 37)
         expected_novelty = {
             value["novelty_id"]
             for manifest in (
@@ -4542,6 +4596,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v39,
                 manifest_v40,
                 manifest_v41,
+                manifest_v42,
             )
             for value in manifest["fixture_novelty"]
         }
@@ -4584,13 +4639,14 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v39,
                 manifest_v40,
                 manifest_v41,
+                manifest_v42,
             )
             for value in manifest["fixture_novelty"]
         }
-        self.assertEqual(set(manifest_v42["spent_novelty_ids"]), expected_novelty)
-        self.assertEqual(set(manifest_v42["spent_source_sha256s"]), expected_sources)
-        self.assertEqual(len(manifest_v42["spent_novelty_ids"]), 1080)
-        self.assertEqual(len(manifest_v42["spent_source_sha256s"]), 1080)
+        self.assertEqual(set(manifest_v43["spent_novelty_ids"]), expected_novelty)
+        self.assertEqual(set(manifest_v43["spent_source_sha256s"]), expected_sources)
+        self.assertEqual(len(manifest_v43["spent_novelty_ids"]), 1110)
+        self.assertEqual(len(manifest_v43["spent_source_sha256s"]), 1110)
         with tempfile.TemporaryDirectory() as temporary:
             parent = Path(temporary)
             sibling_v5 = parent / "root-g-v5" / "QUALIFICATION_MANIFEST.json"
@@ -4701,6 +4757,9 @@ class FullModelQualificationTests(unittest.TestCase):
             sibling_v41 = parent / "root-zz-aq-v41" / "QUALIFICATION_MANIFEST.json"
             sibling_v41.parent.mkdir()
             sibling_v41.write_bytes(canonical_bytes(manifest_v41) + b"\n")
+            sibling_v42 = parent / "root-zz-ar-v42" / "QUALIFICATION_MANIFEST.json"
+            sibling_v42.parent.mkdir()
+            sibling_v42.write_bytes(canonical_bytes(manifest_v42) + b"\n")
             discovered = entrypoint._load_spent_qualification_manifests(
                 output_root=parent / "next",
                 explicit_paths=(),
@@ -4744,6 +4803,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 manifest_v39,
                 manifest_v40,
                 manifest_v41,
+                manifest_v42,
             ),
         )
         with patch.object(Path, "is_symlink", return_value=True):
@@ -4753,12 +4813,12 @@ class FullModelQualificationTests(unittest.TestCase):
                     explicit_paths=(Path("linked-manifest.json"),),
                 )
 
-    def test_v42_manifest_rejects_v38_schema_or_baseline_tampering(self) -> None:
+    def test_v43_manifest_rejects_v39_schema_or_baseline_tampering(self) -> None:
         manifest = _manifest()
         self.assertEqual(manifest["schema_version"], QUALIFICATION_MANIFEST_SCHEMA)
 
         downgraded = deepcopy(manifest)
-        downgraded["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V41
+        downgraded["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V42
         downgraded["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in downgraded.items() if key != "manifest_sha256"}
         )
@@ -4767,8 +4827,8 @@ class FullModelQualificationTests(unittest.TestCase):
 
         rebound = deepcopy(manifest)
         rebound["fixture_baseline"] = {
-            "path": HISTORICAL_FIXTURES_V36.name,
-            "sha256": bytes_sha256(HISTORICAL_FIXTURES_V36.read_bytes()),
+            "path": HISTORICAL_FIXTURES_V37.name,
+            "sha256": bytes_sha256(HISTORICAL_FIXTURES_V37.read_bytes()),
         }
         rebound["manifest_sha256"] = canonical_sha256(
             {key: value for key, value in rebound.items() if key != "manifest_sha256"}
@@ -4863,7 +4923,7 @@ class FullModelQualificationTests(unittest.TestCase):
             ):
                 self.assertEqual(
                     result["fixture_schema_version"],
-                    "cera.pi_scene.full_model_qualification_fixtures.v38",
+                    "cera.pi_scene.full_model_qualification_fixtures.v39",
                 )
                 self.assertEqual(result["novelty_id"], fixture.novelty_id)
                 self.assertEqual(result["stress_tags"], list(fixture.stress_tags))
@@ -7286,7 +7346,7 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         self.assertEqual(
             result["fixture_schema_version"],
-            "cera.pi_scene.full_model_qualification_fixtures.v38",
+            "cera.pi_scene.full_model_qualification_fixtures.v39",
         )
         self.assertRegex(str(result["novelty_set_sha256"]), r"^[a-f0-9]{64}$")
         self.assertGreater(len(result["stress_coverage"]), 10)

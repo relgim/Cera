@@ -230,7 +230,7 @@ class CognitionProviderContractTests(unittest.TestCase):
 
     def test_live_route_uses_bounded_hard_timeout_without_retry(self) -> None:
         route = cognition_planner_route()
-        self.assertEqual(route.timeout_seconds, 600)
+        self.assertEqual(route.timeout_seconds, 180)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
         self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v10")
@@ -242,7 +242,7 @@ class CognitionProviderContractTests(unittest.TestCase):
             COGNITION_PLANNER_PROMPT,
             "cera.cognition.codex_planner_prompt.v9",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v9")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v10")
         self.assertIn(
             "Call get_turn_context first with character_ids omitted",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,

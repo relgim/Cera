@@ -1639,20 +1639,20 @@ world/evidence cache. They must be reported separately and must not be used to
 classify later retained-thread performance. A backend-process restart that
 resumes the same physical thread remains retained.
 
-A second or later retained Planner operation at or above 180 seconds is a
-latency concern. CERA records the owning stage, retrieval activity, cache/token
-telemetry, and duration for optimization, but does not automatically cancel or
-retry it. The summary records the retained-call sample count, maximum, and
+A provider attempt has a 180-second hard transport boundary. A later explicitly
+authorized retry is a separate attempt with its own 180-second boundary; retry
+time is never added to the failed attempt when enforcing the limit. CERA records
+the owning stage, retrieval activity, cache/token telemetry, and duration for
+optimization. The summary records the retained-call sample count, maximum, and
 average using only `cold_start=false` observations; cold start and cold
 rehydration samples never enter that average, including across a backend
-process restart that retains the same physical thread. The provider hard
-transport-loss boundary is 600 seconds. The outer
-qualification HTTP timeout is 4,200 seconds: six sequential 600-second provider
-stages plus one stage of margin, so the client cannot abandon backend work that
-may still commit. If either explicit Retry POST becomes ambiguous, read-only
-GET reconciliation for that exact identity remains available for 4,215 seconds
-and never repeats the POST. Retry timing uses wall-clock duration for each POST
-even when its response is lost, and for the complete GET reconciliation window
+process restart that retains the same physical thread. The outer qualification
+HTTP timeout is 1,800 seconds: nine sequential 180-second provider occurrences
+plus one occurrence of margin, so the client cannot abandon backend work that
+may still commit. If an explicit Retry POST becomes ambiguous, read-only GET
+reconciliation for that exact identity remains available for 1,815 seconds and
+never repeats the POST. Retry timing uses wall-clock duration for each POST even
+when its response is lost, and for the complete GET reconciliation window
 including poll intervals; it must not report either ambiguous wait as zero.
 
 When a change materially increases latency, record the increase and its owning

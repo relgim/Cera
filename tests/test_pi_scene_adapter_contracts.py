@@ -52,6 +52,14 @@ def _parsed(
 
 
 class PiSceneCompletionContractTests(unittest.TestCase):
+    def test_default_writer_attempt_timeout_is_three_minutes(self) -> None:
+        with TemporaryDirectory() as temporary:
+            adapter, _request, _ledger, _view = _offline_invocation(
+                Path(temporary),
+                "",
+            )
+            self.assertEqual(adapter.timeout_seconds, 180)
+
     def test_exactly_one_successful_context_call_and_stop_passes(self) -> None:
         _validate_pi_completion(_parsed())
 

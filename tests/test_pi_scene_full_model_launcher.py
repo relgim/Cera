@@ -600,19 +600,19 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
             self.assertEqual(len(backends[2].starts), 1)
             self.assertEqual(
                 backends[0].route.route_id,
-                "cera_cognition_planner_sol_medium_v9",
+                "cera_cognition_planner_sol_medium_v10",
             )
             self.assertEqual(
                 (backends[1].route.reasoning_effort, backends[1].route.timeout_seconds),
-                ("xhigh", 600),
+                ("xhigh", 180),
             )
             self.assertEqual(
                 backends[1].route.route_id,
-                "cera_pi_scene_cognition_gpt-5.6-sol_xhigh_v5",
+                "cera_pi_scene_cognition_gpt-5.6-sol_xhigh_v6",
             )
             self.assertEqual(
                 (backends[2].route.reasoning_effort, backends[2].route.route_id),
-                ("high", "cera_pi_scene_cognition_gpt-5.6-sol_high_v5"),
+                ("high", "cera_pi_scene_cognition_gpt-5.6-sol_high_v6"),
             )
             self.assertTrue(
                 all(

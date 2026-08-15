@@ -120,9 +120,10 @@ class SemanticValidationProviderTests(unittest.TestCase):
         )
         self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v5")
         self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v5")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v7")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v8")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
+        self.assertEqual(route.timeout_seconds, 180)
         self.assertEqual(route.maximum_output_tokens, 4_096)
         self.assertIn("verbatim contiguous substring", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
         self.assertIn("never paraphrase", LUNA_VALIDATOR_BASE_INSTRUCTIONS)
@@ -185,7 +186,7 @@ class SemanticValidationProviderTests(unittest.TestCase):
         self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
         self.assertEqual(
             qualification_route.route_id,
-            "cera_full_model_qualification_semantic_validator_luna_xhigh_v5",
+            "cera_full_model_qualification_semantic_validator_luna_xhigh_v6",
         )
         self.assertEqual(
             qualification_route,

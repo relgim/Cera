@@ -74,9 +74,10 @@ class ReaderValidationProviderTests(unittest.TestCase):
         )
         self.assertEqual(SOL_READER_PROMPT, "cera.reader_validation.sol_prompt.v1")
         self.assertEqual(SOL_READER_PROFILE, "cera.reader_validation.sol_medium.v1")
-        self.assertEqual(route.route_id, "cera_reader_validation_sol_medium_v2")
+        self.assertEqual(route.route_id, "cera_reader_validation_sol_medium_v3")
         self.assertEqual(route.adapter_id, SOL_READER_ADAPTER)
         self.assertEqual(route.prompt_version, SOL_READER_PROMPT)
+        self.assertEqual(route.timeout_seconds, 180)
 
     def test_completed_invalid_verdict_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:

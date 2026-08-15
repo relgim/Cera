@@ -124,7 +124,7 @@ class PiSceneAdapter:
         operation_ledger: PiProviderOperationLedger,
         provider: str = "deepseek",
         model: str = "deepseek-v4-flash",
-        timeout_seconds: int = 600,
+        timeout_seconds: int = 180,
         process_runner: ProcessRunner | None = None,
         readable_debug: ReadablePiSceneDebugLog | None = None,
     ) -> None:

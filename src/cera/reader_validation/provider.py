@@ -38,7 +38,9 @@ from .schema import reader_verdict_json_schema
 
 SOL_READER_ADAPTER = "cera.reader_validation.sol_adapter.v2"
 SOL_READER_PROMPT = "cera.reader_validation.sol_prompt.v1"
-SOL_READER_HARD_TIMEOUT_SECONDS = 600
+# Each provider attempt owns its own three-minute transport boundary. A later
+# explicitly authorized retry starts a new, independent boundary.
+SOL_READER_HARD_TIMEOUT_SECONDS = 180
 
 
 def sol_reader_route() -> LiveProviderRoute:
@@ -47,7 +49,7 @@ def sol_reader_route() -> LiveProviderRoute:
             model="gpt-5.6-sol",
             effort="medium",
         ),
-        route_id="cera_reader_validation_sol_medium_v2",
+        route_id="cera_reader_validation_sol_medium_v3",
         adapter_id=SOL_READER_ADAPTER,
         prompt_version=SOL_READER_PROMPT,
         timeout_seconds=SOL_READER_HARD_TIMEOUT_SECONDS,

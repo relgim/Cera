@@ -41,15 +41,15 @@ from .validation import CognitionValidationContextV1, validate_cognition_plan
 
 COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v8"
 COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v9"
-# This is a transport-loss boundary, not the three-minute interaction target.
-# Retained-turn latency remains observable in provider telemetry.
-COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
+# Each provider attempt owns its own three-minute transport boundary. A later
+# explicitly authorized retry starts a new, independent boundary.
+COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 180
 
 
 def cognition_planner_route() -> LiveProviderRoute:
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_cognition_planner_sol_medium_v9",
+        route_id="cera_cognition_planner_sol_medium_v10",
         adapter_id=COGNITION_PLANNER_ADAPTER,
         prompt_version=COGNITION_PLANNER_PROMPT,
         timeout_seconds=COGNITION_PLANNER_HARD_TIMEOUT_SECONDS,
