@@ -645,6 +645,17 @@ HTTP security, and no-fallback strengths while replacing the unsafe seams.
    disposition. Review V2 is historical and V3 is current. Source integration
    and focused provider-free evidence are complete; the complete no-selector
    gate and fresh-fixture qualification remain pending.
+19. D-223 supersedes D-220's exact soft allowlist with
+   `ordinary_provisional_continuity` v2. Its policy text SHA-256 is
+   `7a7366d626fb550674cee1cedbf11d0c8fc7ec4ee4391c7f5afb28e2a36bb336`;
+   its policy-object SHA-256 is
+   `628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5`.
+   The exact hard Luna set is `protected_user_dialogue`,
+   `protected_user_private_state`, `protected_boundary_conflict`,
+   `locked_fact_conflict`, and `severe_incompleteness`. Localized Reader
+   scopes remain provisional; inconclusive and whole-candidate quality remain
+   hard. Preserve historical v1 receipts and V45 manifests; use V46 for new
+   qualification roots.
 
 ## 14. Update discipline
 

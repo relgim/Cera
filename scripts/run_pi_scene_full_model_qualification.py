@@ -101,6 +101,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V42,
     QUALIFICATION_MANIFEST_SCHEMA_V43,
     QUALIFICATION_MANIFEST_SCHEMA_V44,
+    QUALIFICATION_MANIFEST_SCHEMA_V45,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
@@ -1355,7 +1356,7 @@ def _load_spent_qualification_manifests(
     output_root: Path,
     explicit_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], ...]:
-    """Load cumulative V5-V44 manifest authority for all completed prior roots.
+    """Load cumulative V5-V45 manifest authority for all completed prior roots.
 
     V5 remains exact historical authority for the retired V2 suite. Every V5
     or later sibling is included automatically so a caller cannot accidentally
@@ -1419,6 +1420,7 @@ def _load_spent_qualification_manifests(
                 QUALIFICATION_MANIFEST_SCHEMA_V42,
                 QUALIFICATION_MANIFEST_SCHEMA_V43,
                 QUALIFICATION_MANIFEST_SCHEMA_V44,
+                QUALIFICATION_MANIFEST_SCHEMA_V45,
                 QUALIFICATION_MANIFEST_SCHEMA,
             }:
                 candidates[candidate.resolve()] = None

@@ -544,10 +544,16 @@ export const CONTRACT_SCHEMAS = deepFreeze({
             "const": "ordinary_provisional_continuity"
           },
           "policy_version": {
-            "const": 1
+            "enum": [
+              1,
+              2
+            ]
           },
           "policy_sha256": {
-            "const": "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23"
+            "enum": [
+              "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
+              "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+            ]
           },
           "candidate_sha256": {
             "$ref": "#/$defs/sha256"
@@ -569,9 +575,13 @@ export const CONTRACT_SCHEMAS = deepFreeze({
             "items": {
               "enum": [
                 "luna:capability_restriction",
+                "luna:authority_ambiguity",
+                "luna:contradicted_decision",
+                "luna:knowledge_violation",
                 "luna:omitted_decision",
                 "luna:presence_violation",
                 "luna:stopping_boundary",
+                "luna:unauthorized_consequence",
                 "reader:exact_quote",
                 "reader:omitted_planner_item"
               ]
@@ -580,7 +590,33 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           "audit_sha256": {
             "$ref": "#/$defs/sha256"
           }
-        }
+        },
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "policy_version": {
+                    "const": 1
+                  },
+                  "policy_sha256": {
+                    "const": "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "policy_version": {
+                    "const": 2
+                  },
+                  "policy_sha256": {
+                    "const": "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+                  }
+                }
+              }
+            ]
+          }
+        ]
       },
       "acceptance": {
         "anyOf": [
@@ -3037,6 +3073,10 @@ function allActionsFalse(actions) {
 
 function validateAcceptance(acceptance, reviewMode, gateStatus) {
   if (acceptance.mode === 'standing_policy') {
+    const approvedPolicyHashes = new Map([
+      [1, '47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23'],
+      [2, '628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5'],
+    ]);
     if (
       acceptance.canon_status !== 'provisional'
       || gateStatus !== 'reject'
@@ -3045,9 +3085,8 @@ function validateAcceptance(acceptance, reviewMode, gateStatus) {
       || Array.isArray(acceptance.standing_policy)
       || acceptance.standing_policy.authority_kind !== 'standing_creator_policy'
       || acceptance.standing_policy.policy_id !== 'ordinary_provisional_continuity'
-      || acceptance.standing_policy.policy_version !== 1
-      || acceptance.standing_policy.policy_sha256
-        !== '47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23'
+      || approvedPolicyHashes.get(acceptance.standing_policy.policy_version)
+        !== acceptance.standing_policy.policy_sha256
     ) {
       reviewError('standing policy changed provisional rejected custody');
     }
@@ -3086,16 +3125,30 @@ function validateStandingPolicyReview(review, acceptance) {
   const reader = objectValue(checks.reader, 'checks.reader');
   const pythonLane = objectValue(checks.python, 'checks.python');
   const expectedReasons = new Set();
-  if (luna.status === 'reject') {
-    const conflict = arrayValue(luna.failures, 'checks.luna.failures')
-      .map(value => objectValue(value, 'checks.luna.failure'))
-      .find(value => value.source_kind === 'verdict_conflict');
-    if (![
+  const softLunaCodes = authority.policy_version === 1
+    ? [
       'omitted_decision',
       'presence_violation',
       'stopping_boundary',
       'capability_restriction',
-    ].includes(conflict.code)) reviewError('standing policy accepted a hard Luna conflict');
+    ]
+    : [
+      'authority_ambiguity',
+      'capability_restriction',
+      'contradicted_decision',
+      'knowledge_violation',
+      'omitted_decision',
+      'presence_violation',
+      'stopping_boundary',
+      'unauthorized_consequence',
+    ];
+  if (luna.status === 'reject') {
+    const conflict = arrayValue(luna.failures, 'checks.luna.failures')
+      .map(value => objectValue(value, 'checks.luna.failure'))
+      .find(value => value.source_kind === 'verdict_conflict');
+    if (!softLunaCodes.includes(conflict.code)) {
+      reviewError('standing policy accepted a hard Luna conflict');
+    }
     expectedReasons.add(`luna:${conflict.code}`);
   }
   if (reader.status === 'reject') {

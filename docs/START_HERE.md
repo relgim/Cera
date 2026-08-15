@@ -2,6 +2,18 @@
 
 **Status:** controlling index
 
+## 2026-08-15 D-223 executable practical validation boundary
+
+Read D-223 before changing ordinary validation disposition. The current
+`ordinary_provisional_continuity` policy is v2. It retains a usable candidate
+provisionally unless Luna reports one of five exact hard classes: invented Ted
+dialogue, invented Ted private state, a protected consent/withdrawal/major-choice
+conflict, an immutable locked-fact contradiction, or unusable output. Local
+continuity, staging, knowledge, authority, capability, ordering, and event-detail
+drift remain visible validator evidence but do not cause a second Writer call.
+Historical v1 policy receipts and V45 qualification manifests remain readable;
+new qualification roots use manifest V46.
+
 ## 2026-08-14 D-222 hard-Regenerate soft-successor handling
 
 Read D-222 before changing qualification handling after an ordinary Regenerate.

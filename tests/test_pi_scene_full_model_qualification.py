@@ -32,6 +32,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_EXECUTION_POLICY_V42,
     QUALIFICATION_EXECUTION_POLICY_V43,
     QUALIFICATION_EXECUTION_POLICY_V44,
+    QUALIFICATION_EXECUTION_POLICY_V45,
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_MANIFEST_SCHEMA_V5,
@@ -74,6 +75,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V42,
     QUALIFICATION_MANIFEST_SCHEMA_V43,
     QUALIFICATION_MANIFEST_SCHEMA_V44,
+    QUALIFICATION_MANIFEST_SCHEMA_V45,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
@@ -2605,9 +2607,9 @@ class FullModelQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateConflictError, "model family changed"):
             _provider_operation_records(delta(owner="reader", model="gpt-5.6-luna"))
 
-    def test_outer_http_timeout_exceeds_every_bounded_provider_stage(self) -> None:
+    def test_outer_http_wait_does_not_enforce_the_historical_stage_threshold(self) -> None:
         self.assertEqual(QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS, 180)
-        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 1_800)
+        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 86_400)
         self.assertGreater(
             QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
             QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES
@@ -2755,7 +2757,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v45_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v46_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -2765,7 +2767,10 @@ class FullModelQualificationTests(unittest.TestCase):
             "exact_adult_prose_in_qualification_evidence": True,
             "phase_order": ["sillytavern", "backend"],
             "planner_reasoning_effort": "xhigh",
-            "provider_stage_attempt_timeout_seconds": 181,
+            "provider_stage_attempt_timeout_seconds": 180,
+            "provider_stage_timeout_behavior": "cancel_after_threshold",
+            "qualification_http_wait_seconds": 1_800,
+            "fixture_campaign_replay": "forbid",
             "provider_stage_retry_timeout_accounting": "combined_with_original",
         }
         for key, changed in mutations.items():
@@ -2808,10 +2813,18 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         manifest["fixture_set_sha256"] = bytes_sha256(HISTORICAL_FIXTURES_V19.read_bytes())
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V22
-        del manifest["execution_policy"]["ordinary_standing_creator_policy"]
+        manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V22)
         unsigned = {name: value for name, value in manifest.items() if name != "manifest_sha256"}
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         validate_qualification_manifest(manifest)
+
+        historical_v45 = _manifest()
+        historical_v45["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V45
+        historical_v45["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V45)
+        historical_v45["manifest_sha256"] = canonical_sha256(
+            {name: value for name, value in historical_v45.items() if name != "manifest_sha256"}
+        )
+        validate_qualification_manifest(historical_v45)
 
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V23
         manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V31)
@@ -4014,7 +4027,7 @@ class FullModelQualificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractValidationError, "baseline hash"):
                 load_qualification_fixtures(current_path)
 
-    def test_spent_v41_fixture_manifest_rejects_fixture_or_novelty_reuse(self) -> None:
+    def test_spent_v41_fixture_manifest_allows_only_exact_campaign_replay(self) -> None:
         prior = build_qualification_manifest(
             repository_root=ROOT,
             qualification_id="qualification-prior-stress-20260811",
@@ -4024,17 +4037,22 @@ class FullModelQualificationTests(unittest.TestCase):
             repository_artifacts={"fixture": (FIXTURES,)},
             external_artifacts={"external_fixture": (FIXTURES,)},
         )
-        with self.assertRaisesRegex(StateConflictError, "already frozen"):
-            build_qualification_manifest(
-                repository_root=ROOT,
-                qualification_id="qualification-next-stress-20260811",
-                source_commit="a" * 40,
-                source_tree="b" * 40,
-                fixture_path=FIXTURES,
-                repository_artifacts={"fixture": (FIXTURES,)},
-                external_artifacts={"external_fixture": (FIXTURES,)},
-                spent_manifests=(prior,),
-            )
+        replay = build_qualification_manifest(
+            repository_root=ROOT,
+            qualification_id="qualification-next-stress-20260811",
+            source_commit="c" * 40,
+            source_tree="d" * 40,
+            fixture_path=FIXTURES,
+            repository_artifacts={"fixture": (FIXTURES,)},
+            external_artifacts={"external_fixture": (FIXTURES,)},
+            spent_manifests=(prior,),
+        )
+        self.assertEqual(replay["fixture_set_sha256"], prior["fixture_set_sha256"])
+        self.assertIn(prior["fixture_set_sha256"], replay["spent_fixture_set_sha256s"])
+        self.assertEqual(
+            replay["execution_policy"]["fixture_campaign_replay"],
+            "exact_frozen_set_only",
+        )
         prior_with_different_set = deepcopy(prior)
         prior_with_different_set["fixture_set_sha256"] = "d" * 64
         unsigned = {

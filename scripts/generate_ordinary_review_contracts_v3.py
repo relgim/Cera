@@ -623,15 +623,18 @@ def _validate_acceptance(
     canon = acceptance["canon_status"]
     standing_policy = acceptance.get("standing_policy")
     if mode == "standing_policy":
+        approved_policy_hashes = {
+            1: "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
+            2: "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5",
+        }
         if (
             canon != "provisional"
             or gate_status != "reject"
             or not isinstance(standing_policy, dict)
             or standing_policy.get("authority_kind") != "standing_creator_policy"
             or standing_policy.get("policy_id") != "ordinary_provisional_continuity"
-            or standing_policy.get("policy_version") != 1
-            or standing_policy.get("policy_sha256")
-            != "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23"
+            or approved_policy_hashes.get(standing_policy.get("policy_version"))
+            != standing_policy.get("policy_sha256")
         ):
             _review_error("standing policy changed provisional rejected custody")
         audit_basis = {
@@ -671,6 +674,25 @@ def _validate_standing_policy_review(
     reader = _object(checks["reader"], "checks.reader")
     python_lane = _object(checks["python"], "checks.python")
     expected_reasons: set[str] = set()
+    soft_luna_codes = (
+        {
+            "omitted_decision",
+            "presence_violation",
+            "stopping_boundary",
+            "capability_restriction",
+        }
+        if authority["policy_version"] == 1
+        else {
+            "authority_ambiguity",
+            "capability_restriction",
+            "contradicted_decision",
+            "knowledge_violation",
+            "omitted_decision",
+            "presence_violation",
+            "stopping_boundary",
+            "unauthorized_consequence",
+        }
+    )
     if luna["status"] == "reject":
         conflict = next(
             _object(value, "checks.luna.failure")
@@ -679,12 +701,7 @@ def _validate_standing_policy_review(
             == "verdict_conflict"
         )
         code = conflict["code"]
-        if code not in {
-            "omitted_decision",
-            "presence_violation",
-            "stopping_boundary",
-            "capability_restriction",
-        }:
+        if code not in soft_luna_codes:
             _review_error("standing policy accepted a hard Luna conflict")
         expected_reasons.add(f"luna:{code}")
     if reader["status"] == "reject":
@@ -1167,6 +1184,10 @@ function allActionsFalse(actions) {
 
 function validateAcceptance(acceptance, reviewMode, gateStatus) {
   if (acceptance.mode === 'standing_policy') {
+    const approvedPolicyHashes = new Map([
+      [1, '47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23'],
+      [2, '628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5'],
+    ]);
     if (
       acceptance.canon_status !== 'provisional'
       || gateStatus !== 'reject'
@@ -1175,9 +1196,8 @@ function validateAcceptance(acceptance, reviewMode, gateStatus) {
       || Array.isArray(acceptance.standing_policy)
       || acceptance.standing_policy.authority_kind !== 'standing_creator_policy'
       || acceptance.standing_policy.policy_id !== 'ordinary_provisional_continuity'
-      || acceptance.standing_policy.policy_version !== 1
-      || acceptance.standing_policy.policy_sha256
-        !== '47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23'
+      || approvedPolicyHashes.get(acceptance.standing_policy.policy_version)
+        !== acceptance.standing_policy.policy_sha256
     ) {
       reviewError('standing policy changed provisional rejected custody');
     }
@@ -1216,16 +1236,30 @@ function validateStandingPolicyReview(review, acceptance) {
   const reader = objectValue(checks.reader, 'checks.reader');
   const pythonLane = objectValue(checks.python, 'checks.python');
   const expectedReasons = new Set();
-  if (luna.status === 'reject') {
-    const conflict = arrayValue(luna.failures, 'checks.luna.failures')
-      .map(value => objectValue(value, 'checks.luna.failure'))
-      .find(value => value.source_kind === 'verdict_conflict');
-    if (![
+  const softLunaCodes = authority.policy_version === 1
+    ? [
       'omitted_decision',
       'presence_violation',
       'stopping_boundary',
       'capability_restriction',
-    ].includes(conflict.code)) reviewError('standing policy accepted a hard Luna conflict');
+    ]
+    : [
+      'authority_ambiguity',
+      'capability_restriction',
+      'contradicted_decision',
+      'knowledge_violation',
+      'omitted_decision',
+      'presence_violation',
+      'stopping_boundary',
+      'unauthorized_consequence',
+    ];
+  if (luna.status === 'reject') {
+    const conflict = arrayValue(luna.failures, 'checks.luna.failures')
+      .map(value => objectValue(value, 'checks.luna.failure'))
+      .find(value => value.source_kind === 'verdict_conflict');
+    if (!softLunaCodes.includes(conflict.code)) {
+      reviewError('standing policy accepted a hard Luna conflict');
+    }
     expectedReasons.add(`luna:${conflict.code}`);
   }
   if (reader.status === 'reject') {

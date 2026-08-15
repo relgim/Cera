@@ -1,8 +1,8 @@
 {
   "schema_version": "cera.pi_scene.ordinary_review_fixture_set.v2",
   "generated_from_sha256": {
-    "common.schema.json": "1173985ac4a56b091f972af5e25dc0300f01d945f97ffa84654d15682806f10a",
-    "review.schema.json": "ef7221477b9a1cafc03769213ef57bd42a82980d8016441ffe6edc62992ce85a",
+    "common.schema.json": "89264b30795ab0f750123ac2b0f21b380bbed3faf65925c29ed008216978199e",
+    "review.schema.json": "79c40cd201d5433ed7d7bf3be821ba0b1c1641bf0349677c6ac85e92b2268b1f",
     "review_checks.schema.json": "379bb6b3b871ee28a87fcd60e35a0d4b0b23c65421ca602832593a4470001167",
     "review_decision.schema.json": "0f2b43072d82957ca3fd8dcb613c7b12d553ea48868a21de9432c3bac2538bfc",
     "review_lifecycle.schema.json": "9d504d0bf1811eea547edd0fe30b8239eaf6f7976adcf63a8b6a573672d4ee42"
@@ -1619,7 +1619,7 @@
             "schema_version": "cera.pi_scene.ordinary_policy_acceptance_audit.v1",
             "authority_kind": "standing_creator_policy",
             "policy_id": "ordinary_provisional_continuity",
-            "policy_version": 1,
+            "policy_version": 2,
             "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "semantic_validation_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
@@ -1628,7 +1628,7 @@
             "tolerated_reason_codes": [
               "luna:omitted_decision"
             ],
-            "audit_sha256": "9406f14ff5a71a2c50f9a7ac14f08ebed82b9eb12f3bc310ab7ab0e631388918"
+            "audit_sha256": "b52415feb3183f1d6b2b03cc46c8299f451bfcd3a78020b7937eb619d0eef7a6"
           }
         },
         "actions": {
@@ -1747,8 +1747,8 @@
             "schema_version": "cera.pi_scene.ordinary_policy_acceptance_audit.v1",
             "authority_kind": "standing_creator_policy",
             "policy_id": "ordinary_provisional_continuity",
-            "policy_version": 1,
-            "policy_sha256": "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
+            "policy_version": 2,
+            "policy_sha256": "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5",
             "candidate_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "semantic_validation_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
             "reader_validation_sha256": "5555555555555555555555555555555555555555555555555555555555555555",

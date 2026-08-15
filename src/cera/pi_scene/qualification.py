@@ -287,7 +287,8 @@ QUALIFICATION_MANIFEST_SCHEMA_V41 = "cera.pi_scene.full_model_qualification_mani
 QUALIFICATION_MANIFEST_SCHEMA_V42 = "cera.pi_scene.full_model_qualification_manifest.v42"
 QUALIFICATION_MANIFEST_SCHEMA_V43 = "cera.pi_scene.full_model_qualification_manifest.v43"
 QUALIFICATION_MANIFEST_SCHEMA_V44 = "cera.pi_scene.full_model_qualification_manifest.v44"
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v45"
+QUALIFICATION_MANIFEST_SCHEMA_V45 = "cera.pi_scene.full_model_qualification_manifest.v45"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v46"
 QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v6"
 
 _QUALIFICATION_ADVERSARIAL_STRESS_TAGS = frozenset(
@@ -335,9 +336,9 @@ _QUALIFICATION_FIXTURE_LOAD_CACHE: ContextVar[
 
 # The first Planner operation on each physical thread hydrates world/context
 # state and is reported separately, including a fresh thread after transport
-# recovery. Every provider attempt has its own three-minute hard boundary. An
-# explicitly authorized retry is a separate attempt with a fresh boundary; its
-# duration is never added to the failed attempt when enforcing this limit.
+# recovery. The historical three-minute value remains frozen in V43-V45
+# manifests, but current provider calls are observed to terminal and are not
+# cancelled because they cross that duration.
 RETAINED_PLANNER_LATENCY_CONCERN_MS = 180_000
 QUALIFICATION_PLANNER_REASONING_EFFORT = "medium"
 QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 180
@@ -345,9 +346,10 @@ QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 180
 # Reader, and Recorder occurrences.  Each occurrence retains its own 3-attempt
 # authority; Recorder's second occurrence is the sole explicit repair successor.
 QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 9
-QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = (
-    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES + 1
-) * QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS
+# This is an infrastructure socket wait, not a provider-attempt deadline. It is
+# intentionally much longer than a campaign turn so a slow successful result is
+# returned instead of being abandoned by the qualification client.
+QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = 86_400
 PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS = 0.25
 # If the one POST disconnects immediately, the replacement can still be
 # completing Planner, Writer, Luna, repair, and Recorder work. Read-only GET
@@ -459,6 +461,8 @@ QUALIFICATION_COMPLETE_GENERATION_CEILINGS: Mapping[str, Any] = {
     "deepseek_http_operations_per_stage_attempt": DEEPSEEK_PER_INVOCATION_CEILING,
 }
 
+_HISTORICAL_ORDINARY_STANDING_POLICY = ordinary_standing_creator_policy(1)
+
 QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "one_sequential_session_per_phase": True,
     "backend_route_order": ["ordinary"] * 5 + ["adult"] * 5 + ["ordinary"] * 5 + ["adult"] * 5,
@@ -481,16 +485,16 @@ QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "ordinary_review_mode": "automatic",
     "ordinary_luna_reader_python_pass_auto_accept_required": True,
     "ordinary_standing_creator_policy": {
-        "authority_kind": ordinary_standing_creator_policy().authority_kind,
-        "policy_id": ordinary_standing_creator_policy().policy_id,
-        "policy_version": ordinary_standing_creator_policy().policy_version,
-        "policy_sha256": ordinary_standing_creator_policy().policy_sha256,
-        "policy_text_sha256": ordinary_standing_creator_policy().policy_text_sha256,
+        "authority_kind": _HISTORICAL_ORDINARY_STANDING_POLICY.authority_kind,
+        "policy_id": _HISTORICAL_ORDINARY_STANDING_POLICY.policy_id,
+        "policy_version": _HISTORICAL_ORDINARY_STANDING_POLICY.policy_version,
+        "policy_sha256": _HISTORICAL_ORDINARY_STANDING_POLICY.policy_sha256,
+        "policy_text_sha256": _HISTORICAL_ORDINARY_STANDING_POLICY.policy_text_sha256,
         "soft_semantic_conflict_classes": list(
-            ordinary_standing_creator_policy().soft_semantic_conflict_classes
+            _HISTORICAL_ORDINARY_STANDING_POLICY.soft_semantic_conflict_classes
         ),
         "soft_reader_feedback_scopes": list(
-            ordinary_standing_creator_policy().soft_reader_feedback_scopes
+            _HISTORICAL_ORDINARY_STANDING_POLICY.soft_reader_feedback_scopes
         ),
         "hard_signal_wins": True,
         "first_writer_candidate_retained": True,
@@ -527,6 +531,34 @@ QUALIFICATION_EXECUTION_POLICY = {
 }
 QUALIFICATION_EXECUTION_POLICY_V43: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
 QUALIFICATION_EXECUTION_POLICY_V44: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+QUALIFICATION_EXECUTION_POLICY_V45: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+_CURRENT_ORDINARY_STANDING_POLICY = ordinary_standing_creator_policy()
+QUALIFICATION_EXECUTION_POLICY = {
+    **deepcopy(QUALIFICATION_EXECUTION_POLICY_V45),
+    "fixture_campaign_replay": "exact_frozen_set_only",
+    "provider_stage_attempt_timeout_seconds": None,
+    "provider_stage_timeout_behavior": "observe_until_terminal",
+    "qualification_http_wait_seconds": QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+    "ordinary_standing_creator_policy": {
+        **deepcopy(
+            cast(
+                Mapping[str, Any],
+                QUALIFICATION_EXECUTION_POLICY_V45["ordinary_standing_creator_policy"],
+            )
+        ),
+        "authority_kind": _CURRENT_ORDINARY_STANDING_POLICY.authority_kind,
+        "policy_id": _CURRENT_ORDINARY_STANDING_POLICY.policy_id,
+        "policy_version": _CURRENT_ORDINARY_STANDING_POLICY.policy_version,
+        "policy_sha256": _CURRENT_ORDINARY_STANDING_POLICY.policy_sha256,
+        "policy_text_sha256": _CURRENT_ORDINARY_STANDING_POLICY.policy_text_sha256,
+        "soft_semantic_conflict_classes": list(
+            _CURRENT_ORDINARY_STANDING_POLICY.soft_semantic_conflict_classes
+        ),
+        "soft_reader_feedback_scopes": list(
+            _CURRENT_ORDINARY_STANDING_POLICY.soft_reader_feedback_scopes
+        ),
+    },
+}
 QUALIFICATION_EXECUTION_POLICY_V22: Mapping[str, Any] = {
     key: deepcopy(value)
     for key, value in QUALIFICATION_EXECUTION_POLICY_V31.items()
@@ -5179,6 +5211,7 @@ def _validate_spent_fixture_authority(
     spent_fixture_sets: set[str] = set()
     spent_novelty: set[str] = set()
     spent_sources: set[str] = set()
+    exact_fixture_replay = False
     for manifest in spent_manifests:
         validate_qualification_manifest(manifest)
         spent_hashes.add(str(manifest["manifest_sha256"]))
@@ -5188,19 +5221,27 @@ def _validate_spent_fixture_authority(
         prior_novelty = manifest["fixture_novelty"]
         if not isinstance(prior_novelty, list):
             raise StateConflictError("spent qualification novelty authority changed")
-        spent_novelty.update(
+        prior_novelty_ids = {
             str(value["novelty_id"]) for value in prior_novelty if isinstance(value, Mapping)
-        )
-        spent_sources.update(
+        }
+        prior_sources = {
             str(value["source_sha256"]) for value in prior_novelty if isinstance(value, Mapping)
-        )
+        }
+        if (
+            manifest["fixture_set_sha256"] == fixture_set_sha256
+            and prior_novelty_ids == current_novelty
+            and prior_sources == current_sources
+        ):
+            exact_fixture_replay = True
+        spent_novelty.update(prior_novelty_ids)
+        spent_sources.update(prior_sources)
         spent_novelty.update(str(value) for value in manifest["spent_novelty_ids"])
         spent_sources.update(str(value) for value in manifest["spent_source_sha256s"])
-    if fixture_set_sha256 in spent_fixture_sets:
+    if fixture_set_sha256 in spent_fixture_sets and not exact_fixture_replay:
         raise StateConflictError("qualification fixture set was already frozen")
-    if current_novelty.intersection(spent_novelty):
+    if current_novelty.intersection(spent_novelty) and not exact_fixture_replay:
         raise StateConflictError("qualification novelty identity was already frozen")
-    if current_sources.intersection(spent_sources):
+    if current_sources.intersection(spent_sources) and not exact_fixture_replay:
         raise StateConflictError("qualification fixture source was already frozen")
     return {
         "spent_manifest_sha256s": sorted(spent_hashes),
@@ -5343,6 +5384,7 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         QUALIFICATION_MANIFEST_SCHEMA_V42,
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         required.add("fixture_ancestry")
@@ -5370,10 +5412,12 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         "user_authorized_deepseek_operations": USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING,
     }:
         raise StateConflictError("qualification provider ceilings changed")
-    if schema_version in {
+    if schema_version == QUALIFICATION_MANIFEST_SCHEMA:
+        expected_execution_policy = QUALIFICATION_EXECUTION_POLICY
+    elif schema_version in {
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
-        QUALIFICATION_MANIFEST_SCHEMA,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
     }:
         expected_execution_policy = QUALIFICATION_EXECUTION_POLICY_V44
     elif schema_version in {
@@ -5462,6 +5506,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V42,
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
         QUALIFICATION_MANIFEST_SCHEMA,
     }
     if (
@@ -5495,7 +5540,21 @@ def _validate_manifest_fixture_metadata(
     ):
         raise ContractValidationError("qualification spent source authority changed")
     if manifest["fixture_set_sha256"] in spent_fixture_sets:
-        raise StateConflictError("qualification current fixture set is marked spent")
+        replay_policy = manifest["execution_policy"].get("fixture_campaign_replay")
+        current_novelty_ids = {
+            str(value["novelty_id"]) for value in novelty if isinstance(value, Mapping)
+        }
+        current_source_sha256s = {
+            str(value["source_sha256"]) for value in novelty if isinstance(value, Mapping)
+        }
+        if (
+            manifest_schema != QUALIFICATION_MANIFEST_SCHEMA
+            or replay_policy != "exact_frozen_set_only"
+            or not current_novelty_ids
+            or not current_novelty_ids.issubset(set(spent_novelty))
+            or not current_source_sha256s.issubset(set(spent_sources))
+        ):
+            raise StateConflictError("qualification current fixture set is marked spent")
     if schema_version == QUALIFICATION_FIXTURE_SCHEMA_V1:
         if baseline is not None or novelty != [] or novelty_sha256 is not None or coverage != {}:
             raise StateConflictError("legacy qualification fixture metadata changed")
@@ -5548,6 +5607,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V42,
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5594,6 +5654,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V42,
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5639,6 +5700,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V42,
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5683,6 +5745,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V42,
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5963,9 +6026,10 @@ def _validate_manifest_fixture_metadata(
             "sha256": QUALIFICATION_FIXTURE_SHA256_V39,
         }
         expected_ancestry = _qualification_fixture_ancestry()[:39]
-    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema == (
-        QUALIFICATION_MANIFEST_SCHEMA
-    ):
+    elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema in {
+        QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA,
+    }:
         expected_baseline = {
             "path": QUALIFICATION_BASELINE_FIXTURE_PATH,
             "sha256": QUALIFICATION_BASELINE_FIXTURE_SHA256,

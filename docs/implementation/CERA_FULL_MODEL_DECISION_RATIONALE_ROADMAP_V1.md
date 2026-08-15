@@ -125,6 +125,17 @@ focused-green. The new candidate's complete no-selector gate and fresh fixture
 qualification remain pending. This text alone does not authorize a provider
 call, live rerun, route promotion, or installed-client sync.
 
+### 1.4 Creator-approved delta D-223 - 2026-08-15
+
+D-223 makes D-221's practical boundary executable through
+`ordinary_provisional_continuity` v2. The five hard Luna classes are the two
+Ted protections, `protected_boundary_conflict`, `locked_fact_conflict`, and
+`severe_incompleteness`; all other current Luna classes are provisional after
+Python custody passes. Reader inconclusive and `whole_candidate_quality`
+remain hard. Historical policy v1 and manifest V45 stay readable, while new
+roots use manifest V46. Adult protected projection and consent/capacity rules
+remain separate and unchanged.
+
 ## 2. Supersession and preservation
 
 ### 2.1 This roadmap supersedes these assumptions

@@ -1,6 +1,26 @@
 # Current CERA Handoff
 
-**Updated:** 2026-08-14
+**Updated:** 2026-08-15
+
+## 2026-08-15 D-223 policy and run-risk correction
+
+The ordinary standing policy is now `ordinary_provisional_continuity` v2.
+Policy text SHA-256 is
+`7a7366d626fb550674cee1cedbf11d0c8fc7ec4ee4391c7f5afb28e2a36bb336`;
+policy-object SHA-256 is
+`628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5`.
+The exact Root run-02 pattern—Luna `unauthorized_consequence` plus localized
+Reader `exact_quote` issues—now enters provisional continuity with one Writer.
+Five Luna classes remain hard: `protected_user_dialogue`,
+`protected_user_private_state`, `protected_boundary_conflict`,
+`locked_fact_conflict`, and `severe_incompleteness`. Manifest V45 is frozen as
+historical authority and current qualification is V46. Focused provider-free
+tests cover the exact disposition, historical policy-audit reload, V3 public
+contracts, and V45/V46 manifest compatibility. The next action is a fresh
+10/10/5/5 from scene 1 after commit/push. V46 permits that fresh run to reuse
+only the exact frozen V41 campaign, rejects partial or renamed reuse, observes
+provider work until terminal, and replaces the former 30-minute outer cutoff
+with a one-day infrastructure wait.
 
 ## 2026-08-14 Root AG provider-retry validation-lane correction
 

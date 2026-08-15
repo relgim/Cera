@@ -54,6 +54,7 @@ class SemanticConflictClass(StrEnum):
     PRESENCE_VIOLATION = "presence_violation"
     PROTECTED_USER_DIALOGUE = "protected_user_dialogue"
     PROTECTED_USER_PRIVATE_STATE = "protected_user_private_state"
+    PROTECTED_BOUNDARY_CONFLICT = "protected_boundary_conflict"
     STOPPING_BOUNDARY = "stopping_boundary"
     SEVERE_INCOMPLETENESS = "severe_incompleteness"
     AUTHORITY_AMBIGUITY = "authority_ambiguity"
@@ -70,6 +71,7 @@ _AUTOMATIC_REPAIRABLE = frozenset(
         SemanticConflictClass.PRESENCE_VIOLATION,
         SemanticConflictClass.PROTECTED_USER_DIALOGUE,
         SemanticConflictClass.PROTECTED_USER_PRIVATE_STATE,
+        SemanticConflictClass.PROTECTED_BOUNDARY_CONFLICT,
         SemanticConflictClass.STOPPING_BOUNDARY,
         SemanticConflictClass.SEVERE_INCOMPLETENESS,
     }

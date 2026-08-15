@@ -40,10 +40,10 @@ from .prompting import (
 )
 from .schema import semantic_verdict_json_schema
 
-LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v6"
-LUNA_VALIDATOR_PROMPT = "cera.semantic_validation.luna_prompt.v7"
+LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v7"
+LUNA_VALIDATOR_PROMPT = "cera.semantic_validation.luna_prompt.v8"
 FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID = (
-    "cera_full_model_qualification_semantic_validator_luna_xhigh_v8"
+    "cera_full_model_qualification_semantic_validator_luna_xhigh_v9"
 )
 FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS = 128_000
 # Retained as a latency-observation threshold in the route identity. The scene
@@ -57,7 +57,7 @@ def luna_validator_route() -> LiveProviderRoute:
             model="gpt-5.6-luna",
             effort="xhigh",
         ),
-        route_id="cera_semantic_validator_luna_xhigh_v10",
+        route_id="cera_semantic_validator_luna_xhigh_v11",
         adapter_id=LUNA_VALIDATOR_ADAPTER,
         prompt_version=LUNA_VALIDATOR_PROMPT,
         timeout_seconds=LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS,

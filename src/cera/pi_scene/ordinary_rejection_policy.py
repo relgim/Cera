@@ -25,20 +25,36 @@ from .review_lifecycle import OrdinaryPythonQualificationV1
 
 ORDINARY_STANDING_CREATOR_POLICY_TEXT = (
     "For ordinary scenes only, preserve a usable first Writer candidate as provisional "
+    "continuity when Python custody passes and the candidate does not invent Ted dialogue, "
+    "Ted thoughts, feelings, memories, or private state; contradict immutable identity, adult "
+    "age, parent-child relation, or accepted-event existence; invent or override consent, "
+    "withdrawal, or a major lasting protected-user choice; or become unusable, off-topic, or "
+    "incoherent. Treat every other Luna conflict and every localized Reader exact-quote or "
+    "omitted-planner-item issue as provisional continuity. Keep all validator evidence visible "
+    "and do not Regenerate. Adult scenes remain governed by their separate consent, capacity, "
+    "privacy, projection, and route-transition checks."
+)
+ORDINARY_STANDING_CREATOR_POLICY_ID = "ordinary_provisional_continuity"
+ORDINARY_STANDING_CREATOR_POLICY_VERSION = 2
+ORDINARY_STANDING_CREATOR_POLICY_TEXT_SHA256 = (
+    "7a7366d626fb550674cee1cedbf11d0c8fc7ec4ee4391c7f5afb28e2a36bb336"
+)
+ORDINARY_STANDING_CREATOR_POLICY_SHA256 = (
+    "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+)
+
+_HISTORICAL_POLICY_V1_TEXT = (
+    "For ordinary scenes only, preserve a usable first Writer candidate as provisional "
     "continuity when every validator rejection is limited to an omitted planned beat, "
     "presence or inactive-background staging, a stopping-boundary or aftermath drift, "
     "or an ordinary capability restriction. Keep all validator evidence visible and do "
     "not Regenerate. All other semantic conflicts, inconclusive Reader results, and "
     "whole-candidate quality failures remain hard stops. Adult scenes are excluded."
 )
-ORDINARY_STANDING_CREATOR_POLICY_ID = "ordinary_provisional_continuity"
-ORDINARY_STANDING_CREATOR_POLICY_VERSION = 1
-ORDINARY_STANDING_CREATOR_POLICY_TEXT_SHA256 = (
+_HISTORICAL_POLICY_V1_TEXT_SHA256 = (
     "1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2"
 )
-ORDINARY_STANDING_CREATOR_POLICY_SHA256 = (
-    "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23"
-)
+_HISTORICAL_POLICY_V1_SHA256 = "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23"
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,17 +76,17 @@ class OrdinaryStandingCreatorPolicyV1:
             raise ContractValidationError("ordinary standing-policy schema changed")
         if self.authority_kind != "standing_creator_policy":
             raise ContractValidationError("ordinary standing-policy authority changed")
-        if (
-            self.policy_id != ORDINARY_STANDING_CREATOR_POLICY_ID
-            or self.policy_version != ORDINARY_STANDING_CREATOR_POLICY_VERSION
-        ):
+        if self.policy_id != ORDINARY_STANDING_CREATOR_POLICY_ID:
             raise ContractValidationError("ordinary standing-policy identity changed")
+        text, expected_text_sha256, _policy_sha256, semantic_classes = _policy_spec(
+            self.policy_version
+        )
         if (
-            self.policy_text_sha256 != ORDINARY_STANDING_CREATOR_POLICY_TEXT_SHA256
-            or self.policy_text_sha256 != text_sha256(ORDINARY_STANDING_CREATOR_POLICY_TEXT)
+            self.policy_text_sha256 != expected_text_sha256
+            or self.policy_text_sha256 != text_sha256(text)
         ):
             raise ContractValidationError("ordinary standing-policy text binding changed")
-        expected_semantic = tuple(sorted(value.value for value in _SOFT_SEMANTIC_CONFLICTS))
+        expected_semantic = tuple(sorted(value.value for value in semantic_classes))
         expected_reader = tuple(sorted(value.value for value in _SOFT_READER_SCOPES))
         if (
             self.soft_semantic_conflict_classes != expected_semantic
@@ -101,7 +117,7 @@ class OrdinaryPolicyAcceptanceAuditV1:
     tolerated_reason_codes: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        policy = ordinary_standing_creator_policy()
+        policy = ordinary_standing_creator_policy(self.policy_version)
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("ordinary policy-acceptance audit schema changed")
         if (
@@ -122,7 +138,7 @@ class OrdinaryPolicyAcceptanceAuditV1:
         if (
             not self.tolerated_reason_codes
             or self.tolerated_reason_codes != tuple(sorted(set(self.tolerated_reason_codes)))
-            or not set(self.tolerated_reason_codes).issubset(_SOFT_REASON_CODES)
+            or not set(self.tolerated_reason_codes).issubset(_soft_reason_codes_for_policy(policy))
         ):
             raise ContractValidationError("ordinary policy tolerated reasons are invalid")
 
@@ -131,12 +147,22 @@ class OrdinaryPolicyAcceptanceAuditV1:
         return canonical_sha256(self)
 
 
-_SOFT_SEMANTIC_CONFLICTS = frozenset(
+_HISTORICAL_SOFT_SEMANTIC_CONFLICTS_V1 = frozenset(
     {
         SemanticConflictClass.OMITTED_DECISION,
         SemanticConflictClass.PRESENCE_VIOLATION,
         SemanticConflictClass.STOPPING_BOUNDARY,
         SemanticConflictClass.CAPABILITY_RESTRICTION,
+    }
+)
+_SOFT_SEMANTIC_CONFLICTS = frozenset(
+    set(SemanticConflictClass)
+    - {
+        SemanticConflictClass.LOCKED_FACT_CONFLICT,
+        SemanticConflictClass.PROTECTED_USER_DIALOGUE,
+        SemanticConflictClass.PROTECTED_USER_PRIVATE_STATE,
+        SemanticConflictClass.PROTECTED_BOUNDARY_CONFLICT,
+        SemanticConflictClass.SEVERE_INCOMPLETENESS,
     }
 )
 _SOFT_READER_SCOPES = frozenset(
@@ -145,25 +171,51 @@ _SOFT_READER_SCOPES = frozenset(
         RetryFeedbackScope.OMITTED_PLANNER_ITEM,
     }
 )
-_SOFT_REASON_CODES = frozenset(
-    {f"luna:{value.value}" for value in _SOFT_SEMANTIC_CONFLICTS}
-    | {f"reader:{value.value}" for value in _SOFT_READER_SCOPES}
-)
 
 
-def ordinary_standing_creator_policy() -> OrdinaryStandingCreatorPolicyV1:
+def _policy_spec(
+    policy_version: int,
+) -> tuple[str, str, str, frozenset[SemanticConflictClass]]:
+    if policy_version == 1:
+        return (
+            _HISTORICAL_POLICY_V1_TEXT,
+            _HISTORICAL_POLICY_V1_TEXT_SHA256,
+            _HISTORICAL_POLICY_V1_SHA256,
+            _HISTORICAL_SOFT_SEMANTIC_CONFLICTS_V1,
+        )
+    if policy_version == ORDINARY_STANDING_CREATOR_POLICY_VERSION:
+        return (
+            ORDINARY_STANDING_CREATOR_POLICY_TEXT,
+            ORDINARY_STANDING_CREATOR_POLICY_TEXT_SHA256,
+            ORDINARY_STANDING_CREATOR_POLICY_SHA256,
+            _SOFT_SEMANTIC_CONFLICTS,
+        )
+    raise ContractValidationError("ordinary standing-policy version is unknown")
+
+
+def _soft_reason_codes_for_policy(
+    policy: OrdinaryStandingCreatorPolicyV1,
+) -> frozenset[str]:
+    return frozenset(
+        {f"luna:{value}" for value in policy.soft_semantic_conflict_classes}
+        | {f"reader:{value}" for value in policy.soft_reader_feedback_scopes}
+    )
+
+
+def ordinary_standing_creator_policy(
+    policy_version: int = ORDINARY_STANDING_CREATOR_POLICY_VERSION,
+) -> OrdinaryStandingCreatorPolicyV1:
+    text, _text_digest, expected_policy_sha256, semantic_classes = _policy_spec(policy_version)
     policy = OrdinaryStandingCreatorPolicyV1(
         schema_version=OrdinaryStandingCreatorPolicyV1.SCHEMA_VERSION,
         authority_kind="standing_creator_policy",
         policy_id=ORDINARY_STANDING_CREATOR_POLICY_ID,
-        policy_version=ORDINARY_STANDING_CREATOR_POLICY_VERSION,
-        policy_text_sha256=text_sha256(ORDINARY_STANDING_CREATOR_POLICY_TEXT),
-        soft_semantic_conflict_classes=tuple(
-            sorted(value.value for value in _SOFT_SEMANTIC_CONFLICTS)
-        ),
+        policy_version=policy_version,
+        policy_text_sha256=text_sha256(text),
+        soft_semantic_conflict_classes=tuple(sorted(value.value for value in semantic_classes)),
         soft_reader_feedback_scopes=tuple(sorted(value.value for value in _SOFT_READER_SCOPES)),
     )
-    if policy.policy_sha256 != ORDINARY_STANDING_CREATOR_POLICY_SHA256:
+    if policy.policy_sha256 != expected_policy_sha256:
         raise ContractValidationError("ordinary standing-policy hash changed")
     return policy
 

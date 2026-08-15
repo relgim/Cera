@@ -23,6 +23,8 @@ from cera.pi_scene.http_contracts import (
 )
 from cera.pi_scene.ordinary_http import ordinary_review_payload
 from cera.pi_scene.ordinary_rejection_policy import (
+    OrdinaryPolicyAcceptanceAuditV1,
+    ordinary_standing_creator_policy,
     tolerated_ordinary_rejection_reasons,
 )
 from cera.pi_scene.review_lifecycle import (
@@ -99,12 +101,16 @@ class _LifecycleRetryPort:
         pi: FakePi,
         *,
         luna: SemanticVerdict = SemanticVerdict.PASS,
+        luna_conflict: SemanticConflictClass = SemanticConflictClass.OMITTED_DECISION,
         reader: ReaderStatus = ReaderStatus.ACCEPTED,
+        reader_scope: RetryFeedbackScope | None = None,
     ) -> None:
         self.planner = planner
         self.pi = pi
         self.luna_verdict = luna
+        self.luna_conflict = luna_conflict
         self.reader_status = reader
+        self.reader_scope = reader_scope
         self.prepare_order: list[str] = []
         self.dispatch_order: list[str] = []
         self.prepared: dict[str, _PreparedLane] = {}
@@ -258,7 +264,7 @@ class _LifecycleRetryPort:
             None
             if self.luna_verdict is SemanticVerdict.PASS
             else SemanticConflictV1(
-                conflict_class=SemanticConflictClass.OMITTED_DECISION,
+                conflict_class=self.luna_conflict,
                 concise_explanation="The candidate omitted one planned decision.",
                 exact_quote=None,
                 decision_key="sakura_door_response",
@@ -290,6 +296,17 @@ class _LifecycleRetryPort:
                 ReaderIssueV1(
                     issue_code="severe_quality_failure",
                     concise_explanation="The candidate has a severe continuity failure.",
+                    exact_quote=(
+                        prepared.request.exact_candidate_prose[:12]
+                        if self.reader_scope is RetryFeedbackScope.EXACT_QUOTE
+                        else None
+                    ),
+                    omitted_planner_item_key=(
+                        prepared.request.current_plan_item_keys[0]
+                        if self.reader_scope is RetryFeedbackScope.OMITTED_PLANNER_ITEM
+                        else None
+                    ),
+                    feedback_scope=self.reader_scope,
                 ),
             )
         )
@@ -468,12 +485,21 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
         root: Path,
         *,
         luna: SemanticVerdict = SemanticVerdict.PASS,
+        luna_conflict: SemanticConflictClass = SemanticConflictClass.OMITTED_DECISION,
         reader: ReaderStatus = ReaderStatus.ACCEPTED,
+        reader_scope: RetryFeedbackScope | None = None,
     ) -> tuple[LeanPiSceneCoordinator, LeanSceneStore, FakePi, _LifecycleRetryPort]:
         store = LeanSceneStore(root / "world")
         planner = _CognitionPlanner()
         pi = FakePi()
-        retry = _LifecycleRetryPort(planner, pi, luna=luna, reader=reader)
+        retry = _LifecycleRetryPort(
+            planner,
+            pi,
+            luna=luna,
+            luna_conflict=luna_conflict,
+            reader=reader,
+            reader_scope=reader_scope,
+        )
         coordinator = LeanPiSceneCoordinator(
             store=store,
             planner=planner,
@@ -747,10 +773,14 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertIsNotNone(reader)
             assert semantic is not None and reader is not None
             soft = {
+                SemanticConflictClass.AUTHORITY_AMBIGUITY,
+                SemanticConflictClass.CONTRADICTED_DECISION,
+                SemanticConflictClass.KNOWLEDGE_VIOLATION,
                 SemanticConflictClass.OMITTED_DECISION,
                 SemanticConflictClass.PRESENCE_VIOLATION,
                 SemanticConflictClass.STOPPING_BOUNDARY,
                 SemanticConflictClass.CAPABILITY_RESTRICTION,
+                SemanticConflictClass.UNAUTHORIZED_CONSEQUENCE,
             }
             for conflict_class in SemanticConflictClass:
                 with self.subTest(conflict_class=conflict_class.value):
@@ -813,6 +843,48 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                         self.assertIsNone(reasons)
                     else:
                         self.assertEqual(reasons, (f"reader:{scope.value}",))
+
+            current = ordinary_standing_creator_policy()
+            historical = ordinary_standing_creator_policy(1)
+            self.assertEqual(current.policy_version, 2)
+            self.assertEqual(historical.policy_version, 1)
+            self.assertNotEqual(current.policy_sha256, historical.policy_sha256)
+            historical_audit = OrdinaryPolicyAcceptanceAuditV1(
+                schema_version=OrdinaryPolicyAcceptanceAuditV1.SCHEMA_VERSION,
+                authority_kind=historical.authority_kind,
+                policy_id=historical.policy_id,
+                policy_version=historical.policy_version,
+                policy_sha256=historical.policy_sha256,
+                candidate_sha256="1" * 64,
+                semantic_validation_sha256="2" * 64,
+                reader_validation_sha256="3" * 64,
+                python_qualification_sha256="4" * 64,
+                tolerated_reason_codes=("luna:omitted_decision",),
+            )
+            self.assertEqual(historical_audit.policy_version, 1)
+
+    def test_localized_reader_issues_override_no_luna_class_and_do_not_regenerate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, pi, _retry = self._runtime(
+                Path(temporary),
+                luna=SemanticVerdict.REJECT,
+                luna_conflict=SemanticConflictClass.UNAUTHORIZED_CONSEQUENCE,
+                reader=ReaderStatus.REJECTED,
+                reader_scope=RetryFeedbackScope.EXACT_QUOTE,
+            )
+            frozen = coordinator.start_ordinary(_turn())
+            accepted = coordinator.begin_ordinary_validation(frozen.review_id)
+            public = self._adapter(coordinator).review_payload(accepted)
+
+            self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
+            self.assertEqual(public["acceptance"]["mode"], "standing_policy")
+            self.assertEqual(public["acceptance"]["canon_status"], "provisional")
+            self.assertEqual(
+                public["acceptance"]["standing_policy"]["tolerated_reason_codes"],
+                ["luna:unauthorized_consequence", "reader:exact_quote"],
+            )
+            self.assertFalse(public["actions"]["regenerate_enabled"])
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
 
     def test_standing_policy_soft_rejection_does_not_wait_in_manual_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
