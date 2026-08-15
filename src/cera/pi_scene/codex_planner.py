@@ -30,7 +30,7 @@ from cera.sequence_first.contracts import (
     SequenceItemV1,
     Visibility,
 )
-from cera.serialization import canonical_json, text_sha256, to_primitive
+from cera.serialization import canonical_json, canonical_sha256, text_sha256, to_primitive
 
 from .branch_state import DurableBranchChangeV1
 from .readable_debug import ReadablePiSceneDebugLog
@@ -280,15 +280,139 @@ def _accepted_evidence(
             "ordinary_record": value.get("ordinary_record"),
             "adult_projection": value.get("adult_projection"),
         }
-        records.append(
-            EvidenceRecordV1(
+        records.extend(
+            _bounded_accepted_evidence_records(
                 evidence_key=f"evidence:accepted:{generation:08d}:{index:02d}",
                 subject_id=f"accepted:turn:{generation:08d}",
-                visibility=Visibility.PUBLIC,
-                exact_content=_bounded_json(public_value, "accepted evidence"),
+                public_value=public_value,
             )
         )
     return tuple(records)
+
+
+def _bounded_accepted_evidence_records(
+    *,
+    evidence_key: str,
+    subject_id: str,
+    public_value: Mapping[str, Any],
+) -> tuple[EvidenceRecordV1, ...]:
+    """Keep valid accepted continuity citable without raising the 4K bound.
+
+    Most accepted projections fit in one evidence record. Recorder output can
+    legitimately make an ordinary record larger than the per-record citation
+    ceiling, though. In that case retain the receipt in a hash-bound index and
+    pack the public record's top-level fields into readable bounded parts.
+    """
+
+    exact = canonical_json(public_value)
+    if len(exact) <= 4_000:
+        return (
+            EvidenceRecordV1(
+                evidence_key=evidence_key,
+                subject_id=subject_id,
+                visibility=Visibility.PUBLIC,
+                exact_content=exact,
+            ),
+        )
+
+    projections = tuple(
+        (field_name, value)
+        for field_name, value in public_value.items()
+        if field_name != "receipt" and isinstance(value, Mapping)
+    )
+    if len(projections) != 1:
+        raise ContractValidationError("accepted evidence has no singular public projection")
+    projection_name, projection = projections[0]
+    projection_sha256 = canonical_sha256(projection)
+    parts = _accepted_projection_parts(
+        projection_name=projection_name,
+        projection=projection,
+        projection_sha256=projection_sha256,
+    )
+    index_payload = {
+        "receipt": public_value["receipt"],
+        "projection_kind": projection_name,
+        "projection_sha256": projection_sha256,
+        "projection_part_count": len(parts),
+    }
+    output = [
+        EvidenceRecordV1(
+            evidence_key=evidence_key,
+            subject_id=subject_id,
+            visibility=Visibility.PUBLIC,
+            exact_content=_bounded_json(index_payload, "accepted evidence index"),
+        )
+    ]
+    output.extend(
+        EvidenceRecordV1(
+            evidence_key=f"{evidence_key}:part:{part_index:02d}",
+            subject_id=subject_id,
+            visibility=Visibility.PUBLIC,
+            exact_content=_bounded_json(
+                {
+                    "projection_kind": projection_name,
+                    "projection_sha256": projection_sha256,
+                    "part_index": part_index,
+                    "part_count": len(parts),
+                    **part,
+                },
+                f"accepted evidence part {part_index}",
+            ),
+        )
+        for part_index, part in enumerate(parts, start=1)
+    )
+    return tuple(output)
+
+
+def _accepted_projection_parts(
+    *,
+    projection_name: str,
+    projection: Mapping[str, Any],
+    projection_sha256: str,
+) -> tuple[dict[str, Any], ...]:
+    """Greedily group public fields, fragmenting only an individually large value."""
+
+    parts: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    for field_name, value in projection.items():
+        candidate = {**current, field_name: value}
+        probe = {
+            "projection_kind": projection_name,
+            "projection_sha256": projection_sha256,
+            "part_index": 999_999,
+            "part_count": 999_999,
+            "fields": candidate,
+        }
+        if len(canonical_json(probe)) <= 4_000:
+            current = candidate
+            continue
+        if current:
+            parts.append({"fields": current})
+            current = {}
+        single = {**probe, "fields": {field_name: value}}
+        if len(canonical_json(single)) <= 4_000:
+            current = {field_name: value}
+            continue
+        value_json = canonical_json(value)
+        fragments = tuple(
+            value_json[offset : offset + 1_500] for offset in range(0, len(value_json), 1_500)
+        )
+        value_sha256 = text_sha256(value_json)
+        parts.extend(
+            {
+                "field_name": field_name,
+                "field_value_sha256": value_sha256,
+                "field_fragment_index": fragment_index,
+                "field_fragment_count": len(fragments),
+                "canonical_value_fragment": fragment,
+            }
+            for fragment_index, fragment in enumerate(fragments, start=1)
+        )
+    if current:
+        parts.append({"fields": current})
+    if not parts:
+        raise ContractValidationError("accepted evidence projection is empty")
+    return tuple(parts)
 
 
 def _accepted_text_hash(

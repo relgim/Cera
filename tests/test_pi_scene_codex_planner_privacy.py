@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import unittest
 
 from cera.errors import ContractValidationError
 from cera.pi_scene.codex_planner import _accepted_evidence
-from cera.serialization import text_sha256
+from cera.serialization import canonical_json, canonical_sha256, text_sha256
 
 
 class PiSceneCodexPlannerPrivacyTests(unittest.TestCase):
@@ -63,6 +64,51 @@ class PiSceneCodexPlannerPrivacyTests(unittest.TestCase):
         self.assertIn("adult_projection", evidence[0].exact_content)
         for protected in (protected_source, protected_prose, protected_authority):
             self.assertNotIn(protected, evidence[0].exact_content)
+
+    def test_oversized_ordinary_record_is_split_into_bounded_readable_evidence(self) -> None:
+        exact_source = "Continue from the accepted scene."
+        ordinary_record = {
+            "schema_version": "cera.pi_scene.ordinary_record.v1",
+            "primary_sequence_sha256": "1" * 64,
+            "resulting_public_state": "Sakura remains near the radio console.",
+            "secondary_canon": ["observatory detail " * 320],
+            "unresolved_threads": ["The false distress signal remains unresolved."],
+        }
+        records = (
+            {
+                "receipt": {
+                    "accepted_turn_id": "accepted-ordinary-0001",
+                    "generation": 1,
+                    "route": "ordinary",
+                    "exact_user_source": exact_source,
+                    "exact_accepted_prose": "Accepted prose.",
+                    "primary_authority_json": "{}",
+                },
+                "ordinary_record": ordinary_record,
+            },
+        )
+
+        evidence = _accepted_evidence(records)
+
+        self.assertGreater(len(evidence), 2)
+        self.assertTrue(all(len(value.exact_content) <= 4_000 for value in evidence))
+        index = json.loads(evidence[0].exact_content)
+        self.assertEqual(index["projection_kind"], "ordinary_record")
+        self.assertEqual(index["projection_sha256"], canonical_sha256(ordinary_record))
+        self.assertEqual(index["projection_part_count"], len(evidence) - 1)
+        self.assertEqual(
+            index["receipt"]["exact_user_source_sha256"],
+            text_sha256(exact_source),
+        )
+        fragments = [
+            json.loads(value.exact_content)
+            for value in evidence[1:]
+            if "canonical_value_fragment" in json.loads(value.exact_content)
+        ]
+        self.assertEqual(
+            "".join(value["canonical_value_fragment"] for value in fragments),
+            canonical_json(ordinary_record["secondary_canon"]),
+        )
 
     def test_full_text_and_hash_mismatch_is_rejected(self) -> None:
         records = (
