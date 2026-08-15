@@ -4053,6 +4053,7 @@ class FullModelQualificationTests(unittest.TestCase):
             replay["execution_policy"]["fixture_campaign_replay"],
             "exact_frozen_set_only",
         )
+        validate_qualification_manifest(replay)
         prior_with_different_set = deepcopy(prior)
         prior_with_different_set["fixture_set_sha256"] = "d" * 64
         unsigned = {

@@ -5466,6 +5466,7 @@ def _validate_manifest_fixture_metadata(
     spent_fixture_sets = manifest["spent_fixture_set_sha256s"]
     spent_novelty = manifest["spent_novelty_ids"]
     spent_sources = manifest["spent_source_sha256s"]
+    exact_fixture_replay_allowed = False
     manifest_has_ancestry = manifest_schema in {
         QUALIFICATION_MANIFEST_SCHEMA_V6,
         QUALIFICATION_MANIFEST_SCHEMA_V7,
@@ -5555,6 +5556,7 @@ def _validate_manifest_fixture_metadata(
             or not current_source_sha256s.issubset(set(spent_sources))
         ):
             raise StateConflictError("qualification current fixture set is marked spent")
+        exact_fixture_replay_allowed = True
     if schema_version == QUALIFICATION_FIXTURE_SCHEMA_V1:
         if baseline is not None or novelty != [] or novelty_sha256 is not None or coverage != {}:
             raise StateConflictError("legacy qualification fixture metadata changed")
@@ -6092,9 +6094,9 @@ def _validate_manifest_fixture_metadata(
         raise ContractValidationError("qualification novelty identity is duplicated")
     if len(set(source_hashes)) != 30:
         raise ContractValidationError("qualification novelty source is duplicated")
-    if set(novelty_ids).intersection(spent_novelty):
+    if set(novelty_ids).intersection(spent_novelty) and not exact_fixture_replay_allowed:
         raise StateConflictError("qualification current novelty identity is marked spent")
-    if set(source_hashes).intersection(spent_sources):
+    if set(source_hashes).intersection(spent_sources) and not exact_fixture_replay_allowed:
         raise StateConflictError("qualification current fixture source is marked spent")
     if novelty_sha256 != canonical_sha256(novelty):
         raise StateConflictError("qualification novelty set binding changed")

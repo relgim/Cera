@@ -27,7 +27,9 @@ orchestration and unrelated cleanup were excluded.
 6. **Fresh-run fixture dead end.** The manifest builder rejected an exact replay
    of the fixed 10/10/5/5 campaign after a code correction. V46 now permits only
    a byte-identical frozen fixture-set replay; partial, renamed, and mixed reuse
-   remain rejected.
+   remain rejected. The first live freeze exposed a second final-validator
+   novelty/source rejection; the exact replay test now validates the completed
+   manifest, and that duplicate rejection was corrected before provider use.
 7. **Outer wait could abandon valid work.** Provider processes were already
    configured not to cancel on elapsed time, but the qualification HTTP caller
    still had a 30-minute socket cutoff. Current V46 declares
