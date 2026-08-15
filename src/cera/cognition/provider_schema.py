@@ -144,6 +144,12 @@ def cognition_plan_json_schema(
             "considered_judgment": _text(),
         }
     )
+    overwhelming_pressure_kind = _nullable(_local_key())
+    overwhelming_pressure_kind["description"] = (
+        "Null or the exact kind of a material_pressures row in this same decision "
+        "record whose level is overwhelming. Never cite a pressure from another "
+        "decision record."
+    )
     autonomy = _strict(
         {
             "mind_precedence_applied": {
@@ -163,7 +169,7 @@ def cognition_plan_json_schema(
                     "overridden",
                 ],
             },
-            "overwhelming_pressure_kind": _nullable(_local_key()),
+            "overwhelming_pressure_kind": overwhelming_pressure_kind,
             "concise_effect": _text(),
         }
     )

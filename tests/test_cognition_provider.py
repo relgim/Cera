@@ -233,16 +233,16 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 180)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v10")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v11")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
             "cera.cognition.codex_planner_adapter.v8",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
-            "cera.cognition.codex_planner_prompt.v9",
+            "cera.cognition.codex_planner_prompt.v10",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v10")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v11")
         self.assertIn(
             "Call get_turn_context first with character_ids omitted",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -271,6 +271,14 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertIn("eligible_after_exact_fetch", COGNITION_PLANNER_BASE_INSTRUCTIONS)
         self.assertIn("citable_static_evidence_refs", COGNITION_PLANNER_BASE_INSTRUCTIONS)
         self.assertIn("never count, truncate, or summarize", COGNITION_PLANNER_BASE_INSTRUCTIONS)
+        self.assertIn(
+            "exactly copy the kind of a material_pressures row in that same decision record",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "never refer to a pressure from another decision record",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
         self.assertIn(
             "include at least one NPC-owned action",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -698,6 +706,14 @@ class CognitionProviderContractTests(unittest.TestCase):
         autonomy = decision["autonomy_application"]["properties"]
         self.assertIs(autonomy["mind_precedence_applied"]["const"], True)
         self.assertIs(autonomy["body_precedence_applied"]["const"], True)
+        self.assertIn(
+            "same decision record",
+            autonomy["overwhelming_pressure_kind"]["description"],
+        )
+        self.assertIn(
+            "level is overwhelming",
+            autonomy["overwhelming_pressure_kind"]["description"],
+        )
         provisional = properties["provisional_dependencies"]["items"]["properties"]
         self.assertEqual(
             provisional["provisional_record_id"]["enum"],

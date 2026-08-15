@@ -8,7 +8,7 @@ from cera.serialization import canonical_json
 from .citations import cognition_static_citation_scope
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v10"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v11"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
@@ -53,7 +53,11 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     "concise_perception, and certainty row. "
     "Reevaluate remaining actors after every material action. Qualitative "
     "pressure levels are exactly none, low, moderate, high, or overwhelming; "
-    "never invent decimal psychology. A decision record is required for each "
+    "never invent decimal psychology. Within each decision record, "
+    "autonomy_application.overwhelming_pressure_kind must be null or exactly "
+    "copy the kind of a material_pressures row in that same decision record "
+    "whose level is overwhelming; never refer to a pressure from another "
+    "decision record. A decision record is required for each "
     "NPC-owned material action, dialogue intent, remote communication, durable "
     "change, ordered entry, or ordered exit. Link material sequence items to one "
     "decision with decision_item_links; one decision may authorize multiple "
