@@ -13,6 +13,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock, Thread
+from time import monotonic, sleep
 from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
@@ -1797,8 +1798,9 @@ class PiSceneHttpAdapter:
         if adult:
             assert self.full_model_controller is not None
             return adult_review_payload(self.full_model_controller.get_adult_review(review_id))
-        stale_projection: StateConflictError | None = None
-        for projection_attempt in range(8):
+        stale_projection_deadline = monotonic() + 1.0
+        projection_attempt = 0
+        while True:
             if projection_attempt:
                 ordinary = self._ordinary_review_optional(review_id)
             if ordinary is None:
@@ -1815,9 +1817,13 @@ class PiSceneHttpAdapter:
                 # every other projection failure remains fail-closed.
                 if exc.args != ("Pi Scene response review is not durable",):
                     raise
-                stale_projection = exc
-        assert stale_projection is not None
-        raise stale_projection
+                if monotonic() >= stale_projection_deadline:
+                    raise
+                # Yield to the validation join that replaced the immutable
+                # review between the read above and provider accounting. Keep
+                # this local-only wait bounded; it dispatches no provider work.
+                sleep(0.01)
+                projection_attempt += 1
 
     def _reconcile_ordinary_recorder_for_review_get(
         self,

@@ -947,7 +947,10 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                     del reconcile
                     self.assert_review_id(value)
                     self.reads += 1
-                    return frozen if self.reads == 1 else validating
+                    # More consecutive replacements than the former fixed
+                    # eight-read loop could survive. The GET must yield and
+                    # follow the review until one durable snapshot remains.
+                    return frozen if self.reads <= 10 else validating
 
                 @staticmethod
                 def assert_review_id(value: str) -> None:
@@ -979,7 +982,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
 
             payload = adapter.get_review(frozen.review_id)
 
-            self.assertEqual(racing.reads, 2)
+            self.assertEqual(racing.reads, 11)
             self.assertEqual(payload["state"], "checks_pending")
             self.assertEqual(payload["gate_status"], "pending")
 
