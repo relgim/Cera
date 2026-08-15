@@ -225,7 +225,10 @@ class WriterViewMaterializer:
             return verify_writer_view(visible)
 
         final.parent.mkdir(parents=True, exist_ok=True)
-        stage = final.parent / f".{final.name}.{uuid4().hex}.tmp"
+        # The final path already binds the candidate. Repeating that component in
+        # the transient name can cross Win32's legacy path limit before the
+        # immutable directory is atomically installed.
+        stage = final.parent / f".stage-{uuid4().hex}"
         stage.mkdir(parents=False, exist_ok=False)
         try:
             self._write_view(stage / "visible", stage / "custody", source)
