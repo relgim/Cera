@@ -46,8 +46,8 @@ provider run has been started from the corrected bytes at this snapshot.
 
 2. CURRENT CERA / QUALIFICATION VERSIONS
 
-Current pushed qualification fixture schema: V41
-Current pushed qualification manifest schema: V45
+Current qualification fixture format: V41
+Current qualification manifest format: V45
 
 V41 contains 30 scenarios in the required distribution:
 - Backend ordinary: 10
@@ -55,19 +55,23 @@ V41 contains 30 scenarios in the required distribution:
 - SillyTavern ordinary: 5
 - SillyTavern adult: 5
 
-V41 fixture physical SHA-256:
-7a5cd11156c28e201872a7210f80e95d1f7d5ac30d647025fe2a59167cb8e1f9
+Current fresh AV scenario-set physical SHA-256:
+0516e141ad3b0aa44079e6e17113515937c98074fb3df45ad91ebba0250f8186
 
-V41 novelty SHA-256:
-e853b8d4574f8e2bae46b7d942e19b59cd79a1c45e20d8188ddcabc8503febe5
+Current fresh AV scenario-set novelty SHA-256:
+541f3e131307c6b8a8251d01b881bb84a6115337b705151c024e90e07e009a6c
 
-V45 manifest SHA-256:
+Root AU spent V45 manifest SHA-256:
 4f44d2eb3be21da25d322bc7b6d1db9eff8ce895c3f939ca1aac166a894d2878
 
-Frozen history at V45:
-- 39 spent fixture/manifest sets
-- 1,170 prior novelty IDs
-- 1,170 prior sources
+Frozen history before the next AV manifest:
+- 40 spent fixture/manifest sets, including Root AU
+- 1,200 prior novelty IDs
+- 1,200 prior sources
+
+V41 and V45 are format versions, not counters for every disposable run. The
+fresh AV scenario set therefore keeps the valid V41 format and the next frozen
+manifest keeps the valid V45 format; only content/run identity changes.
 
 Provider-attempt rule:
 - Every individual provider attempt has its own hard 180-second limit.
@@ -447,10 +451,10 @@ Current decision on locking portability:
 
 14. EXACT NEXT STEPS WHEN WORK RESUMES
 
-1. Rotate V41 to a fresh V42 set of 30 new story directions.
-2. Advance manifest V45 to V46 and bind the new source commit/tree and fixture
-   hashes.
-3. Run focused fixture/manifest tests and provider-free readiness.
+1. Commit and push the fresh AV scenario set using the existing V41 format.
+2. Freeze a fresh V45-format manifest bound to the new source commit/tree and
+   current fixture hashes.
+3. Run provider-free readiness against that exact manifest.
 4. Start a completely fresh 10 ordinary + 10 adult backend and 5 ordinary +
    5 adult SillyTavern qualification.
 5. Use new story directions, not a repeat of Root AU's prompt set.
