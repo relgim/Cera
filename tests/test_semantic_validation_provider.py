@@ -118,9 +118,9 @@ class SemanticValidationProviderTests(unittest.TestCase):
             LUNA_VALIDATOR_ADAPTER,
             "cera.semantic_validation.luna_adapter.v6",
         )
-        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v5")
-        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v5")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v8")
+        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v6")
+        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v6")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v9")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
         self.assertEqual(route.timeout_seconds, 180)
@@ -157,6 +157,18 @@ class SemanticValidationProviderTests(unittest.TestCase):
             LUNA_VALIDATOR_BASE_INSTRUCTIONS,
         )
         self.assertIn(
+            "Public biography, employment, duty assignment, stationing, role, affiliation",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Never classify such a public detail as protected_user_private_state",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "soft presence_violation or capability_restriction",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
             "Never infer that an anonymous or differently named claimant",
             LUNA_VALIDATOR_BASE_INSTRUCTIONS,
         )
@@ -186,7 +198,7 @@ class SemanticValidationProviderTests(unittest.TestCase):
         self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
         self.assertEqual(
             qualification_route.route_id,
-            "cera_full_model_qualification_semantic_validator_luna_xhigh_v6",
+            "cera_full_model_qualification_semantic_validator_luna_xhigh_v7",
         )
         self.assertEqual(
             qualification_route,
