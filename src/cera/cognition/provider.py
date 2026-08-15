@@ -41,8 +41,8 @@ from .validation import CognitionValidationContextV1, validate_cognition_plan
 
 COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v8"
 COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v10"
-# Each provider attempt owns its own three-minute transport boundary. A later
-# explicitly authorized retry starts a new, independent boundary.
+# Retained as a latency-observation threshold in the route identity. The scene
+# backend's stored-thread runner waits for the real result without cancelling.
 COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 180
 
 
@@ -118,6 +118,7 @@ class CodexCognitionPlannerBackend:
             runner=StoredCodexThreadRunner(
                 thread_id,
                 base_instructions=COGNITION_PLANNER_BASE_INSTRUCTIONS,
+                enforce_timeout=False,
             ),
         )
         stored_thread_sha256 = text_sha256(thread_id)

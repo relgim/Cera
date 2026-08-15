@@ -486,6 +486,7 @@ def build_live_runtime(
                 extension_path=DEFAULT_EXTENSION,
                 pi_version="0.84.1",
                 operation_ledger=deepseek_ledger,
+                enforce_timeout=False,
                 readable_debug=readable_debug,
             )
         else:

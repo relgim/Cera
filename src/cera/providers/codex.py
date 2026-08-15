@@ -721,6 +721,7 @@ class _SubprocessCodexRunner:
         worker_module: str = "cera.providers.codex_worker",
         provider_thread_id: str | None = None,
         base_instructions: str | None = None,
+        enforce_timeout: bool = True,
     ) -> None:
         if service_tier is not None and service_tier != "priority":
             raise ContractValidationError(
@@ -744,6 +745,9 @@ class _SubprocessCodexRunner:
         self.worker_module = worker_module
         self.provider_thread_id = provider_thread_id
         self.base_instructions = base_instructions
+        if type(enforce_timeout) is not bool:
+            raise ContractValidationError("Codex timeout enforcement flag is invalid")
+        self.enforce_timeout = enforce_timeout
 
     def run(
         self,
@@ -828,7 +832,7 @@ class _SubprocessCodexRunner:
         try:
             stdout, stderr = process.communicate(
                 payload,
-                timeout=route.timeout_seconds,
+                timeout=(route.timeout_seconds if self.enforce_timeout else None),
             )
         except subprocess.TimeoutExpired:
             _terminate_codex_worker_tree(process)
@@ -915,12 +919,14 @@ class StoredCodexThreadRunner(_SubprocessCodexRunner):
         *,
         base_instructions: str,
         service_tier: str | None = None,
+        enforce_timeout: bool = True,
     ) -> None:
         super().__init__(
             service_tier=service_tier,
             worker_module="cera.providers.codex_stored_turn_worker",
             provider_thread_id=provider_thread_id,
             base_instructions=base_instructions,
+            enforce_timeout=enforce_timeout,
         )
 
 

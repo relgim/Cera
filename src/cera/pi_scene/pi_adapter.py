@@ -105,7 +105,7 @@ class PiOutputLimitError(ProviderTransportError):
 
 
 ProcessRunner = Callable[
-    [Sequence[str], Path, Mapping[str, str], int, Callable[[str], None]],
+    [Sequence[str], Path, Mapping[str, str], int | None, Callable[[str], None]],
     _ProcessResult,
 ]
 
@@ -125,6 +125,7 @@ class PiSceneAdapter:
         provider: str = "deepseek",
         model: str = "deepseek-v4-flash",
         timeout_seconds: int = 180,
+        enforce_timeout: bool = True,
         process_runner: ProcessRunner | None = None,
         readable_debug: ReadablePiSceneDebugLog | None = None,
     ) -> None:
@@ -135,6 +136,7 @@ class PiSceneAdapter:
         self.provider = provider
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.enforce_timeout = enforce_timeout
         self._process_runner = process_runner or _run_process
         self.readable_debug = readable_debug
         if not self.pi_executable.is_file():
@@ -143,7 +145,12 @@ class PiSceneAdapter:
             raise ContractValidationError("CERA Pi extension is unavailable")
         if provider != "deepseek" or model != "deepseek-v4-flash":
             raise ContractValidationError("initial Pi Scene route requires DeepSeek V4 Flash")
-        if not pi_version.strip() or type(timeout_seconds) is not int or timeout_seconds < 1:
+        if (
+            not pi_version.strip()
+            or type(timeout_seconds) is not int
+            or timeout_seconds < 1
+            or type(enforce_timeout) is not bool
+        ):
             raise ContractValidationError("Pi Scene adapter configuration is invalid")
 
     def invoke(self, request: PiSceneInvocationV1) -> PiSceneInvocationResultV1:
@@ -198,7 +205,7 @@ class PiSceneAdapter:
                 command,
                 control_dir,
                 environment,
-                self.timeout_seconds,
+                self.timeout_seconds if self.enforce_timeout else None,
                 lambda line: self.operation_ledger.observe_line(invocation_id, line),
             )
         except BaseException as exc:
@@ -660,7 +667,7 @@ def _run_process(
     command: Sequence[str],
     cwd: Path,
     environment: Mapping[str, str],
-    timeout_seconds: int,
+    timeout_seconds: int | None,
     on_stdout_line: Callable[[str], None],
 ) -> _ProcessResult:
     assert_provider_dispatch_allowed(

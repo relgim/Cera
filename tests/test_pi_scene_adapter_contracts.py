@@ -60,6 +60,26 @@ class PiSceneCompletionContractTests(unittest.TestCase):
             )
             self.assertEqual(adapter.timeout_seconds, 180)
 
+    def test_observe_only_writer_waits_without_process_deadline(self) -> None:
+        captured: list[int | None] = []
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            adapter, request, _ledger, view = _offline_invocation(root, "")
+
+            def runner(_command, _cwd, _environment, timeout, _observe):
+                captured.append(timeout)
+                return _ProcessResult(0, "", "")
+
+            adapter.enforce_timeout = False
+            adapter._process_runner = runner
+            with (
+                patch("cera.pi_scene.pi_adapter.verify_writer_view", return_value=view),
+                self.assertRaises(StateConflictError),
+            ):
+                adapter.invoke(request)
+
+        self.assertEqual(captured, [None])
+
     def test_exactly_one_successful_context_call_and_stop_passes(self) -> None:
         _validate_pi_completion(_parsed())
 

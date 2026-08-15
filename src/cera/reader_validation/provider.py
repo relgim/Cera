@@ -38,8 +38,8 @@ from .schema import reader_verdict_json_schema
 
 SOL_READER_ADAPTER = "cera.reader_validation.sol_adapter.v2"
 SOL_READER_PROMPT = "cera.reader_validation.sol_prompt.v1"
-# Each provider attempt owns its own three-minute transport boundary. A later
-# explicitly authorized retry starts a new, independent boundary.
+# Retained as a latency-observation threshold in the route identity. The scene
+# backend's stored-thread runner waits for the real result without cancelling.
 SOL_READER_HARD_TIMEOUT_SECONDS = 180
 
 
@@ -118,6 +118,7 @@ class CodexSolReaderBackend:
             runner=StoredCodexThreadRunner(
                 thread_id,
                 base_instructions=SOL_READER_BASE_INSTRUCTIONS,
+                enforce_timeout=False,
             ),
         )
         prompt = build_reader_validation_prompt(request)

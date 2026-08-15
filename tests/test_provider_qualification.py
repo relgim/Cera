@@ -532,6 +532,70 @@ class ProviderQualificationTests(unittest.TestCase):
             "bounded provider qualification",
         )
 
+    def test_stored_codex_runner_can_wait_without_cancelling_late_result(self) -> None:
+        captured: dict[str, object] = {}
+
+        class CompletedProcess:
+            pid = 43215
+            returncode = 0
+
+            def communicate(self, payload, *, timeout):
+                request = json.loads(payload)
+                captured["timeout"] = timeout
+                Path(request["progress_path"]).write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "cera.codex_worker_progress.v1",
+                            "stage": "thread_read",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return (
+                    json.dumps(
+                        {
+                            "output_text": '{"probe":"ok"}',
+                            "provider_request_id": "private-turn",
+                            "returned_model": "gpt-5.6-sol",
+                            "duration_ms": 0,
+                            "input_tokens": 1,
+                            "cached_input_tokens": 0,
+                            "output_tokens": 1,
+                            "reasoning_output_tokens": 0,
+                            "transport_version": "0.144.4",
+                            "mcp_server_names": [],
+                            "mcp_tool_names": [],
+                            "mcp_tool_call_count": 0,
+                            "mcp_failed_tool_call_count": 0,
+                            "unsupported_item_types": [],
+                            "pre_registered_turn_count": 1,
+                        }
+                    ),
+                    "",
+                )
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "cera.providers.codex.subprocess.Popen",
+                return_value=CompletedProcess(),
+            ),
+        ):
+            result = OfflineStoredCodexThreadRunner(
+                "stored-thread-late",
+                base_instructions="bounded provider qualification",
+                enforce_timeout=False,
+            ).run(
+                route=codex_reasoner_candidate(),
+                prompt="Return a bounded test object.",
+                output_schema=codex_transport_probe_output_schema(),
+                workspace=Path(directory),
+                mcp_binding=None,
+            )
+
+        self.assertIsNone(captured["timeout"])
+        self.assertEqual(result.output_text, '{"probe":"ok"}')
+
     def test_persistent_codex_runner_reuses_process_but_not_request_workspace(self) -> None:
         worker_result = {
             "output_text": '{"probe":"ok"}',

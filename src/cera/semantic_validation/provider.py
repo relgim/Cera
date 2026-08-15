@@ -46,8 +46,8 @@ FULL_MODEL_QUALIFICATION_LUNA_ROUTE_ID = (
     "cera_full_model_qualification_semantic_validator_luna_xhigh_v8"
 )
 FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS = 128_000
-# Each provider attempt owns its own three-minute transport boundary. A later
-# explicitly authorized retry starts a new, independent boundary.
+# Retained as a latency-observation threshold in the route identity. The scene
+# backend's stored-thread runner waits for the real result without cancelling.
 LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS = 180
 
 
@@ -148,6 +148,7 @@ class CodexLunaSemanticValidatorBackend:
             runner=StoredCodexThreadRunner(
                 thread_id,
                 base_instructions=LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+                enforce_timeout=False,
             ),
         )
         prompt = build_luna_validation_prompt(request)
