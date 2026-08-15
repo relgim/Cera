@@ -1,0 +1,443 @@
+CERA CURRENT HANDOFF FOR CHATGPT PRO
+Snapshot: 2026-08-15 PDT
+Workspace: D:\Cera\worktrees\C78-root-t-staging
+
+PURPOSE
+
+This is the current human-readable CERA handoff. It summarizes the repository
+state, versions, work completed, failures and corrections, current concerns,
+controlling user directions, timing evidence, and next work. Provider secrets,
+protected story prose, and adult prose are intentionally excluded.
+
+
+1. EXECUTIVE STATUS
+
+- CERA has not yet completed the required fresh 10/10/5/5 qualification.
+- The most recent live campaign, Root AW, passed three backend ordinary scenes
+  and failed on scene 4 after DeepSeek repeated too much prior-scene structure.
+- The failure was reproduced on 5 of 5 exact pre-change samples.
+- A focused Writer-context correction now gives ordinary DeepSeek only the
+  immediately previous full accepted prose. Older continuity remains available
+  through structured, hash-bound accepted records.
+- Exact post-change replay reduced the hard repetition result to 1 of 3 samples.
+  This is a strong improvement, but it is not a completed qualification proof.
+- Focused ordinary/adult tests and static checks pass.
+- The correction is committed locally as 1d672ff, but has not yet been pushed.
+- The next required work is a fresh, structurally varied scenario rotation,
+  focused readiness checks, and a new campaign beginning at fixture 1.
+
+
+2. CURRENT GIT STATE
+
+Remote:
+https://github.com/relgim/Cera.git
+
+Branch:
+checkpoint/cera-current-20260814
+
+Local HEAD:
+1d672ffcca3bd5cf8f5a079812b2bebd345df9ba
+
+Local tree:
+b59b90ab6d48c51b895759bf59eeac49a2020e9c
+
+Latest local commit:
+1d672ff  Prioritize immediate prose in ordinary Writer context
+
+Remote branch HEAD before this handoff:
+684687a229fc2b7be4070b7a550151d5e4535eef
+
+Git state at snapshot:
+- Local branch is one commit ahead of GitHub.
+- This handoff file is not yet committed.
+- No code changes are currently uncommitted.
+
+Recent relevant commits:
+- 1d672ff  Prioritize immediate prose in ordinary Writer context
+- 684687a  Rotate fresh qualification story directions
+- b371015  Shorten Writer view staging paths
+- 4807a88  Rotate fresh story capability scenarios
+- 5d99792  Add current CERA Pro review handoff
+- 99cf2e4  Bound adult context and candidate paths
+- 85ebb7e  Rotate story capability qualification to V41
+- b79ec36  Reconcile transient ordinary review snapshots
+- 0635979  Bound every provider attempt to three minutes
+
+
+3. CURRENT QUALIFICATION VERSION
+
+Fixture schema/content generation:
+- V41
+
+Qualification manifest format:
+- V45
+
+Current fixture distribution:
+- Backend ordinary: 10
+- Backend adult: 10
+- SillyTavern ordinary: 5
+- SillyTavern adult: 5
+- Total: 30
+
+Current V41 fixture file SHA-256:
+81e09c5c2aa014a95e9edd238f06b89942023a34dccdbeac09702d795bf7f62f
+
+Current V41 novelty SHA-256:
+f929c66cf5de68dc90791b4ec77131997fa82b115dd701a0e11ea82c8fade9a8
+
+Clarification:
+- V41/V45 are contract versions, not run counts.
+- A spent live root needs a fresh scenario/run identity.
+- The version number changes only when the format or frozen contract changes.
+
+
+4. MOST RECENT LIVE CAMPAIGN: ROOT AW
+
+Root:
+D:\Cera\q\c78-20260815-aw
+
+Qualification ID:
+c78-story-capability-live-20260815-aw
+
+Manifest self SHA-256:
+8659079472fef1223fdb3532c671de3a66effdd55167dbb16ca712518e264c50
+
+Provider-free readiness:
+- PASS
+- 30 fixtures found: 20 backend and 10 SillyTavern
+- Provider calls: 0
+- Elapsed: approximately 22.8 seconds
+
+Live outcome:
+- Backend ordinary 01: standing-policy provisional acceptance
+- Backend ordinary 02: standing-policy provisional acceptance
+- Backend ordinary 03: standing-policy provisional acceptance
+- Backend ordinary 04: terminal failure
+- Passed before failure: 3 of 20 backend fixtures
+- Explicit Regenerate actions: 1
+- Externally authorized manual actions: 1
+- Automatic manual actions: 0
+
+Terminal failure:
+- Type: StateConflictError
+- Category: state_conflict
+- Standard failure SHA-256:
+  014bf427e38513b9499dfdba29f0d465a9eabfa04a1c52eb2565885b36fe5020
+- Result SHA-256:
+  b264c73b981e9355e8d0005a2a67a80a2771da1f64da28ebf994806635f40ced
+
+Root AW is terminal and spent. It cannot be reused as the clean 30/30 proof.
+
+
+5. ROOT AW FAILURE AND DIAGNOSIS
+
+What failed:
+- DeepSeek's ordinary scene 4 candidate was rejected by Reader for severe
+  repetition of the structures and language patterns in prior accepted scenes.
+- Luna initially reported only a soft stopping-boundary issue.
+- One exact authorized Regenerate ran without rerunning Planner.
+- The regenerated candidate passed Luna but Reader found the same hard severe
+  repetition again.
+
+What this was not:
+- Not invented Ted dialogue or private state.
+- Not consent failure.
+- Not identity/family/canon corruption.
+- Not a provider transport failure.
+- It was a Writer whole-candidate quality and context-shaping issue.
+
+Exact pre-change diagnostic:
+- Root AW initial + Regenerate + 3 extra frozen-packet samples = 5 samples.
+- Reader hard severe repetition: 5 of 5.
+- Extra diagnostic root:
+  D:\Cera\q\c78-aw-repetition-diagnostic-20260815
+
+Varied-packet diagnostic:
+- Three different story packets were sampled twice each.
+- Hard results: 2 of 6.
+- Neither hard class repeated on that packet's second output.
+- This suggested ordinary DeepSeek variance of roughly one-third across the
+  small varied sample, while the frozen lunar packet was unusually unstable.
+
+Writer-view audit:
+- Prior full prose was not duplicated byte-for-byte.
+- DeepSeek received three complete prior scenes plus structured accepted
+  records for those turns.
+- The first four Root AW Planner outputs also followed nearly the same
+  verification/action/stopping sequence shape.
+- The combination was teaching an accidental narrative template.
+
+ChatGPT Pro advice checked once:
+- Keep the immediately previous accepted prose exactly once.
+- Use concise structured continuity for older turns.
+- Do not weaken Reader.
+- Do not add another vague novelty prompt.
+- Keep DeepSeek as Writer.
+- Consider stronger routing only if the compact packet still fails repeatedly.
+
+
+6. CORRECTION MADE
+
+Production change:
+- File: src/cera/pi_scene/runtime.py
+- Ordinary Writer context now includes only the immediately previous full
+  accepted prose.
+- Older turns remain available as structured, hash-bound accepted records.
+- Adult Writer context remains unchanged.
+
+Focused regression:
+- File: tests/test_pi_scene_lean_v1.py
+- The test now proves that two older accepted turns remain represented through
+  structured records while only one immediate prior prose item is linked.
+
+Intentionally unchanged:
+- DeepSeek model and route
+- Planner
+- Writer system/invocation prompt
+- Reader strictness
+- Luna strictness
+- Standing-policy classification
+- Adult context behavior
+- Provider retry rules
+- Accepted state/canon rules
+
+Post-change exact frozen-plan replay:
+- Sample 1: Reader pass; Luna soft stopping-boundary
+- Sample 2: Reader hard severe repetition; Luna pass
+- Sample 3: Reader pass; Luna soft stopping-boundary
+- Hard repetition improved from 5/5 to 1/3.
+- Writer input fell from 51,665 to 49,266 tokens.
+- Reduction: 2,399 tokens, about 4.64%.
+- Typed diagnostic summary:
+  D:\Cera\d\awp\DIAGNOSTIC_SUMMARY.json
+- Summary SHA-256:
+  86b2771bd09c32ea54f923a9da54931ecf64ffc16ed06398886c09547878afa0
+
+Verification:
+- Focused ordinary/adult modules: 52/52 PASS
+- Ruff lint: PASS
+- Python compilation: PASS
+- Strict mypy on runtime: PASS
+- Git diff check: PASS
+- Runtime format check: PASS
+- The large lean test file has broad pre-existing formatter drift; the changed
+  method itself exactly matches Ruff's formatted output.
+
+
+7. OTHER IMPORTANT ERRORS ALREADY FIXED
+
+1. Provider calls shared or exceeded the intended time window.
+   Correction: every individual attempt receives its own 180-second limit.
+   An eligible retry gets a separate 180 seconds; it does not share the first
+   attempt's time.
+
+2. Ordinary review state exposed impossible transient projections.
+   Correction: accepted/review projection changes are atomic and reconciled.
+
+3. Planner evidence could exceed one bounded evidence item.
+   Correction: oversized evidence is split into bounded pieces.
+
+4. A recovered Luna retry returned HTTP 422 after producing a valid typed result.
+   Cause: code cleared the last lane failure while the review was temporarily
+   still marked validation_blocked.
+   Correction: phase, result, retry status, and failures update atomically.
+
+5. Adult Writer context/path scaling failed in Root AU.
+   Corrections: compact accepted records and Genesis projections, normalize
+   visibility, and use shorter physical staging paths while retaining full
+   custody hashes.
+   Exact provider-disabled Root AU handoff replay passed after the correction.
+
+6. Diagnostic harness setup errors occurred during varied sampling.
+   - One harness used retry plumbing without the required HTTP custody.
+   - One copied path exceeded Windows path length.
+   - One temporary request used an invalid DeepSeek ceiling parameter.
+   These occurred before provider dispatch or in disposable diagnostics. They
+   did not mutate qualification authority or accepted world state.
+
+7. One Theater Luna attempt exceeded its diagnostic output-token allowance.
+   The exact candidate/request was preserved and only Luna was retried with the
+   qualification allowance. Planner, Writer, and Reader were not rerun.
+
+
+8. CURRENT POLICY / USER DIRECTIONS
+
+These are the condensed controlling user commands and clarifications:
+
+1. Completion means one fresh uninterrupted 10/10/5/5 campaign:
+   - 10 backend ordinary
+   - 10 backend adult
+   - 5 SillyTavern ordinary
+   - 5 SillyTavern adult
+
+2. Each provider attempt has a hard 180-second limit without counting retries.
+   Any explicitly eligible retry receives its own separate 180-second attempt.
+   Automatic redispatch remains disabled.
+
+3. When a Python, prompt, or integration error occurs:
+   - stop fail-closed;
+   - preserve the exact failing session;
+   - identify the exact owner;
+   - make the smallest general fix;
+   - run a focused test for the causative seam;
+   - replay that exact saved session;
+   - after it succeeds, start a completely fresh run from fixture 1;
+   - use a different story direction on each fresh run.
+
+4. Optimize time. Do not run the full 2,000+ test suite after every narrow fix.
+   Use focused tests and exact replay. Use a broad gate only for a stable final
+   candidate when it materially adds confidence.
+
+5. Routine in-scope fixes, focused tests, commits, pushes, scenario rotations,
+   and fresh attempts do not require repeated permission requests.
+
+6. Keep user-facing updates short and list-based.
+
+7. Avoid subagents unless genuinely necessary or explicitly requested.
+
+8. Fresh runs must vary story capabilities and prompt direction. Do not reduce
+   qualification to repeated closed-door or verification/binary-question scenes.
+
+9. A front door is not required to remain closed unless that individual story
+   establishes it as a constraint.
+
+10. Minor DeepSeek deviations should normally become provisional world facts.
+    Do not make a second Writer call for harmless staging, pacing, localized
+    omissions, or small additions. A second Writer call is for a severe failure.
+
+11. Ordinary Ted hard protections:
+    - do not invent Ted's dialogue;
+    - do not invent Ted's private thoughts, feelings, memories, or state.
+
+12. Adult-route Ted freedom is broader inside an already authorized adult
+    interaction. Plausible immediate physical action and limited in-scene
+    dialogue may be allowed, but the system must not invent consent,
+    withdrawal, lasting decisions, memories, or permanent preferences.
+
+13. Fundamental hard canon examples remain fail-closed:
+    - Sakura suddenly becomes a man;
+    - Sakura suddenly becomes 28;
+    - Hana is no longer Mia's mother;
+    - a critical accepted event is erased or directly contradicted.
+    Small additions around an existing event may be provisional.
+
+14. If Ted asks about an accepted event, characters may remember it or be
+    uncertain, but the event itself must continue to exist. New harmless details
+    around it are allowed provisionally.
+
+15. If the same DeepSeek hard failure class appears twice:
+    - stop local prompt tweaking and root rotation;
+    - preserve the exact packet;
+    - compare exact same-packet samples with varied-packet samples;
+    - use the same validators;
+    - do not mutate canon;
+    - ask the existing ChatGPT Pro CERA review chat once;
+    - keep DeepSeek as Writer/Adult model.
+
+16. ChatGPT Pro and Claude are advisory reviewers. Codex remains responsible
+    for code, evidence, and technical decisions.
+
+17. After a clean qualification pass, sync only the required CERA integration
+    files into installed SillyTavern. Preserve user data, settings, and chats,
+    then verify startup and CERA route behavior before handoff.
+
+
+9. CURRENT OPEN ISSUES / CONCERNS
+
+1. No fresh post-correction 30/30 proof exists yet.
+   The 1/3 replay improvement is diagnostic evidence, not final qualification.
+
+2. The next scenario set must be structurally diverse.
+   Current and prior ordinary fixtures often share an authority claim,
+   verification action, and binary-question ending. Settings alone are not
+   enough variation.
+
+3. DeepSeek remains probabilistic.
+   The goal is not zero minor drift. The goal is to tolerate safe drift while
+   preserving Ted, consent, identity/family canon, critical events, custody,
+   and truly severe quality boundaries.
+
+4. Existing-session versus new-session timing still lacks a large clean sample.
+   Continue recording these separately in the next campaign.
+
+5. Two provider-stage modules import Windows-only msvcrt at module load.
+   This blocks clean non-Windows test collection. It is not a blocker for the
+   current Windows campaign. A future fix needs a deliberate cross-platform
+   locking abstraction; msvcrt and fcntl do not have identical semantics.
+
+6. Legacy orchestration cleanup is deferred until the qualification goal is met.
+
+
+10. TIMING SNAPSHOT
+
+DeepSeek Writer:
+- Root AW recent calls: roughly 18-27 seconds
+- Frozen pre-change diagnostic mean: about 21.3 seconds
+- Frozen post-change replay mean: about 20.0 seconds
+
+Cold/new Planner examples:
+- About 60.5 seconds
+- About 78.9 seconds
+- Simple mean: about 69.7 seconds
+
+Provider-free preparation:
+- V41/V45 readiness: about 22-23 seconds
+- Root AU exact provider-disabled replay: about 13-18 seconds
+
+Validator timing from the pre-change three-sample diagnostic:
+- 86.1 seconds
+- 62.8 seconds
+- 43.1 seconds
+- Mean: about 64.0 seconds
+
+Limitation:
+- There is not yet enough clean evidence to claim a reliable average difference
+  between retained existing sessions and completely new sessions. The next
+  campaign should keep those categories separate.
+
+
+11. NEXT WORK IN ORDER
+
+1. Commit this current handoff and push it with local commit 1d672ff.
+2. Rotate fresh scenario/run identity without changing V41/V45 unless the
+   frozen contract itself must change.
+3. Make the new ordinary scenarios genuinely structurally diverse.
+4. Run only focused fixture/history/manifest checks and provider-free readiness.
+5. Start a fresh qualification at backend ordinary fixture 1.
+6. Complete 10 ordinary + 10 adult backend scenes, then 5 ordinary + 5 adult
+   SillyTavern scenes without a new defect.
+7. If a new defect occurs, preserve/replay only that causative seam, correct it,
+   then restart a fresh campaign from fixture 1 with a new story direction.
+8. After a clean 30/30 result, sync the required integration files to installed
+   SillyTavern while preserving user data/settings/chats.
+9. Verify SillyTavern startup and CERA route behavior, then prepare the human
+   testing handoff.
+
+
+12. QUESTIONS FOR CHATGPT PRO
+
+1. Does limiting ordinary Writer full prose to the immediately previous turn,
+   while retaining older structured accepted records, preserve enough narrative
+   continuity without teaching an accidental scene template?
+
+2. Is the measured change from 5/5 hard repetition to 1/3 enough to justify a
+   fresh qualification attempt, given Reader and Luna were not weakened?
+
+3. What structurally different ordinary scenario families would best test
+   story capability without repeatedly using verification and binary-choice
+   endings?
+
+4. Are any current hard/provisional boundaries too broad or too narrow relative
+   to Ted protection, adult freedom, consent, identity/family canon, and critical
+   event continuity?
+
+5. Is any issue above a blocker before the fresh 10/10/5/5 campaign?
+
+
+BOTTOM LINE
+
+The latest code correction is narrow, tested, and committed locally. It reduced
+the repeated Writer failure substantially without weakening validators or
+changing the model/prompt. CERA is ready for fresh scenario rotation and a new
+qualification attempt, but it is not yet qualified: the required clean 30/30
+campaign and installed SillyTavern verification remain outstanding.
