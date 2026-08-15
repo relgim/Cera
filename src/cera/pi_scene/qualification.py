@@ -7572,9 +7572,7 @@ def _validate_provider_delta(
             if owner not in sol_stage_by_owner:
                 raise StateConflictError("qualification Sol failure owner changed")
             owner_stage = sol_stage_by_owner[cast(str, owner)]
-            if state not in {"pretransport_failed", "provider_failed"} or owner_stage not in (
-                retried_stages
-            ):
+            if owner_stage not in retried_stages:
                 raise StateConflictError("qualification Sol ledger contains an unrelated failure")
     prepared_stages = {
         cast(str, value["invocation_id"]): _deepseek_stage(value.get("purpose"))

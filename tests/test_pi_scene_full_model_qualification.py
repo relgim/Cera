@@ -131,6 +131,7 @@ from cera.pi_scene.qualification import (
     QualificationPhase,
     QualificationRoute,
     _provider_operation_records,
+    _validate_provider_delta,
     build_qualification_manifest,
     load_qualification_fixtures,
     qualification_fixture_manifest_metadata,
@@ -2437,6 +2438,149 @@ class _LostReviewRecordingRepairResponseClient(_FakeQualificationClient):
 
 
 class FullModelQualificationTests(unittest.TestCase):
+    def test_provider_delta_accepts_retried_sol_postvalidation_failures(self) -> None:
+        fixture = QualificationFixtureV1(
+            fixture_id="backend-ordinary-01",
+            phase=QualificationPhase.BACKEND,
+            initial_route=QualificationRoute.ORDINARY,
+            expected_route=QualificationRoute.ORDINARY,
+            expected_next_route=QualificationRoute.ORDINARY,
+            adult_craft_mode="off",
+            user_source="A sufficiently long ordinary qualification fixture source.",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            retry_client = _FakeProviderStageRetryClient(
+                Path(temporary),
+                failure_fixture_id=fixture.fixture_id,
+            )
+            retry_chain = {
+                "status_observations": [
+                    retry_client._envelope(
+                        "planner",
+                        attempts=3,
+                        retries=2,
+                        state="succeeded",
+                    )
+                ]
+            }
+
+        sol_events: list[dict[str, Any]] = []
+        for call_id, owner, terminal_state in (
+            ("planner-1", "planner", "provider_completed_post_validation_failed"),
+            ("planner-2", "planner", "provider_completed_post_validation_failed"),
+            ("planner-3", "planner", "typed_accepted"),
+            ("validator-1", "validator", "typed_accepted"),
+            ("reader-1", "reader", "typed_accepted"),
+        ):
+            model = "gpt-5.6-luna" if owner == "validator" else "gpt-5.6-sol"
+            sol_events.extend(
+                (
+                    {
+                        "call_id": call_id,
+                        "owner": owner,
+                        "route": "focused-retry-test",
+                        "model": model,
+                        "stored_thread_sha256": text_sha256(call_id),
+                        "recorded_at_utc": "2026-08-15T00:00:00+00:00",
+                        "state": "transport_invoked",
+                    },
+                    {
+                        "call_id": call_id,
+                        "owner": owner,
+                        "route": "focused-retry-test",
+                        "model": model,
+                        "stored_thread_sha256": text_sha256(call_id),
+                        "recorded_at_utc": "2026-08-15T00:00:01+00:00",
+                        "state": terminal_state,
+                    },
+                )
+            )
+        deepseek_events: list[dict[str, Any]] = []
+        for invocation_id, purpose in (("writer-1", "writer"), ("recorder-1", "recorder")):
+            deepseek_events.append(
+                {
+                    "event": "invocation_prepared",
+                    "invocation_id": invocation_id,
+                    "purpose": purpose,
+                    "route": "ordinary",
+                    "recorded_at_utc": "2026-08-15T00:00:00+00:00",
+                }
+            )
+            for operation_index in (1, 2):
+                deepseek_events.extend(
+                    (
+                        {
+                            "event": "provider_operation_started",
+                            "invocation_id": invocation_id,
+                            "operation_index": operation_index,
+                            "recorded_at_utc": "2026-08-15T00:00:00+00:00",
+                        },
+                        {
+                            "event": "provider_operation_completed",
+                            "invocation_id": invocation_id,
+                            "operation_index": operation_index,
+                            "recorded_at_utc": "2026-08-15T00:00:01+00:00",
+                            "input_tokens": 1,
+                            "cached_input_tokens": 0,
+                            "output_tokens": 1,
+                            "reasoning_tokens": 0,
+                            "finish_status": "stop",
+                        },
+                    )
+                )
+            deepseek_events.append(
+                {
+                    "event": "invocation_completed",
+                    "invocation_id": invocation_id,
+                    "recorded_at_utc": "2026-08-15T00:00:01+00:00",
+                }
+            )
+        delta = ProviderLedgerDeltaV1(
+            sol_events=tuple(sol_events),
+            deepseek_events=tuple(deepseek_events),
+        )
+
+        telemetry = _validate_provider_delta(
+            fixture,
+            [
+                {
+                    "provider_operations": {
+                        "planner": 1,
+                        "validator": 1,
+                        "reader": 1,
+                        "writer": 2,
+                        "recorder": 2,
+                    }
+                }
+            ],
+            delta,
+            provider_stage_retry_chains=[retry_chain],
+        )
+
+        self.assertEqual(telemetry["sol_http_operations"], 5)
+        self.assertEqual(telemetry["sol_charged_operations"], 5)
+        self.assertEqual(telemetry["deepseek_http_operations"], 4)
+
+        with self.assertRaisesRegex(
+            StateConflictError,
+            "qualification Sol ledger contains an unrelated failure",
+        ):
+            _validate_provider_delta(
+                fixture,
+                [
+                    {
+                        "provider_operations": {
+                            "planner": 3,
+                            "validator": 1,
+                            "reader": 1,
+                            "writer": 2,
+                            "recorder": 2,
+                        }
+                    }
+                ],
+                delta,
+            )
+
     def test_sol_ledger_owner_and_model_mapping_is_closed(self) -> None:
         def delta(*, owner: str, model: str) -> ProviderLedgerDeltaV1:
             events = tuple(
