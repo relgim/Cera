@@ -1,16 +1,42 @@
-CERA CURRENT STATUS FOR CHATGPT PRO
+CERA CURRENT SITUATION, WORK, AND DIRECTION FOR CHATGPT PRO
 Snapshot date: 2026-08-15 (America/Vancouver)
 Workspace: D:\Cera\worktrees\C78-root-t-staging
 
-PURPOSE OF THIS FILE
 
-This is a human-readable handoff of the current CERA situation. It covers the
-current version, recent work, failures, fixes, user directions, evidence,
-remaining concerns, and the next intended actions. It deliberately does not
-include provider secrets or protected adult/story prose.
+PURPOSE
+
+This is the current human-readable handoff for reviewing CERA with ChatGPT Pro.
+It records the live repository state, work completed, failures and corrections,
+the user's controlling directions, timing evidence, open concerns, and the next
+work. It intentionally excludes credentials, protected story prose, and adult
+prose.
+
+This file supersedes the older contents of this same status file. The longer
+background handoff remains available at:
+D:\Cera\worktrees\C78-root-t-staging\CERA_CURRENT_HANDOFF_FOR_CHATGPT_PRO_2026-08-15.txt
 
 
-1. CURRENT REPOSITORY STATE
+1. SHORT EXECUTIVE STATUS
+
+- The required fresh uninterrupted 10/10/5/5 qualification is not complete.
+- Root AZ reached backend ordinary fixture 1, generated and recorded the scene,
+  then terminalized 0/20 because the final Python accounting validator wrongly
+  rejected two already-authorized and successfully recovered Planner failures.
+- This was not a DeepSeek story failure, Recorder failure, state-write failure,
+  or validator semantic failure.
+- The exact accounting defect has been reproduced provider-free.
+- The minimal two-file correction is committed and pushed as adf36fe.
+- The direct regression, nearest integration test, exact saved Root AZ replay,
+  Ruff, mypy, Python compilation, and diff check passed on the current bytes.
+- Root AZ is terminal and spent. It cannot be resumed as the clean proof.
+- Next: review the focused diff, commit and push it, rotate all 30 prompts to new
+  story directions, freeze a new root, and restart from fixture 1.
+- No qualification or Python worker is currently running. Port 5101 is free.
+- Installed SillyTavern has not been synchronized yet. That happens only after
+  one clean fresh 30/30 qualification.
+
+
+2. CURRENT GIT STATE
 
 Remote:
 https://github.com/relgim/Cera.git
@@ -18,459 +44,570 @@ https://github.com/relgim/Cera.git
 Branch:
 checkpoint/cera-current-20260814
 
-Current bounded code-fix commit:
-99cf2e40e67092970baba7194e497c9c082e2611
+Current pushed HEAD:
+adf36fe5c04f91335f13e3f92709cf5ab5b94750
 
-Current code-fix tree:
-3121ad042a8894741d672a836312fee6a8188ad0
+Current pushed tree:
+ee4d05a80cd6a47572ddc1ecad4880ff9d0c8392
 
-Commit 99cf2e4 contains the completed adult-context and candidate-path fix. This
-status document may appear in the immediately following documentation commit.
+Current pushed HEAD matches the tracked GitHub branch.
+
+Current working-tree changes:
+- Modified by this request: this status file only
+
+The focused Root AZ code/test correction is committed and pushed. This status
+file is intended for the immediately following documentation commit.
 
 Recent pushed commits:
-- 85ebb7e  Rotate story capability qualification to V41
-- b79ec36  Reconcile transient ordinary review snapshots
-- db87164  Rotate story capability qualification to V40
-- df5f0b5  Reconcile transient accepted review projections
-- 0635979  Bound provider attempts to three minutes
-- 7b4177e  Split oversized Planner evidence
-- 54ce0b4  Rotate qualification fixtures after Root AQ
-- a63073e  Stabilize concurrent review projection
-
-Current uncommitted work at this snapshot:
-- This status handoff document only.
-
-Important: the adult-context correction is committed as 99cf2e4. No live
-provider run has been started from the corrected bytes at this snapshot.
+- adf36fe  Reconcile retried Sol validation failures
+- 411f53c  Update current ChatGPT Pro qualification handoff
+- 33389a8  Rotate fresh story capability scenarios
+- 52eaf49  Handle terminal unlinked writer guidance
+- 987b1d8  Rotate structurally varied qualification scenarios
+- 02014c3  Add current ChatGPT Pro qualification handoff
+- 1d672ff  Prioritize immediate prose in ordinary Writer context
+- 684687a  Rotate fresh qualification story directions
+- b371015  Shorten Writer view staging paths
+- 0635979  Bound every provider attempt to three minutes
 
 
-2. CURRENT CERA / QUALIFICATION VERSIONS
+3. CURRENT CERA AND QUALIFICATION IDENTITIES
 
-Current qualification fixture format: V41
-Current qualification manifest format: V45
+Active runtime profile:
+- cera.active_runtime.d180.v1
 
-V41 contains 30 scenarios in the required distribution:
+Qualification fixture format:
+- V41
+
+Qualification manifest format:
+- V45
+
+Ordinary public review contract:
+- V3 current
+- V2 remains historical/readable
+
+Current scenario distribution:
 - Backend ordinary: 10
 - Backend adult: 10
 - SillyTavern ordinary: 5
 - SillyTavern adult: 5
+- Total: 30
 
-Current fresh AV scenario-set physical SHA-256:
-0516e141ad3b0aa44079e6e17113515937c98074fb3df45ad91ebba0250f8186
+Current V41 fixture SHA-256:
+3a45c6ab6610f95873aca8b3d71572a0b190ca08bad1768678898153fabb0686f
 
-Current fresh AV scenario-set novelty SHA-256:
-541f3e131307c6b8a8251d01b881bb84a6115337b705151c024e90e07e009a6c
+Current novelty-set SHA-256:
+94084dbac3a4b442da81e7f6d443fb8e6c961b96dba2fd7ff1a8848324371e51
 
-Root AU spent V45 manifest SHA-256:
-4f44d2eb3be21da25d322bc7b6d1db9eff8ce895c3f939ca1aac166a894d2878
-
-Frozen history before the next AV manifest:
-- 40 spent fixture/manifest sets, including Root AU
-- 1,200 prior novelty IDs
-- 1,200 prior sources
-
-V41 and V45 are format versions, not counters for every disposable run. The
-fresh AV scenario set therefore keeps the valid V41 format and the next frozen
-manifest keeps the valid V45 format; only content/run identity changes.
-
-Provider-attempt rule:
-- Every individual provider attempt has its own hard 180-second limit.
-- A retry, when explicitly authorized and eligible, gets a separate 180-second
-  attempt. The first call does not share one combined three-minute budget with
-  its retry.
-- Automatic redispatch is disabled.
+Provider-attempt policy:
+- Each individual provider attempt has a hard 180-second limit.
+- An explicitly authorized retry is a new attempt with its own 180 seconds.
+- The first attempt does not share one combined three-minute retry budget.
+- Automatic redispatch, hidden retry, fallback, and model substitution remain
+  disabled.
 
 
-3. USER'S CURRENT GOVERNING DIRECTIONS
+4. WHY ROOT AY WAS NOT USED
 
-The current implementation and run policy should follow these directions:
+Root AY had been frozen before the documentation commit changed the repository
+tree. A frozen qualification manifest must match its exact source commit and
+tree. It would therefore have been invalid to run AY against the newer bytes.
 
-1. Do not repeatedly ask for permission for ordinary in-scope code changes,
-   tests, commits, pushes, fixture rotations, or new qualification attempts.
+The unspent AY root was moved, not deleted, to:
+D:\Cera\q-unspent\c78-20260815-ay
 
-2. Keep user-facing updates short and list-based when possible.
-
-3. Avoid subagents when possible. Continue alone unless delegation is actually
-   needed or the user explicitly requests it.
-
-4. Each provider attempt gets 180 seconds. Retries are separate attempts.
-
-5. When a code or prompt defect occurs:
-   a. Stop the affected run fail-closed.
-   b. Diagnose and make the smallest general correction.
-   c. Run a focused test for the exact defect.
-   d. Replay the exact failed saved session/provider handoff without spending a
-      new provider call when possible.
-   e. If that replay succeeds, start a fresh qualification from the beginning.
-   f. The fresh run must use a different prompt/story direction.
-   g. Continue until a fresh 10/10 backend run and fresh 5/5 SillyTavern run
-      finish without a new issue.
-
-6. DeepSeek deviations should generally become provisional world continuity,
-   not trigger a second Writer call, unless they are severe.
-
-7. The most important protected ordinary-route rules are the two Ted rules:
-   - Do not invent Ted's dialogue/speech.
-   - Do not invent Ted's thoughts, feelings, memories, or private state.
-
-8. Adult content intentionally gives Ted more freedom. Inside an already
-   authorized adult interaction, Ted may take plausible immediate physical
-   actions and use limited in-scene dialogue. The system still must not invent
-   consent, withdrawal, major lasting decisions, memories, or permanent
-   preferences.
-
-9. Other story/canon differences should normally be provisional unless they are
-   extremely bad. Examples the user explicitly considers hard:
-   - Sakura suddenly becomes a man.
-   - Sakura is suddenly 28.
-   - Hana is no longer Mia's mother.
-   Existing events must continue to exist or be honestly forgotten; harmless
-   new additions around an event may be provisionally accepted.
-
-10. A qualification prompt is not required to keep the front door closed unless
-    that particular scenario explicitly requires it.
-
-11. Fresh runs should vary story capabilities and prompt direction instead of
-    repeatedly testing the same door scene.
-
-12. ChatGPT Pro and Claude are advisory reviewers. Codex remains responsible for
-    the implementation, evidence, and final technical judgment.
+This preserved its evidence while removing it from active spent-root discovery.
+A new exact-source Root AZ was then frozen.
 
 
-4. MOST RECENT LIVE RUN: ROOT AU
+5. ROOT AZ FREEZE AND READINESS
 
 Root:
-D:\Cera\q\c78-20260815-au
+D:\Cera\q\c78-20260815-az
 
 Qualification ID:
-c78-story-capability-live-20260815-v45
+c78-story-capability-live-20260815-az
 
-Provider-free readiness before live dispatch:
+Source commit/tree:
+- Commit: 411f53ccc2557eda691e703aa11e1a9565ad17f9
+- Tree: c155cbd2421f29384048768a1792c05aa616cb3d
+
+Manifest:
+- Schema: V45 over fixture V41
+- Self SHA-256:
+  197a3334b5fa852e6e5d7e4edeb0ec142ff592f36ba151349dada1dc9ec48669
+- Raw file SHA-256:
+  a7b107cf1e7f023996462513fd685e7d75be581958fb055b2e9568675a493f37
+- Closure: 43 spent manifests, 43 fixture sets, 1,290 novelty IDs,
+  and 1,290 source hashes
+
+Provider-free readiness:
 - PASS
-- 30 fixtures: 20 backend / 10 SillyTavern
+- 30 typed fixtures: backend 20 / SillyTavern 10
 - Provider calls: 0
-- Elapsed: about 22 seconds
 - Result SHA-256:
-  766c048571b82d889b5d3d3c5c5f135020b81b856a1598c14c107259d56885bc4
+  80b6e864f72117cd5084f4020c2fe161a4ad2bd8e365fa9aa2fa9566328df892
 
-Live progress before failure:
-- Backend ordinary fixtures completed: 5 of 10
-- First-pass accepted: 3
-- Standing-policy provisional accepts: 2
-- Writer retries: 0
-- Manual actions: 0
-- Regenerates: 0
-
-Failure point:
-- Backend adult fixture 01
-- Overall backend result: failed after 5 of 20 required backend fixtures
-- Planner completed valid adult-route planning.
-- DeepSeek Adult Scene was never called.
-- HTTP result: 422
-- Failure class: StateConflictError / state_conflict
-
-This means Root AU did not fail because DeepSeek wrote a bad adult scene. It
-failed before the adult DeepSeek call while Python was preparing the adult
-execution context.
-
-Root AU is terminal and spent. It cannot be resumed as the fresh qualification
-proof after code changes.
+Pre-live checks:
+- ChatGPT/Codex login ready
+- DeepSeek credential name present; value was not displayed
+- Port 5101 free
+- Repository exact and clean at the frozen source identity
+- No competing qualification process
 
 
-5. ROOT AU DEFECT: EXACT CAUSE
+6. ROOT AZ LIVE SEQUENCE
 
-The accepted branch contained five prior ordinary turns. The adult runtime put
-the complete acceptance receipts for those turns into the safe projection.
+Backend ordinary fixture 1 proceeded as follows:
 
-Measured before the fix:
-- Adult safe projection: 183,485 characters
-- Allowed safe projection: 40,000 characters
-- Current state alone: 6,870 characters
-- Five accepted records: approximately 32,685 to 37,746 characters each
-- Most of the excess came from full acceptance/audit receipts, not useful story
-  continuity.
+1. Planner attempt 1
+   - Provider completed in about 123.1 seconds.
+   - Typed output validation failed as provider_output_invalid.
+   - The provider call itself completed; the returned plan did not satisfy the
+     typed Planner output contract.
 
-The exact pre-fix exception was:
-ContractValidationError: adult safe projection exceeds its bounded input
+2. Planner retry 1
+   - The exact retry checkpoint was independently audited, approved, and
+     consumed once.
+   - Attempt 2 completed in about 147.9 seconds.
+   - It ended with the same provider_output_invalid typed-output failure.
 
-The same accepted state also contained large Genesis projections:
-- One character entry was about 329,342 characters.
-- Several relationship entries were about 37,000 characters each.
-- Several memory entries were about 27,000 to 30,000 characters each.
-- The former generic scalar flattener produced 12,489 facts.
+3. Planner retry 2
+   - A second and final exact Planner retry was audited, approved, and consumed
+     once under the three-attempt ceiling.
+   - Attempt 3 succeeded and was typed accepted.
 
-The exact state used several visibility labels that the adult context adapter
-did not understand:
-- branch_internal_unspecified
-- owner_private
-- public
-- shared
-- system_private
+4. DeepSeek Writer
+   - One Writer invocation completed in about 24.8 seconds.
+   - There was no Regenerate and no second Writer call.
 
-There was also a Windows path-budget failure after context preparation was
-fixed. The protected adult candidate path repeated a full 64-character scope
-hash, then added Writer-view world, branch, candidate, temporary UUID, and file
-components. On this Windows host, that path could fail at file creation.
+5. Reader and Luna continuation
+   - The already-prepared downstream Reader and Luna lanes were resumed through
+     exact audited provider-stage actions.
+   - Luna completed in about 38.2 seconds and was typed accepted.
+   - Reader completed in about 11.6 seconds and was typed accepted.
 
+6. Ordinary standing policy
+   - The candidate was accepted as provisional continuity under the standing
+     creator policy.
+   - Original validation evidence remained attached.
+   - No fabricated per-turn creator approval was recorded.
 
-6. CURRENT UNCOMMITTED FIX
+7. Recorder
+   - One exact review-recording repair action was audited and consumed once.
+   - Recorder completed in about 7.8 seconds with two DeepSeek operations.
+   - The accepted scene was committed and recording status became complete.
 
-The production change is deliberately limited to the adult runtime's context
-and candidate-path construction.
+8. Incorrect terminal failure
+   - Despite the successful recovery and committed scene, the final
+     qualification accounting validator raised StateConflictError.
+   - Backend result became failed, 0/20.
 
-A. Safe accepted-record projection
+Exact Root AZ terminal accounting:
+- First-pass standing-policy provisional acceptances: 1
+- Explicit Regenerates: 0
+- External manual actions: 5
+- Provider-stage control actions: 4
+- Provider retry actions: 2
+- Validation-lane resume actions: 2
+- Review recording repair actions: 1
+- Automatic actions: 0
+- Sol submitted/charged operations: 5/5
+- DeepSeek HTTP operations: 4
+- Story state committed: true
 
-- Removes complete acceptance/audit receipt bodies from the Writer-visible safe
-  projection.
-- Keeps story-relevant ordinary_record, adult_projection, and provisional_canon
-  fields.
-- Keeps route, accepted turn identity, recording status, and a SHA-256 binding
-  to the original full receipt.
-- If the projection is still over 40,000 characters, it drops only the oldest
-  completed records until the bound is met.
-- It does not drop unfinished records.
-- It records how many older completed records were omitted.
+Root AZ result files:
+- D:\Cera\q\c78-20260815-az\evidence\BACKEND_RESULT.json
+- D:\Cera\q\c78-20260815-az\evidence\QUALIFICATION_EVENTS.jsonl
 
-B. Genesis projection compaction
+BACKEND_RESULT raw SHA-256:
+acb76fe...
 
-- Detects typed genesis_record_projections instead of flattening their entire
-  payload_json trees.
-- Emits one concise fact per Genesis record.
-- Retains identity, claim, authority, certainty, truth status, record type,
-  visibility, subject, and exact source-content hash binding.
-- Does not expose the huge expanded payload_json to the Adult Scene Writer.
+Embedded result SHA-256:
+c579751...
 
-C. Visibility normalization
-
-- owner_private, private, system_private, character_private, creator_private,
-  creator-only, and adult_role_private map to adult-role-private context.
-- public, shared, and branch_internal_unspecified map to safe/public context.
-- shared context may retain a subject/knowledge owner without becoming private.
-- Explicit public context still rejects an unexpected private owner.
-
-D. Protected prose leak guard
-
-- The leak guard now checks the raw safe records as well as the final safe
-  projection, facts, and story boundaries.
-
-E. Windows path budget
-
-- The full 256-bit scope hash remains in the typed candidate scope and custody.
-- The physical candidate workspace uses a 96-bit scope prefix under a short
-  `protected_adult\c\...` path.
-- This mirrors the already-bounded regeneration workspace and leaves enough
-  room for Writer-view staging components on Windows.
-
-No Planner logic, DeepSeek prompt, adult validator, consent rule, Ted rule,
-retry policy, acceptance policy, or provider ceiling is changed by this fix.
+The shortened hashes above are copied from the run record available during the
+diagnosis. The files themselves remain the authoritative exact evidence.
 
 
-7. EXACT SAVED-SESSION REPLAY EVIDENCE
+7. ROOT AZ DEFECT: EXACT CAUSE
 
-The failed Root AU request and exact successful Planner result were copied into
-a diagnostic seed before editing. The replay used the exact normalized request,
-turn state, accepted head, and Planner result. External provider dispatch was
-disabled.
+The final qualification validator examines the Sol provider ledger and permits
+failure events only when they belong to a validated explicit retry chain.
 
-Pre-fix replay:
-- Reproduced `adult safe projection exceeds its bounded input` exactly.
+The defect was a condition in:
+src/cera/pi_scene/qualification.py::_validate_provider_delta
 
-Intermediate replay findings:
-- Revealed unsupported visibility labels after the size defect was removed.
-- Revealed excessive Genesis scalar expansion after visibility was corrected.
-- Revealed the Windows Writer-view path-budget problem after context preparation
-  succeeded.
-- Two later failures were diagnostic-fake mistakes, not production defects:
-  the ordinary FakePi lacked the adult structured transport interface, and the
-  first custom filter fake read current_context from the wrong nested field.
+Before the correction, the code only permitted retried failures whose terminal
+state was pretransport_failed or provider_failed. It still rejected a retried
+provider_completed_post_validation_failed event even when:
+- the event belonged to the exact Planner stage;
+- the retry chain was validated;
+- both retries were explicitly authorized;
+- the third attempt succeeded; and
+- final operation counts matched exactly.
 
-Final exact replay result on the current production bytes:
-- Safe projection: 32,589 characters (under the 40,000 limit)
-- Current adult facts: 355
-- Total concise fact text: 99,781 characters
-- Offline Adult Scene role executed: yes
-- Offline Adult Filter role executed: yes
-- Final outcome: AcceptedAdultTurnV1
-- External provider calls: 0
-- Replay elapsed: about 13 seconds
+Root AZ's first two Planner attempts used the valid terminal state
+provider_completed_post_validation_failed because transport completed but the
+typed result was invalid. Provider-stage retry correctly treated those events
+as retryable. Final qualification accounting contradicted that earlier valid
+classification and called them unrelated failures.
 
-Conclusion:
-The current fix resolves the exact Root AU pre-provider failure and allows the
-saved handoff to complete end-to-end in a provider-disabled replay.
+Provider-free reconstruction before the fix reproduced:
+StateConflictError: qualification Sol ledger contains an unrelated failure
+
+This is a deterministic Python accounting bug. It is not evidence that the
+story, DeepSeek Writer, Recorder, accepted branch, or recovered Planner result
+was bad.
 
 
-8. TESTS AND VERIFICATION STATUS
+8. CURRENT FOCUSED CORRECTION
 
-Final focused evidence on commit 99cf2e4:
-- Full tests/test_pi_scene_full_model_adult_runtime.py: 8/8 PASS in 1.052s
-- Genesis payload compaction/private/shared visibility regression: PASS
-- Candidate physical path-layout assertion: PASS
+Production change:
+- Failure states remain fail-closed by default.
+- A Sol failure event is accepted only when its owner stage is present in the
+  independently validated explicit retry-chain set.
+- This now applies consistently to:
+  - pretransport_failed
+  - provider_failed
+  - provider_completed_post_validation_failed
+- An unrelated failure still raises StateConflictError.
+
+Regression:
+- Added one production-shaped test with two Planner post-validation failures,
+  a successful third Planner attempt, successful Luna and Reader calls, one
+  Writer invocation, one Recorder invocation, and an exact validated Planner
+  retry chain.
+- It asserts exact Sol and DeepSeek operation accounting.
+
+Committed correction size:
+- 2 code/test files
+- 145 insertions / 3 deletions
+- Production logic change: one conditional
+- Most added lines are explicit ledger-shaped regression data
+
+Focused evidence on the current bytes:
+- Direct regression: PASS, 1 test, about 0.003 seconds
+- Nearest provider-stage integration test: PASS, 1 test, about 1.286 seconds
+- Exact saved Root AZ replay: PASS
+- Exact replay accounting: Sol 5 submitted / 5 charged, DeepSeek 4, retry
+  chains 3, standing-policy provisional true
+- Strict mypy on qualification.py: PASS
 - Ruff lint: PASS
 - Ruff format check: PASS
-- Python compilation: PASS
-- Strict mypy on the changed production file: PASS
-- git diff --check: PASS
-- Exact Root AU saved handoff replay: PASS in about 18 seconds
-- Replay result: AcceptedAdultTurnV1
-- Offline Adult Scene and Adult Filter both executed
-- External provider calls during replay: 0
+- Python compile: PASS
+- Git diff check: PASS
+
+No broad repository test suite was run for this one-condition accounting fix.
+That is intentional under the user's focused repair policy. The next fresh live
+campaign is the relevant end-to-end proof.
 
 
-9. RECENT ERRORS AND THEIR STATUS
+9. OTHER IMPORTANT WORK ALREADY COMPLETED
 
-Resolved in pushed code:
+1. Three-minute provider boundary
+   - Every individual provider attempt now has its own 180-second limit.
+   - Retries are separately governed and separately timed.
 
-1. Provider attempts could exceed the intended first-call limit.
-   Fix: each attempt now has its own 180-second hard boundary (commit 0635979).
+2. Ordinary Writer context repetition
+   - DeepSeek had been over-reusing older scene prose and structure.
+   - The full-prose window was reduced to the immediately previous accepted
+     turn while older continuity remains available through structured,
+     hash-bound accepted records.
 
-2. Transient accepted-review projection could expose an inconsistent snapshot.
-   Fix: accepted review projection reconciliation (commit df5f0b5).
+3. Small DeepSeek deviations
+   - Minor omissions, local staging drift, brief aftermath, and compatible
+     additions no longer automatically cause a second Writer call.
+   - They can be retained as provisional continuity with evidence visible.
 
-3. Transient ordinary review snapshot could be read between atomic states.
-   Fix: ordinary review snapshot reconciliation (commit b79ec36).
+4. Luna retry reconciliation
+   - A recovered Luna result previously produced a forbidden transient review
+     state and HTTP 422.
+   - Phase, result, retry status, and failure removal are now transitioned
+     atomically for direct resume and restart reconciliation.
 
-4. Planner evidence could exceed a bounded evidence item.
-   Fix: oversized Planner evidence is split (commit 7b4177e).
+5. Standing-policy provenance
+   - Automatic provisional continuity has a distinct, hash-bound standing
+     creator-policy authority.
+   - It cannot be forged through the public manual override path.
 
-Resolved in commit 99cf2e4:
+6. Planner responder validation
+   - Ordinary plans must contain at least one valid NPC responder.
 
-5. Adult safe projection exceeded 40,000 characters after several accepted
-   ordinary turns.
-   Status: exact saved replay passes.
+7. Adult context and Windows path scaling
+   - Oversized adult safe projections were compacted without dropping required
+     custody.
+   - Typed Genesis records are projected concisely.
+   - Adult candidate workspace paths were shortened while retaining full hash
+     identity in custody.
 
-6. Genesis payloads expanded into thousands of adult context facts.
-   Status: compact typed projection implemented; exact saved replay passes.
+8. Writer-view path and terminal guidance handling
+   - Oversized staging paths were shortened.
+   - A terminal unlinked Writer-guidance KeyError was corrected and directly
+     replayed before the next fresh run.
 
-7. Current accepted-state visibility vocabulary exceeded the adult adapter's
-   known set.
-   Status: explicit private/public mapping implemented; exact replay passes.
+9. Review snapshot validity
+   - Several transient invalid review-state transitions were made atomic so
+     restart and replay remain deterministic and fail-closed.
 
-8. Adult Writer-view physical path exceeded practical Windows path budget.
-   Status: candidate physical path shortened while custody retains the full
-   hash; exact replay passes.
-
-Non-product diagnostic/infrastructure issues:
-
-9. An initial long diagnostic path amplified the Windows path failure.
-   Status: replay was repeated from a short diagnostic root and still proved the
-   production path was too long.
-
-10. The first offline replay fake implemented ordinary Pi only.
-    Status: replaced in the diagnostic with the adult structured-role fake.
-
-11. The first custom filter fake read current_context from the Scene shape
-    instead of filter.scene_request.current_context.
-    Status: corrected in the diagnostic; no production code change.
-
-
-10. DEEPSEEK / VALIDATION POLICY NOW IN EFFECT
-
-Ordinary-route minor deviations are intended to be preserved as provisional
-continuity rather than automatically generating a second Writer call.
-
-Current soft semantic categories include the intentionally tolerated ordinary
-deviation set implemented in the standing creator policy. Original Reader and
-Luna rejection evidence remains visible; the story can be provisionally
-accepted with distinct standing-policy provenance. This is not represented as
-a fake manual creator approval.
-
-Hard cases still fail closed. The practical boundary requested by the user is:
-- Protect Ted speech and Ted private state on the ordinary route.
-- Protect fundamental character identity and critical accepted relationships.
-- Protect consent and withdrawal.
-- Treat normal staging, pacing, localized omission, or harmless elaboration as
-  provisional continuity.
-- Adult scenes have broader Ted action/dialogue freedom within the exact current
-  consent and route boundary.
+10. Evidence and retrieval bounds
+    - Named retrieval is bounded and exact evidence custody is retained.
+    - Old prose is not blindly repeated into every Writer request.
 
 
-11. CURRENT PERFORMANCE / TIMING EVIDENCE
+10. CURRENT DEEPSEEK / RETRIEVAL MODEL
 
-Observed cold Planner transport examples from recent live runs:
-- Root X: about 60.5 seconds
-- Root AU adult handoff Planner: about 78.9 seconds
-- Simple mean of these two cold examples: about 69.7 seconds
-
-Observed Root X ordinary pipeline example:
-- DeepSeek Writer invocation: about 23.1 seconds total
-- Reader: about 11.8 seconds
-- Luna: about 42.5 seconds average per attempt
-
-Current provider-free timings:
-- V41/V45 readiness: about 22 seconds
-- Exact Root AU saved replay after fix: about 13 seconds
-- Small focused adult-runtime subset: about 0.27 seconds
-
-Important limitation:
-There is not yet a clean, current aggregate average that isolates retained
-existing-session latency from new-session latency across enough samples. The
-next fresh qualification should record those two groups separately instead of
-guessing from mixed runs.
+- DeepSeek does not independently browse all CERA character or world files.
+- Python and the Codex reasoning stages own bounded retrieval and evidence
+  selection.
+- DeepSeek receives a prepared Writer view containing the current scene/turn,
+  the accepted continuity needed for the scene, typed plan guidance, and
+  bounded structured historical/character/world evidence.
+- Therefore DeepSeek is not limited to only the current scene state, but it also
+  does not have unrestricted direct retrieval access.
+- The intended separation is:
+  Python/Codex retrieve and bind evidence -> DeepSeek writes visible prose ->
+  Python/Reader/Luna validate and retain evidence.
 
 
-12. EXTERNAL REVIEW ITEMS
+11. USER'S CURRENT CONTROLLING COMMANDS AND DECISIONS
 
-Claude review conclusions considered valid:
+This is a consolidated operational list, not a verbatim transcript.
 
-- The standing-policy hash binding and fail-closed classification are solid.
-- Adult route work is in scope because every qualification requires 10 backend
-  adult and 5 SillyTavern adult scenarios.
-- Loading a fixture file proves typed parsing only; it does not by itself prove
-  manifest closure, ancestry, or provider-free readiness.
-- Bare module-level `msvcrt` imports are a future portability problem for
-  non-Windows CI/review.
+1. Keep responses concise and list-based when speaking to the user.
 
-Current decision on locking portability:
-- It is not a blocker for the current Windows qualification run.
-- It should not be replaced with a careless one-line `fcntl` import swap.
-- The future change needs a deliberate cross-platform lock abstraction with
-  equivalent lock scope, blocking/non-blocking behavior, ownership, release,
-  and crash-recovery semantics.
-- Legacy module cleanup is deferred until the fresh qualification goal is met.
+2. Avoid subagents unless they are genuinely necessary or explicitly requested.
+
+3. Routine in-scope fixes, tests, commits, pushes, scenario rotations, and
+   qualification provider calls do not require repeated permission requests.
+
+4. The finish line is one fresh uninterrupted campaign with:
+   - Backend ordinary 10/10
+   - Backend adult 10/10
+   - SillyTavern ordinary 5/5
+   - SillyTavern adult 5/5
+
+5. Every new run begins at fixture 1 and uses a different prompt/story direction.
+
+6. A door is not universally required to remain closed. Only a scenario-specific
+   boundary should enforce that.
+
+7. Every provider attempt gets 180 seconds. Retries are separate attempts.
+
+8. If a Python or prompt defect appears:
+   - stop the run fail-closed;
+   - preserve the exact failed root/session/evidence;
+   - reproduce the owning seam provider-free when possible;
+   - make the smallest general correction;
+   - run the exact focused test and nearest integration test;
+   - replay the exact failed session;
+   - if it passes, commit/push and start a fresh run from fixture 1;
+   - do not repeatedly run the complete 2,000-plus test suite in the inner loop.
+
+9. Treat small DeepSeek deviations as provisional world continuity. Make a
+   second Writer call only when the output is genuinely unusable or violates a
+   hard rule.
+
+10. Ordinary-route Ted protections:
+    - Do not invent Ted's dialogue.
+    - Do not invent Ted's thoughts, feelings, memories, or private state.
+
+11. Adult-route freedom:
+    - Inside an already authorized adult interaction, Ted may take plausible
+      immediate physical actions and use limited in-scene dialogue.
+    - The system still must not invent consent, withdrawal, major lasting
+      decisions, memories, permanent preferences, or changes outside the
+      current authority.
+
+12. Extreme continuity violations remain hard. User examples include:
+    - Sakura becoming a man.
+    - Sakura suddenly being 28.
+    - Hana no longer being Mia's mother.
+
+13. An established event must continue to exist or be honestly not remembered.
+    Compatible new details around the event may be accepted provisionally.
+
+14. Optimize time. Prefer focused proof of the exact failing seam, then use the
+    fresh campaign as the end-to-end test.
+
+15. Treat lost or timed-out test output as inconclusive, not as a pass or a
+    product failure. Do not create duplicate workers to compensate.
+
+16. ChatGPT Pro and Claude are advisory reviewers. Codex owns the final code,
+    evidence, and engineering judgment.
+
+17. After the clean 30/30 result, synchronize only the required CERA integration
+    into installed SillyTavern. Preserve chats, settings, characters, user data,
+    and unrelated files.
 
 
-13. REMAINING CONCERNS
+12. CURRENT HARD AND PROVISIONAL BOUNDARY
 
-1. Root AU is spent. A successful saved replay proves the defect correction but
-   is not a substitute for a new clean live qualification.
+Ordinary hard failures include:
+- Invented Ted dialogue.
+- Invented Ted private state, thoughts, feelings, or memories.
+- Invented or overridden consent/withdrawal.
+- Major lasting decisions attributed to Ted without authority.
+- Severe immutable identity, age, or family-relation corruption.
+- Erasing the existence of an accepted major event.
+- Unusable, incoherent, empty, or completely off-task output.
+- Python custody, privacy, identity, deterministic, or transaction failure.
 
-2. Source changes require a fresh fixture/manifest identity before the next
-   authoritative live campaign.
+Normally provisional rather than fatal:
+- Minor staging differences.
+- Harmless new event details.
+- Small action ordering differences.
+- Local object or communication details.
+- Brief aftermath.
+- Compatible capability details.
+- Ordinary local continuity imperfections that do not cross a hard boundary.
 
-3. The current adult fact projection is bounded per fact and is far smaller
-   than the old scalar expansion, but the exact replay still contains 355 facts
-   totaling about 99,781 characters. It completed provider-free successfully;
-   the next live run should still watch latency and provider input size.
-
-4. The non-Windows `msvcrt` portability issue remains deferred and documented.
-
-5. The disposable diagnostic roots under D:\Cera\q\dau5 through dau9 are not
-   qualification evidence and can be removed later. They performed no external
-   provider calls.
-
-
-14. EXACT NEXT STEPS WHEN WORK RESUMES
-
-1. Commit and push the fresh AV scenario set using the existing V41 format.
-2. Freeze a fresh V45-format manifest bound to the new source commit/tree and
-   current fixture hashes.
-3. Run provider-free readiness against that exact manifest.
-4. Start a completely fresh 10 ordinary + 10 adult backend and 5 ordinary +
-   5 adult SillyTavern qualification.
-5. Use new story directions, not a repeat of Root AU's prompt set.
-6. If a new issue appears, stop only that run, fix it narrowly, replay the exact
-    saved failure, then rotate and begin another fresh run from the start.
-7. Do not run a broad multi-hour full test suite for every localized defect.
-    Use the focused causative tests plus the exact saved replay; reserve broader
-    gates for a final stable candidate when they materially add confidence.
+Hard always wins when hard and provisional conditions coexist.
 
 
-15. BOTTOM LINE
+13. ERRORS, FIXES, AND NON-PRODUCT ISSUES SINCE THE PRIOR HANDOFF
 
-The latest live campaign did not expose a DeepSeek story-writing failure. It
-exposed a deterministic Python adult-context scaling/path problem after five
-accepted ordinary turns. The current local correction fixes the exact saved
-failure and completes the adult handoff end-to-end with offline Scene and Filter
-roles. The bounded correction and focused proof are complete in commit 99cf2e4.
-The immediate remaining work is to rotate the fresh scenario set and start the
-next clean 10/10/5/5 qualification.
+1. Root AY source identity became stale after a documentation commit.
+   - Handling: preserved AY outside active roots and froze exact-source AZ.
+   - This was correct manifest custody, not a CERA code failure.
+
+2. Planner returned two typed-invalid outputs in Root AZ.
+   - Handling: two exact separately authorized retries.
+   - Third Planner attempt succeeded.
+   - No automatic or hidden retry occurred.
+
+3. Root AZ final accounting rejected the recovered Planner failures.
+   - Cause: deterministic Python qualification condition.
+   - Fix: focused correction in sections 7-8, committed and pushed as adf36fe.
+
+4. One PowerShell command used an unquoted HEAD^{tree} expression.
+   - Handling: rerun with the revision expression quoted.
+   - No repository or product effect.
+
+5. One earlier nested-shell static-check command mishandled $LASTEXITCODE.
+   - Handling: rerun directly; the actual checks passed.
+   - No repository or product effect.
+
+
+14. TIMING EVIDENCE
+
+Recent Root AZ provider timing:
+- Planner attempt 1: about 123.1 seconds
+- Planner attempt 2: about 147.9 seconds
+- Planner attempt 3: succeeded; exact duration is not retained in this summary
+- DeepSeek Writer invocation: about 24.8 seconds
+- Luna validation: about 38.2 seconds
+- Reader validation: about 11.6 seconds
+- DeepSeek Recorder invocation: about 7.8 seconds
+
+Prior recent timing ranges:
+- DeepSeek Writer: roughly 18 to 27 seconds
+- Planner cold/new examples: roughly 60 to 125 seconds before the two AZ
+  typed-invalid attempts
+- Validator examples: roughly 38 to 86 seconds
+- Provider-free V41/V45 readiness: roughly 22 to 23 seconds in earlier roots
+
+Existing-session versus new-session timing:
+- There is still not enough consistently labeled evidence to claim a reliable
+  average difference.
+- The next campaign should keep explicit cold/new and retained-session labels.
+
+Approximate recent work-time ratio, not a stopwatch-audited measurement:
+- Live provider execution and waiting: about 50-60%
+- Freeze/readiness and exact custody checks: about 15-20%
+- Root-cause reconstruction, code correction, and focused tests: about 20-25%
+- Git/status reporting: about 5-10%
+
+
+15. CURRENT OPEN ISSUES AND CONCERNS
+
+1. Root AZ is spent, so a new 30-scenario prompt set and new exact-source root
+   are required.
+
+2. No clean fresh 30/30 qualification result exists yet. This is the main
+   product-readiness blocker.
+
+3. DeepSeek remains probabilistic. The provisional-continuity policy reduces
+   unnecessary secondary calls but does not make perfect compliance certain.
+
+4. A successful 30/30 campaign may still take several hours because every
+   scenario uses real provider stages and may pause for governed manual actions.
+
+5. Existing-session versus new-session latency evidence remains incomplete.
+
+6. Cross-platform locking remains deferred. Current retry custody uses Windows
+   msvcrt behavior. This does not block the current Windows qualification, but a
+   later portable abstraction must define equivalent lock scope and blocking
+   behavior before non-Windows CI is claimed.
+
+7. Legacy orchestration cleanup is deferred until the qualification finish line
+   is reached. The live code intentionally reuses a small set of proven ledger,
+   evidence, and stored-thread infrastructure.
+
+8. Installed SillyTavern synchronization and end-user verification remain
+   pending the clean campaign.
+
+
+16. NEXT WORK IN ORDER
+
+1. Rotate all 30 V41 fixtures to genuinely new story directions and novelty IDs.
+2. Run only focused fixture/history/provider-free readiness checks.
+3. Commit and push the scenario rotation.
+4. Freeze a new exact-source V45 root from fixture 1.
+5. Run provider-free readiness with zero provider calls.
+6. Launch the fresh live campaign from backend ordinary fixture 1.
+7. Continue through backend ordinary 10, backend adult 10, SillyTavern ordinary
+   5, and SillyTavern adult 5.
+8. If a genuinely different defect appears, preserve it and repeat the focused
+    correction/exact-replay/fresh-root loop.
+9. After 30/30, synchronize only required CERA integration files into installed
+    SillyTavern and verify startup, route behavior, review evidence, and user-data
+    preservation.
+10. Produce the final concise human-testing handoff.
+
+
+17. CURRENT ETA
+
+Fresh 30-scenario story rotation, focused validation, commit, freeze, and
+provider-free readiness:
+- Approximately 45-90 minutes if no new fixture issue appears.
+
+Fresh real-provider 30/30 campaign:
+- Several hours if clean.
+- A precise estimate is not yet defensible because Planner latency varies and
+  governed manual retry/resume checkpoints can pause the run.
+
+Installed SillyTavern sync and verification after 30/30:
+- Approximately 30-60 minutes if the integration diff is limited as expected.
+
+
+18. QUESTIONS FOR CHATGPT PRO
+
+1. Does the Root AZ accounting correction preserve fail-closed behavior while
+   correctly accepting only failures bound to validated retry chains?
+
+2. Is the production-shaped 144-line regression proportionate, or should its
+   ledger construction be factored into a small reusable test helper before the
+   commit?
+
+3. Do the current ordinary and adult hard/provisional boundaries accurately
+   implement the user's latest rules without silently weakening consent,
+   identity, privacy, or transaction custody?
+
+4. Is any issue other than the missing clean 30/30 result a real blocker to the
+   next fresh run on this Windows host?
+
+5. Which exact timing fields should be retained in the next campaign to compare
+   cold/new sessions against retained sessions without creating a misleading
+   average?
+
+
+19. BOTTOM LINE
+
+CERA's current blocker is narrow and understood. Root AZ completed the actual
+scene, provisional acceptance, and recording, but final Python accounting
+misclassified two explicitly retried Planner output-validation failures. The
+minimal correction and exact saved replay pass, and commit adf36fe is pushed.
+The project must now use new story directions and prove one clean fresh
+10/10/5/5 campaign before installed
+SillyTavern synchronization or human testing is treated as ready.
