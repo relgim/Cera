@@ -1734,6 +1734,82 @@ class PiSceneLeanTests(unittest.TestCase):
                 ["hana_internal_response"],
             )
 
+            authority["items"] = [
+                authority["items"][0],
+                {
+                    "item_key": "hana_visible_response",
+                    "owner_id": "character:hana",
+                    "kind": "action",
+                    "concise_meaning": "Hana visibly softens her expression.",
+                    "owner_response_semantics": (
+                        "Hana's expression softens with restrained appreciation."
+                    ),
+                    "causal_parent_item_key": "ted_source_action",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_terminal_private_state",
+                    "owner_id": "character:hana",
+                    "kind": "private_state",
+                    "concise_meaning": "Hana waits for Ted's response.",
+                    "owner_response_semantics": (
+                        "Hana privately waits without deciding Ted's response."
+                    ),
+                    "causal_parent_item_key": "hana_visible_response",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "return_floor",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "concise_meaning": "Return the floor to Ted.",
+                    "owner_response_semantics": None,
+                    "causal_parent_item_key": "hana_terminal_private_state",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+            ]
+            mixed_view = WriterViewMaterializer(root / "mixed-views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-private",
+                    turn_id="turn-0003",
+                    candidate_id="candidate-mixed-terminal-guidance",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="A supplied source contribution.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Two adults are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            mixed_response = json.loads(
+                (mixed_view.root / "RESPONSE_SEQUENCE.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                mixed_response["surface_realization_items"][0][
+                    "guided_by_item_keys"
+                ],
+                [],
+            )
+            self.assertNotIn(
+                "guides_surface_item_key",
+                mixed_response["internal_causal_guidance"][0],
+            )
+
     def test_multiple_internal_items_map_to_earliest_reachable_dialogue(self) -> None:
         with TemporaryDirectory() as temporary:
             authority = sequence("source_action")

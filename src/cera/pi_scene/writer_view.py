@@ -1304,7 +1304,7 @@ def _ordinary_authority_projection(
             projected["guided_by_item_keys"] = [
                 guidance_key
                 for guidance_key in internal_guidance
-                if guidance_to_surface[guidance_key] == item_key
+                if guidance_to_surface.get(guidance_key) == item_key
             ]
         canonical_parent = item.get("causal_parent_item_key")
         source_anchor_key = None
