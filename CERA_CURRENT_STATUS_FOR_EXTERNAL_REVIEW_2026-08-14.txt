@@ -1,0 +1,394 @@
+CERA CURRENT STATUS FOR CHATGPT PRO / CLAUDE REVIEW
+==================================================
+Snapshot date: 2026-08-14 (America/Vancouver)
+Repository: https://github.com/relgim/Cera
+Checkpoint branch: checkpoint/cera-current-20260814
+Branch URL: https://github.com/relgim/Cera/tree/checkpoint/cera-current-20260814
+Checkpoint commit: 07e06362d9767af94265a59a6e884fa8818e22b5
+Checkpoint tree: d274078dd069d21b5d20797905d0c0c7c8bc11bd
+Checkpoint status: WIP qualification rotation; not a release claim
+
+Latest stable parent before the WIP rotation:
+  Commit: c787d3427a5236f790334de97ba446d2aefcfa6a
+  Tree: e24734e9acdaef71450d57120851cd330613bc1e
+  Subject: Reject responderless cognition plans
+
+IMPORTANT REVIEW BOUNDARY
+-------------------------
+There is no single CERA semantic-version number that completely identifies the
+runtime. Use the Git commit plus the profile/schema identities below. The GitHub
+checkpoint contains the exact current files, including an unfinished V34/V38
+qualification rotation. Do not describe it as fully qualified or production
+ready. The stable parent c787d34 contains the completed Root AM correction.
+
+
+1. CURRENT PRODUCT INTENT
+-------------------------
+CERA is a governed multi-model story system. Python owns identity, custody,
+state transitions, evidence, acceptance, retries, and persistence. Models may
+propose or validate content, but they do not grant themselves authority.
+
+Current role split:
+  - Codex/Sol cognition Planner: builds the ordered story plan.
+  - DeepSeek Writer: renders the plan into scene prose.
+  - Codex/Luna semantic validator: checks protected continuity and authority.
+  - Codex/Sol Reader: checks whether the prose actually realizes the plan.
+  - Python deterministic checks: verify identity, custody, privacy, hashes,
+    state-machine legality, and exact provider accounting.
+  - Recorder: persists only an accepted/provisional accepted turn.
+
+Retrieval/tool clarification:
+  - Codex has a bounded evidence-retrieval contract
+    (cera.reasoner_evidence_mcp.v7) for snapshots, searches, and exact evidence.
+  - DeepSeek does not independently browse the character database or call the
+    retrieval tools. Python/Codex assemble a frozen, bounded Writer packet.
+  - That packet is broader than only the current scene state: it can include the
+    current turn, ordered plan, relevant retrieved continuity, character-facing
+    context, route/cast constraints, and prior accepted state. DeepSeek receives
+    only the materialized view needed for the scene.
+
+
+2. CREATOR-AUTHORIZED STORY RULES (CURRENT)
+-------------------------------------------
+Ordinary scenes:
+  1. Never invent Ted's speech or dialogue.
+  2. Never invent Ted's thoughts, feelings, memories, or private state.
+
+Ordinary content should otherwise be tolerant. Small ordering mistakes, short
+aftermath, local door/object handling, background activity, communication drift,
+and compatible additions are accepted or preserved as provisional world facts.
+The front door is not required to remain closed.
+
+Still hard in ordinary scenes:
+  - Extreme immutable identity changes, for example Sakura becoming a man or
+    suddenly being twenty-eight when that contradicts established identity.
+  - Erasing an immutable family relationship, for example the established
+    mother-daughter relationship.
+  - Erasing the existence of an accepted event. If a beach visit happened, a
+    character may remember it, be uncertain, or not remember details, but the
+    event must still exist. Compatible new details around it are provisional.
+  - Inventing a major lasting decision for Ted.
+  - Consent/withdrawal violations.
+  - Output that is unusable, unrelated, or completely haywire.
+
+Adult scenes:
+  - Adult routing has more freedom for Ted than ordinary routing.
+  - Inside established adult identity, capacity, current consent, and freedom to
+    stop, Adult Scene may realize plausible immediate Ted physical actions,
+    bodily reactions, and limited in-scene dialogue.
+  - It may not invent or override consent, withdrawal, lasting decisions,
+    memories, permanent preferences, or protected private thoughts.
+  - Consent withdrawal is immediate and always hard.
+
+Second-Writer policy:
+  - Small DeepSeek deviations are accepted provisionally.
+  - A second Writer call is reserved for a genuine hard violation or unusable
+    output, not for a minor style or continuity issue.
+  - Hard always wins when hard and soft signals coexist.
+
+Standing policy identity:
+  - Policy ID: ordinary_provisional_continuity
+  - Version: 1
+  - Policy object SHA-256:
+    47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23
+  - Policy text SHA-256:
+    1fe7bf05034f1543040eac456818269768760e58dc625eecc03508bd64a804e2
+  - Soft Luna classes: capability_restriction, omitted_decision,
+    presence_violation, stopping_boundary.
+  - Soft Reader scopes: exact_quote, omitted_planner_item.
+  - Python failure/inconclusive, Reader inconclusive/whole-candidate failure,
+    and non-allowlisted Luna failures remain hard/fail-closed.
+
+The governing decisions are D-220, D-221, and D-222 in:
+  docs/authority/DECISIONS_AND_SUPERSESSIONS.md
+
+
+3. CURRENT TECHNICAL IDENTITIES
+-------------------------------
+Active runtime profile:
+  - Profile: cera.active_runtime.d180.v1
+  - Profile SHA-256:
+    f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801
+
+Core runtime roles:
+  - Reasoner: gpt-5.6-sol
+    adapter cera.codex_scene_reasoner.v25
+    prompt cera.codex_scene_reasoner_prompt.v25
+    output cera.codex_reasoner_draft.v6
+  - Writer: deepseek-v4-flash
+    adapter cera.deepseek_scene_composer.v29
+    prompt cera.deepseek_scene_composer_prompt.v26
+    output cera.deepseek_composition_draft.v6
+  - Realization verifier: gpt-5.6-sol
+    adapter cera.codex_scene_realization_verifier.v8
+    prompt cera.codex_scene_realization_verifier_prompt.v8
+    output cera.codex_scene_realization_verifier_draft.v3
+
+Qualification-specific routes:
+  - Cognition Planner route: cera_cognition_planner_sol_medium_v8
+    adapter cera.cognition.codex_planner_adapter.v7
+    prompt cera.cognition.codex_planner_prompt.v8
+    model gpt-5.6-sol, effort medium, automatic retries 0
+  - Luna route: cera_full_model_qualification_semantic_validator_luna_xhigh_v5
+    adapter cera.semantic_validation.luna_adapter.v6
+    prompt cera.semantic_validation.luna_prompt.v5
+    model gpt-5.6-luna, effort xhigh, max output 128000, automatic retries 0
+  - Reader route: cera_reader_validation_sol_medium_v2
+    adapter cera.reader_validation.sol_adapter.v2
+    prompt cera.reader_validation.sol_prompt.v1
+    model gpt-5.6-sol, effort medium, automatic retries 0
+
+Review/result contracts:
+  - Ordinary review V3 is current; V2 remains historical/readable.
+  - Qualification phase result: cera.pi_scene.full_model_qualification_result.v6
+  - Complete qualification result: cera.pi_scene.full_model_complete_qualification.v5
+
+Stable parent c787d34 qualification identity:
+  - Fixture set V33
+  - Manifest V37
+
+Current checkpoint 07e0636 WIP identity:
+  - Fixture set V34
+  - Manifest V38
+  - V34 fixture SHA-256:
+    ab123164415ddc670a57c91c3d5032f29b348917c18e77fb49621e2188ddac9b
+  - V34 novelty-set SHA-256:
+    35183f44a69cf09ec67b53199c9c4b6e49c424a9af0e734fdf0ecbedb946d869
+  - V34 ancestry: V1 through V33 (33 frozen ancestors)
+  - V34 topology: backend 10 ordinary + 10 adult; SillyTavern 5 ordinary + 5 adult
+
+
+4. REQUIRED 10/10/5/5 RUN WORKFLOW
+----------------------------------
+Each fresh qualification run must execute, in order:
+  1. Backend: 10 ordinary scenarios.
+  2. Backend: 10 adult scenarios.
+  3. SillyTavern: 5 ordinary scenarios.
+  4. SillyTavern: 5 adult scenarios.
+
+Every fresh run must use a new fixture set with different story directions that
+exercise actual story capability, not merely repeat the same door scene.
+
+When a new issue appears:
+  1. Stop and preserve the exact failed root, request, result, hashes, provider
+     accounting, and process state.
+  2. Classify it as infrastructure, Python/state-machine, prompt/model behavior,
+     or genuine story hard violation.
+  3. Make the smallest general correction.
+  4. Replay the exact failed artifact/session provider-free when possible.
+  5. Run only focused tests that cover the changed seam plus nearby integration.
+  6. Rerun the exact scenario that exposed the issue.
+  7. Then start a genuinely fresh run from fixture 1.
+  8. The fresh backend 10/10 and ST 5/5 must finish without a different issue.
+
+Do not run the entire 2000+ test suite after every small fix. The full gate is
+reserved for the final candidate. Focused tests must directly exercise the
+failure and its nearest state transition/contract.
+
+Manual actions:
+  - No automatic provider retry, Regenerate, approval, or fallback.
+  - A manual action is valid only for one exact checkpoint/action tuple after a
+    content-blind hash/accounting audit.
+  - A provider Retry must rerun only the failed stage occurrence.
+  - Regenerate is reserved for a genuine hard Writer failure.
+
+
+5. IMPORTANT FAILURE AND FIX LEDGER
+-----------------------------------
+A. Root V and Root W: DeepSeek repair-focus deviations
+  - Initial/repair candidates made small scene-rule deviations such as excluded
+    claimant animation, omitted required actions, temporary door continuity,
+    or aftermath after the stopping beat.
+  - The cited issue could be repaired while a different detail drifted.
+  - Fixes added a high-recency whole-scene re-audit to the repair prompt:
+    actual ordered actions must occur, required communications must preserve
+    speaker/addressee/channel, held boundaries must not be temporarily breached,
+    and the required final beat must be the output ending.
+  - Creator policy later clarified that most such small deviations should be
+    accepted provisionally rather than spending another Writer call.
+
+B. Root X: Luna retry join returned HTTP 422 after a valid typed result
+  - Luna attempt 1 failed at provider output/transport formatting.
+  - The exact authorized Luna-only Retry produced a valid typed rejection.
+  - Runtime then raised:
+      ContractValidationError: blocked ordinary validation lacks a failure
+  - Cause: code removed the final Luna failure while the review still had the
+    VALIDATION_BLOCKED phase, creating a forbidden transient object before a
+    second replace could move the phase to VALIDATING.
+  - Fix: atomically update phase, result, retry status, and failure removal in
+    both direct resume and restart reconciliation.
+  - Exact frozen replay succeeded with zero provider dispatch and focused
+    Luna/Reader direct/restart/idempotence/peer-failure tests passed.
+
+C. Standing provisional-continuity integration
+  - The old public provisional path could be mistaken for a per-turn creator
+    override. A synthetic feedback token would have misstated authority.
+  - Fix: distinct nonforgeable standing_creator_policy provenance, public
+    ordinary review V3, durable policy acceptance audit, visible original
+    validator failures, and separate qualification counters/events.
+  - Soft first candidates use one Writer and no manual action. A soft successor
+    after one governed hard Regenerate uses exactly two Writers and no third.
+
+D. Root AM: responderless cognition plan and scene cancellation
+  - After a Planner Retry, the exact plan contained zero NPC responder IDs and
+    zero decision records. It only retained material continuity/stopping data.
+  - DeepSeek rendered the requested auction but then explicitly negated it and
+    returned to the old doorway scene. This was treated as severe/haywire, not
+    a provisional detail.
+  - Downstream failure:
+      ContractValidationError: Reader validation plan has no NPC owner context
+  - Fix:
+      * Ordinary non-adult-handoff plans must contain at least one NPC responder.
+      * Planner prompt explicitly requires an NPC-owned behavioral item and a
+        decision record.
+      * An explicit new setting authorizes a planned scene transition when
+        protected facts remain intact; the Planner must not cancel it merely
+        because the prior accepted scene occurred elsewhere.
+      * Planner route/adapter/prompt advanced to v8/v7/v8.
+  - Exact Root AM provider-free replay now rejects the bad plan before Writer:
+      ordinary cognition plan requires at least one NPC responder
+  - Provider dispatches during replay: 0.
+  - Focused evidence: 3/3 regression/route/launcher checks, 29/29 cognition
+    tests, Ruff, strict mypy, py_compile, and diff-check passed.
+
+E. Launcher/infrastructure issues already corrected
+  - A PowerShell 5.1 wrapper treated normal unittest stderr progress as a
+    NativeCommandError. Corrected by Start-Process file redirection and explicit
+    waiting. The replacement full gate completed normally.
+  - Codex login preflight had false negatives around .cmd ExitCode/file flush.
+    Corrected with a proven hidden Start-Process + Wait/Refresh/ExitCode pattern.
+  - One malformed PowerShell process predicate briefly reported a live freeze
+    process as absent. The report was retracted and two valid absence checks are
+    now required before declaring process exit.
+  - A host wrapper timeout detached a freeze worker. It was monitored rather
+    than duplicated; no second live root was launched over it.
+
+F. V34 local rotation mapping defect (caught before any provider call)
+  - New prompts were initially assigned sequentially while the inherited fixture
+    topology interleaves ordinary and adult rows.
+  - Result: some adult prompts occupied ordinary slots and vice versa.
+  - Fix: remap the prompt/novelty payloads to the correct fixture IDs and restore
+    the exact inherited stress-tag topology.
+  - Also replaced explicit Hana/Mia names in one fixture with the established
+    mother-daughter relationship wording because the qualification fixture cast
+    intentionally permits only Sakura/Ted names.
+  - Direct loader now returns exactly 30 QualificationFixtureV34 rows with
+    topology 10/10/5/5, 33 ancestors, and the hashes listed above.
+  - No live/provider run has used V34 yet.
+
+
+6. CURRENT VERIFICATION STATE
+-----------------------------
+Completed for stable parent c787d34:
+  - Exact Root AM provider-free replay: PASS, zero provider calls.
+  - Focused regression/route/launcher checks: 3/3 PASS.
+  - Cognition modules: 29/29 PASS.
+  - Ruff lint, strict mypy, py_compile, and diff-check: PASS.
+
+Completed for checkpoint 07e0636 / V34 WIP:
+  - Python compilation of qualification.py, runner, and qualification tests: PASS.
+  - git diff --check before checkpoint commit: PASS.
+  - Direct V34 load/ancestry/metadata/topology check: PASS (30, 10/10/5/5).
+  - V34 prompt mapping corrected before any provider call.
+
+Not yet completed for checkpoint 07e0636:
+  - Focused V34 history/current-manifest tests.
+  - Direct V38 closure/tamper verification against all spent manifests.
+  - Provider-free V34 readiness check.
+  - Fresh live 10/10/5/5 qualification.
+  - Final complete no-selector provider-free gate.
+
+Historical full-gate evidence (useful but stale for the current checkpoint):
+  - At older Root X commit 6e292aa5, the authoritative provider-free gate ran
+    2,102 Python tests: 2,096 passed, 6 expected skips, 0 failures/errors.
+  - Node/SillyTavern: 84/84 passed.
+  - Duration: 6h46m54.578s.
+  - That gate proves the older snapshot only; it does not qualify 07e0636.
+
+
+7. TIMING EVIDENCE AND REALISTIC ETA
+------------------------------------
+Measured Root X provider transport:
+  - Fresh Planner: 60.536 seconds.
+  - Writer invocation: 23.107 seconds (two HTTP operations).
+  - Reader: 11.844 seconds.
+  - Luna: about 42.477 seconds per attempt; two attempts totaled 84.954 seconds.
+
+Approximate story response timing from this evidence:
+  - Fresh ordinary scenario/session: roughly 2-3 minutes when all stages run once.
+  - Retained successor/review without a new Planner: roughly 1-1.5 minutes.
+  - These are estimates from limited live evidence, not a guaranteed average.
+
+Operational ETA after work resumes:
+  - Finish V34/V38 focused checks and provider-free readiness: about 20-40 minutes
+    if no new defect is found.
+  - Fresh live 30-scenario 10/10/5/5 run: budget about 2-4 hours if clean.
+  - A new focused code/prompt defect normally adds about 15-45 minutes for exact
+    diagnosis, correction, replay, and focused tests before restarting fresh.
+  - A complete 2,000+ test gate can take about 6-7 hours and is intentionally not
+    part of every fix loop.
+
+
+8. CURRENT ISSUES / REVIEW QUESTIONS
+------------------------------------
+1. The GitHub checkpoint is intentionally WIP. Confirm the V34/V38 mechanical
+   history rotation is complete and no V33-current assumptions remain.
+2. Confirm each V34 prompt matches its ordinary/adult route and inherited stress
+   tags, especially the interleaved rows.
+3. Confirm the new-setting Planner instruction permits scene transitions without
+   weakening immutable identity, accepted-event existence, or protected Ted rules.
+4. Confirm the responder requirement is general enough to block structurally
+   unusable ordinary plans but does not reject valid adult handoff plans.
+5. Confirm D-220/D-221/D-222 behavior: small Writer deviations become visible
+   provisional continuity; only hard/haywire output spends a second Writer.
+6. Confirm Adult Ted freedom is greater than ordinary while consent, withdrawal,
+   lasting decisions, memories, and permanent preferences remain protected.
+7. Confirm no full-gate result is accidentally presented as current until one is
+   run against the final candidate commit.
+
+
+9. MOST IMPORTANT FILES FOR EXTERNAL REVIEW
+-------------------------------------------
+Start here:
+  - CERA_CURRENT_STATUS_FOR_EXTERNAL_REVIEW_2026-08-14.txt
+  - docs/START_HERE.md
+  - docs/handoff/CURRENT.md
+  - docs/authority/DECISIONS_AND_SUPERSESSIONS.md (D-220 to D-222)
+
+Behavior and orchestration:
+  - src/cera/cognition/validation.py
+  - src/cera/cognition/prompting.py
+  - src/cera/cognition/provider.py
+  - src/cera/pi_scene/runtime.py
+  - src/cera/pi_scene/ordinary_rejection_policy.py
+  - src/cera/pi_scene/review_store.py
+  - src/cera/pi_scene/store.py
+
+Qualification WIP:
+  - evaluation/fixtures/pi_scene_full_model_qualification_v34.json
+  - src/cera/pi_scene/qualification.py
+  - scripts/run_pi_scene_full_model_qualification.py
+  - tests/test_pi_scene_full_model_qualification.py
+
+Public contracts/integration:
+  - schemas/pi_scene/ordinary_review/v3/
+  - src/cera/generated/ordinary_review_contracts_v3.py
+  - integrations/sillytavern/creator-review-extension/
+  - integrations/sillytavern/cera-review-proxy-plugin/
+
+
+10. REQUEST TO THE EXTERNAL REVIEWER
+------------------------------------
+Please review this checkpoint as a WIP technical handoff, not as a request to
+approve or reinterpret creator authority. Identify:
+  - correctness bugs,
+  - ordinary/adult rule mismatches,
+  - state-machine/custody gaps,
+  - incomplete V34/V38 history rotation,
+  - tests that directly cover a real risk rather than broad redundant coverage,
+  - and any place where a provisional story deviation is still unnecessarily
+    triggering a second Writer call.
+
+Do not recommend weakening the two ordinary Ted protections, consent/withdrawal,
+immutable identity/family facts, accepted-event existence, provider accounting,
+or exact manual-action custody.
