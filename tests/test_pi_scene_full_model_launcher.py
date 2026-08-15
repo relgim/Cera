@@ -600,7 +600,7 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
             self.assertEqual(len(backends[2].starts), 1)
             self.assertEqual(
                 backends[0].route.route_id,
-                "cera_cognition_planner_sol_medium_v7",
+                "cera_cognition_planner_sol_medium_v8",
             )
             self.assertEqual(
                 (backends[1].route.reasoning_effort, backends[1].route.timeout_seconds),
@@ -618,8 +618,8 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 all(
                     (backend.route.adapter_id, backend.route.prompt_version)
                     == (
-                        "cera.cognition.codex_planner_adapter.v6",
-                        "cera.cognition.codex_planner_prompt.v7",
+                        "cera.cognition.codex_planner_adapter.v7",
+                        "cera.cognition.codex_planner_prompt.v8",
                     )
                     for backend in backends
                 )

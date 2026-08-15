@@ -8,7 +8,7 @@ from cera.serialization import canonical_json
 from .citations import cognition_static_citation_scope
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v8"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v9"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
@@ -64,7 +64,14 @@ COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     "boundary and return one non-graphic route_transition; do not continue the "
     "adult sequence. Provisional dependencies must select true or false for this "
     "lineage and cite only supplied provisional IDs. Do not return custody, "
-    "paths, hashes, provider metadata, final prose, or persistence instructions."
+    "paths, hashes, provider metadata, final prose, or persistence instructions. "
+    "For every ordinary plan that does not hand off to the adult logic owner, "
+    "include at least one NPC-owned action, dialogue_intent, private_state, "
+    "perception, or remote_communication item and its matching decision record. "
+    "A current source that explicitly establishes a different setting authorizes "
+    "planning the requested scene transition when protected facts remain intact; "
+    "bridge the time or place change in the sequence instead of canceling the new "
+    "scene solely because the prior accepted location differs."
 )
 
 

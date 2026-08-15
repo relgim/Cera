@@ -65,6 +65,12 @@ def validate_cognition_plan(
     """Validate a plan without interpreting its prose-like semantic fields."""
 
     turn.validate_intended(plan.sequence)
+    if (
+        context.logic_route is LogicRoute.ORDINARY
+        and plan.route_transition is None
+        and not plan.sequence.responding_character_ids
+    ):
+        raise ContractValidationError("ordinary cognition plan requires at least one NPC responder")
     decisions = {value.decision_key: value for value in plan.decision_records}
     items = {value.item_key: value for value in plan.sequence.items}
     links = {value.item_key: value.decision_key for value in plan.decision_item_links}

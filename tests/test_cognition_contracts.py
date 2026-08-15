@@ -177,6 +177,41 @@ class CognitionContractTests(unittest.TestCase):
     def test_valid_material_decision_bundle(self) -> None:
         validate_cognition_plan(_plan(), turn=_turn(), context=_context())
 
+    def test_ordinary_plan_requires_an_npc_responder_before_writer_dispatch(self) -> None:
+        sequence = SequenceDraftV1(
+            items=(
+                SequenceItemV1(
+                    item_key="preserve_current_continuity",
+                    kind=ItemKind.MATERIAL_CONTINUITY,
+                    concise_meaning="Preserve the accepted scene without an NPC response.",
+                    owner_response_semantics="Do not advance the requested scene.",
+                ),
+                SequenceItemV1(
+                    item_key="stop_on_scene_conflict",
+                    kind=ItemKind.STOPPING_BOUNDARY,
+                    concise_meaning="Stop instead of assigning an NPC response.",
+                    causal_parent_item_key="preserve_current_continuity",
+                ),
+            ),
+            durable_changes=(),
+            presence_changes=(),
+            resulting_public_state="The prior scene remains unchanged.",
+            unresolved_threads=("The current request remains unrealized.",),
+            stopping_boundary="Stop before any NPC responds.",
+        )
+        plan = CognitionPlanV1(
+            sequence=sequence,
+            decision_records=(),
+            decision_item_links=(),
+            provisional_dependencies=(),
+        )
+
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "requires at least one NPC responder",
+        ):
+            validate_cognition_plan(plan, turn=_turn(), context=_context())
+
     def test_observer_frame_allows_distinct_facts_from_one_source(self) -> None:
         decision = _decision(CharacterAutonomyMode.BOTH)
         first = decision.observer_frame.directly_perceived[0]

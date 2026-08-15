@@ -39,8 +39,8 @@ from .prompting import COGNITION_PLANNER_BASE_INSTRUCTIONS, COGNITION_PLANNER_PR
 from .provider_schema import cognition_plan_json_schema
 from .validation import CognitionValidationContextV1, validate_cognition_plan
 
-COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v6"
-COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v7"
+COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v7"
+COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v8"
 # This is a transport-loss boundary, not the three-minute interaction target.
 # Retained-turn latency remains observable in provider telemetry.
 COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
@@ -49,7 +49,7 @@ COGNITION_PLANNER_HARD_TIMEOUT_SECONDS = 600
 def cognition_planner_route() -> LiveProviderRoute:
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_cognition_planner_sol_medium_v7",
+        route_id="cera_cognition_planner_sol_medium_v8",
         adapter_id=COGNITION_PLANNER_ADAPTER,
         prompt_version=COGNITION_PLANNER_PROMPT,
         timeout_seconds=COGNITION_PLANNER_HARD_TIMEOUT_SECONDS,

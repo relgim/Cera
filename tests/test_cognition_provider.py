@@ -233,16 +233,16 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
-        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v8")
+        self.assertEqual(COGNITION_PLANNER_PROFILE, "cera_full_model_cognition_planner_v9")
         self.assertEqual(
             COGNITION_PLANNER_ADAPTER,
-            "cera.cognition.codex_planner_adapter.v6",
+            "cera.cognition.codex_planner_adapter.v7",
         )
         self.assertEqual(
             COGNITION_PLANNER_PROMPT,
-            "cera.cognition.codex_planner_prompt.v7",
+            "cera.cognition.codex_planner_prompt.v8",
         )
-        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v7")
+        self.assertEqual(route.route_id, "cera_cognition_planner_sol_medium_v8")
         self.assertIn(
             "Call get_turn_context first with character_ids omitted",
             COGNITION_PLANNER_BASE_INSTRUCTIONS,
@@ -271,6 +271,14 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertIn("eligible_after_exact_fetch", COGNITION_PLANNER_BASE_INSTRUCTIONS)
         self.assertIn("citable_static_evidence_refs", COGNITION_PLANNER_BASE_INSTRUCTIONS)
         self.assertIn("never count, truncate, or summarize", COGNITION_PLANNER_BASE_INSTRUCTIONS)
+        self.assertIn(
+            "include at least one NPC-owned action",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "instead of canceling the new scene solely because the prior accepted location differs",
+            COGNITION_PLANNER_BASE_INSTRUCTIONS,
+        )
 
     def test_completed_invalid_plan_is_typed_retryable_provider_output(self) -> None:
         with TemporaryDirectory() as temporary:
