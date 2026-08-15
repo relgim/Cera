@@ -2600,7 +2600,10 @@ class LeanPiSceneCoordinator:
                 ),
                 characters=turn.characters,
                 relationships=turn.relationships,
-                recent_prose=turn.recent_prose,
+                recent_prose=_writer_recent_prose(
+                    turn.recent_prose,
+                    route=route,
+                ),
                 relevant_memories=turn.relevant_memories,
                 voice_examples=turn.voice_examples,
                 craft_index=turn.craft_index,
@@ -3404,6 +3407,27 @@ def _writer_context_records(
                 item[key] = value
         output.append(item)
     return tuple(output)
+
+
+def _writer_recent_prose(
+    recent_prose: Sequence[Mapping[str, Any] | str],
+    *,
+    route: SceneRoute,
+) -> tuple[Mapping[str, Any] | str, ...]:
+    """Keep one exact prose anchor while older continuity stays structured.
+
+    Ordinary accepted records already carry every recent turn's hash-bound
+    structured continuity. Replaying several complete scenes alongside those
+    records can teach the Writer an accidental presentation template and bury
+    the current Plan. The immediate prior scene is sufficient for prose-level
+    continuity. Adult context remains unchanged because its protected
+    projection and scene history have separate ownership and compaction rules.
+    """
+
+    values = tuple(recent_prose)
+    if route is SceneRoute.ORDINARY:
+        return values[-1:]
+    return values
 
 
 def _recorder_contract_failure(exc: BaseException) -> str:

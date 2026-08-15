@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
@@ -3245,27 +3246,49 @@ class PiSceneLeanTests(unittest.TestCase):
             coordinator, _, pi, _ = self.make_runtime(Path(temporary))
             first = coordinator.start_ordinary(turn(source="First accepted turn."))
             coordinator.accept(first.review_id)
-            coordinator.start_ordinary(turn(source="Second turn."))
-
-            second_writer = [call for call in pi.calls if call.purpose == "writer"][-1]
-            accepted = json.loads(
-                (second_writer.view.root / "accepted_records" / "0001.json").read_text(
-                    encoding="utf-8"
+            second = coordinator.start_ordinary(
+                replace(
+                    turn(source="Second accepted turn."),
+                    recent_prose=(first.candidate.story_text,),
                 )
             )
-            receipt = accepted["receipt"]
-            self.assertNotIn("exact_accepted_prose", receipt)
-            self.assertNotIn("exact_user_source", receipt)
-            self.assertNotIn("primary_authority_json", receipt)
-            self.assertNotIn("writer_receipt", receipt)
-            self.assertEqual(
-                receipt["exact_accepted_prose_sha256"],
-                first.candidate.story_text_sha256,
+            coordinator.accept(second.review_id)
+            coordinator.start_ordinary(
+                replace(
+                    turn(source="Third turn."),
+                    recent_prose=(
+                        first.candidate.story_text,
+                        second.candidate.story_text,
+                    ),
+                )
             )
+
+            third_writer = [call for call in pi.calls if call.purpose == "writer"][-1]
+            records = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in sorted((third_writer.view.root / "accepted_records").glob("*.json"))
+            ]
+            self.assertEqual(len(records), 2)
+            for accepted in records:
+                receipt = accepted["receipt"]
+                self.assertNotIn("exact_accepted_prose", receipt)
+                self.assertNotIn("exact_user_source", receipt)
+                self.assertNotIn("primary_authority_json", receipt)
+                self.assertNotIn("writer_receipt", receipt)
+                self.assertIn("ordinary_record", accepted)
             self.assertEqual(
-                receipt["exact_user_source_sha256"], text_sha256("First accepted turn.")
+                [record["receipt"]["exact_accepted_prose_sha256"] for record in records],
+                [
+                    first.candidate.story_text_sha256,
+                    second.candidate.story_text_sha256,
+                ],
             )
-            self.assertIn("ordinary_record", accepted)
+            prose_paths = sorted((third_writer.view.root / "recent_prose").glob("*.txt"))
+            self.assertEqual(len(prose_paths), 1)
+            self.assertEqual(
+                prose_paths[0].read_text(encoding="utf-8"),
+                second.candidate.story_text,
+            )
 
     def test_decline_has_zero_accepted_effect_and_replan_is_only_second_planner_call(self) -> None:
         with TemporaryDirectory() as temporary:
