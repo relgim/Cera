@@ -929,6 +929,60 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertEqual(accepted["acceptance"]["mode"], "automatic")
             self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
 
+    def test_review_get_rereads_exact_stale_background_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, store, _pi, _retry = self._runtime(Path(temporary))
+            frozen = coordinator.start_ordinary(_turn())
+            validating = replace(
+                frozen,
+                review_phase=OrdinaryReviewPhase.VALIDATING,
+            )
+
+            class RacingCoordinator:
+                def __init__(self) -> None:
+                    self.store = store
+                    self.reads = 0
+
+                def get_review(self, value: str, *, reconcile: bool = True) -> object:
+                    del reconcile
+                    self.assert_review_id(value)
+                    self.reads += 1
+                    return frozen if self.reads == 1 else validating
+
+                @staticmethod
+                def assert_review_id(value: str) -> None:
+                    if value != frozen.review_id:
+                        raise AssertionError("review GET changed identity")
+
+                @staticmethod
+                def provider_operation_attempts(review: object) -> tuple[object, ...]:
+                    if review is frozen:
+                        raise StateConflictError("Pi Scene response review is not durable")
+                    return (review,)
+
+                @staticmethod
+                def validation_provider_operation_attempts(
+                    _review: object,
+                ) -> tuple[None, ...]:
+                    return (None,)
+
+                @staticmethod
+                def terminal_decision_replay(_review_id: str) -> None:
+                    return None
+
+            racing = RacingCoordinator()
+            adapter = PiSceneHttpAdapter(
+                coordinator=racing,  # type: ignore[arg-type]
+                session_id="lifecycle-test",
+                context_provider=lambda *_args, **_kwargs: _turn(),
+            )
+
+            payload = adapter.get_review(frozen.review_id)
+
+            self.assertEqual(racing.reads, 2)
+            self.assertEqual(payload["state"], "checks_pending")
+            self.assertEqual(payload["gate_status"], "pending")
+
     def test_reader_reject_finishes_both_checks_and_requires_feedback_bound_override(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             coordinator, _store, pi, retry = self._runtime(
