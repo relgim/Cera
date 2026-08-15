@@ -1348,7 +1348,7 @@ def _load_spent_qualification_manifests(
     output_root: Path,
     explicit_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], ...]:
-    """Load cumulative V5-V36 manifest authority for all completed prior roots.
+    """Load cumulative V5-V37 manifest authority for all completed prior roots.
 
     V5 remains exact historical authority for the retired V2 suite. Every V5
     or later sibling is included automatically so a caller cannot accidentally

@@ -3054,9 +3054,11 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertTrue(all("limited in-scene dialogue" in value for value in adult_sources))
         self.assertTrue(all("must not" in value for value in adult_sources))
         self.assertTrue(all("memories" in value for value in adult_sources))
-        self.assertTrue(all("capacity" in value for value in adult_sources))
-        self.assertTrue(all("free to stop" in value for value in adult_sources))
-        self.assertTrue(all("withdrawal is immediate" in value for value in adult_sources))
+        active_adult_sources = [value for value in adult_sources if "has ended" not in value]
+        self.assertEqual(len(active_adult_sources), 13)
+        self.assertTrue(all("capacity" in value for value in active_adult_sources))
+        self.assertTrue(all("free to stop" in value for value in active_adult_sources))
+        self.assertTrue(all("withdrawal is immediate" in value for value in active_adult_sources))
         ordinary_sources = [
             value.user_source.lower()
             for value in stress
