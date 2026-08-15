@@ -118,9 +118,9 @@ class SemanticValidationProviderTests(unittest.TestCase):
             LUNA_VALIDATOR_ADAPTER,
             "cera.semantic_validation.luna_adapter.v6",
         )
-        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v6")
-        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v6")
-        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v9")
+        self.assertEqual(LUNA_VALIDATOR_PROMPT, "cera.semantic_validation.luna_prompt.v7")
+        self.assertEqual(LUNA_VALIDATOR_PROFILE, "cera.semantic_validator.luna_xhigh.v7")
+        self.assertEqual(route.route_id, "cera_semantic_validator_luna_xhigh_v10")
         self.assertEqual(route.adapter_id, LUNA_VALIDATOR_ADAPTER)
         self.assertEqual(route.prompt_version, LUNA_VALIDATOR_PROMPT)
         self.assertEqual(route.timeout_seconds, 180)
@@ -165,6 +165,14 @@ class SemanticValidationProviderTests(unittest.TestCase):
             LUNA_VALIDATOR_BASE_INSTRUCTIONS,
         )
         self.assertIn(
+            "visibly present, independently participating, retains his own choice",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "only when the prose invents an unobservable reason, motive, thought",
+            LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
             "soft presence_violation or capability_restriction",
             LUNA_VALIDATOR_BASE_INSTRUCTIONS,
         )
@@ -198,7 +206,7 @@ class SemanticValidationProviderTests(unittest.TestCase):
         self.assertEqual(FULL_MODEL_QUALIFICATION_LUNA_MAXIMUM_OUTPUT_TOKENS, 128_000)
         self.assertEqual(
             qualification_route.route_id,
-            "cera_full_model_qualification_semantic_validator_luna_xhigh_v7",
+            "cera_full_model_qualification_semantic_validator_luna_xhigh_v8",
         )
         self.assertEqual(
             qualification_route,
