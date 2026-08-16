@@ -413,15 +413,10 @@ def _review_checks_v1(review: LeanReviewRecordV1) -> dict[str, Any]:
                     "source_kind": "verdict_conflict",
                 }
             )
-        values.extend(
-            {
-                "code": flag.flag_code,
-                "concise_explanation": flag.concise_explanation,
-                "feedback_scope": None,
-                "source_kind": "review_flag",
-            }
-            for flag in semantic.verdict.review_flags
-        )
+        # Review flags are orthogonal, nonblocking observations and remain
+        # visible in the semantic-validation projection.  They are not lane
+        # failures: a passing Luna verdict with flags must still project as a
+        # valid passing check.
         luna_failures = tuple(values)
     reader_failures = (
         failures_by_owner[OrdinaryValidationOwner.READER]

@@ -52,6 +52,7 @@ from cera.semantic_validation import (
     BoundSemanticValidationV1,
     SemanticConflictClass,
     SemanticConflictV1,
+    SemanticReviewFlagV1,
     SemanticValidationVerdictV1,
     SemanticVerdict,
 )
@@ -102,6 +103,7 @@ class _LifecycleRetryPort:
         *,
         luna: SemanticVerdict = SemanticVerdict.PASS,
         luna_conflict: SemanticConflictClass = SemanticConflictClass.OMITTED_DECISION,
+        luna_review_flags: tuple[SemanticReviewFlagV1, ...] = (),
         reader: ReaderStatus = ReaderStatus.ACCEPTED,
         reader_scope: RetryFeedbackScope | None = None,
     ) -> None:
@@ -109,6 +111,7 @@ class _LifecycleRetryPort:
         self.pi = pi
         self.luna_verdict = luna
         self.luna_conflict = luna_conflict
+        self.luna_review_flags = luna_review_flags
         self.reader_status = reader
         self.reader_scope = reader_scope
         self.prepare_order: list[str] = []
@@ -277,6 +280,7 @@ class _LifecycleRetryPort:
                 schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
                 verdict=self.luna_verdict,
                 conflict=conflict,
+                review_flags=self.luna_review_flags,
             ),
         )
         self.results[prepared.scope.identity.chain_id] = result
@@ -486,6 +490,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
         *,
         luna: SemanticVerdict = SemanticVerdict.PASS,
         luna_conflict: SemanticConflictClass = SemanticConflictClass.OMITTED_DECISION,
+        luna_review_flags: tuple[SemanticReviewFlagV1, ...] = (),
         reader: ReaderStatus = ReaderStatus.ACCEPTED,
         reader_scope: RetryFeedbackScope | None = None,
     ) -> tuple[LeanPiSceneCoordinator, LeanSceneStore, FakePi, _LifecycleRetryPort]:
@@ -497,6 +502,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             pi,
             luna=luna,
             luna_conflict=luna_conflict,
+            luna_review_flags=luna_review_flags,
             reader=reader,
             reader_scope=reader_scope,
         )
@@ -691,6 +697,30 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
             replay = coordinator.begin_ordinary_validation(frozen.review_id)
             self.assertEqual(replay, accepted)
+
+    def test_passing_luna_review_flag_remains_nonblocking(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, _pi, _retry = self._runtime(
+                Path(temporary),
+                luna_review_flags=(
+                    SemanticReviewFlagV1(
+                        flag_code="minor_local_inconsistency",
+                        concise_explanation="One minor local detail changed.",
+                    ),
+                ),
+            )
+            frozen = coordinator.start_ordinary(_turn())
+            accepted = coordinator.begin_ordinary_validation(frozen.review_id)
+
+            public = self._adapter(coordinator).review_payload(accepted)
+            self.assertEqual(public["checks"]["luna"]["status"], "pass")
+            self.assertEqual(public["checks"]["luna"]["failures"], [])
+            self.assertIsNotNone(accepted.semantic_validation)
+            assert accepted.semantic_validation is not None
+            self.assertEqual(
+                accepted.semantic_validation.verdict.review_flags[0].flag_code,
+                "minor_local_inconsistency",
+            )
 
     def test_known_luna_reject_stays_nonactionable_until_reader_joins(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
