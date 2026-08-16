@@ -42,6 +42,7 @@ from cera.adult_pipeline.pi_roles import (
     _decode_projection_effect,
     _decode_protected_event,
     _decode_scene_output,
+    _filter_provider_projection,
     _normalize_scene_evidence_refs,
 )
 from cera.adult_pipeline.pipeline import AdultPipeline
@@ -883,7 +884,7 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
-        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v9")
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v10")
         self.assertIn("character_id may be null only", _SCENE_SYSTEM_PROMPT)
         adult_system_prompt = command[command.index("--system-prompt") + 1]
         self.assertIn(
@@ -977,6 +978,54 @@ class AdultPiIntegrationTests(unittest.TestCase):
 
         recovered = scene.scene_session_binding()
         self.assertEqual(recovered, execution.session_binding)
+
+    def test_filter_context_spine_keeps_decision_owners_scene_and_citations(self) -> None:
+        scene_request = self._request(self._integration())
+        scene_request = replace(
+            scene_request,
+            current_context=(
+                *scene_request.current_context,
+                AdultContextFactV1(
+                    evidence_ref="evidence:hana-uncited",
+                    subject_id="character:hana",
+                    authoritative_fact="Hana retains an uncited identity fact.",
+                    visibility="public",
+                ),
+                AdultContextFactV1(
+                    evidence_ref="evidence:scene-uncited",
+                    subject_id="current_scene",
+                    authoritative_fact="The current scene retains its physical state.",
+                    visibility="public",
+                ),
+                AdultContextFactV1(
+                    evidence_ref="evidence:mia-uncited",
+                    subject_id="character:mia",
+                    authoritative_fact="Mia is not an owner in this scene.",
+                    visibility="public",
+                ),
+            ),
+        )
+        request = AdultFilterRequestV1(
+            schema_version=AdultFilterRequestV1.SCHEMA_VERSION,
+            scene_request=scene_request,
+            scene_output=_decode_scene_output(_scene_wire()),
+        )
+
+        projection = _filter_provider_projection(request)
+        projected_context = projection["scene_request"]["current_context"]
+        projected_refs = {fact["evidence_ref"] for fact in projected_context}
+
+        self.assertEqual(
+            projected_refs,
+            {
+                "evidence:public",
+                "evidence:private",
+                "evidence:hana-uncited",
+                "evidence:scene-uncited",
+            },
+        )
+        self.assertEqual(len(projected_context), 4)
+        self.assertIn("decision-scoped current_context spine", _FILTER_SYSTEM_PROMPT)
 
     def test_filter_transport_rejects_parent_and_stays_candidate_isolated(self) -> None:
         materializer = WriterViewMaterializer(self.root / "filter-view")

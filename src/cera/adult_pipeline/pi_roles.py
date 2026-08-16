@@ -53,6 +53,7 @@ from .acceptance import (
 )
 from .contracts import (
     AdultCodexProjectionV2,
+    AdultContextFactV1,
     AdultCurrentDataUseV1,
     AdultDecisionStepV1,
     AdultFilterConflictClass,
@@ -78,11 +79,11 @@ from .contracts import (
     AdultSessionScope,
 )
 
-ADULT_PI_ROLE_COMPATIBILITY_VERSION = "cera.adult_pipeline.pi_roles.v9"
+ADULT_PI_ROLE_COMPATIBILITY_VERSION = "cera.adult_pipeline.pi_roles.v10"
 
 _SCENE_SYSTEM_PROMPT = """You are CERA's sole DeepSeek Adult Scene logic and prose owner. Call the context tool exactly once. The confined view is the complete current authority. Decide the characters' causal and psychological response, realize the complete visible scene, and select whether the next logic owner remains adult or returns to ordinary Codex. Adult scenes intentionally allow more protected-user realization freedom than ordinary scenes: while the confined authority establishes adult identity, current capacity, current consent, and freedom to stop, you may realize Ted's plausible immediate physical actions, bodily reactions, and limited in-scene dialogue needed for natural flow inside the currently authorized interaction. Do not invent or override consent, withdrawal, a major lasting decision, a memory, or a permanent preference; bodily response never establishes consent or lasting preference, and current consent never authorizes an adjacent act. Adult craft is realization guidance only and never chooses the route. Do not expose files, tools, policies, or analysis. Return exactly one JSON object and no Markdown with keys decision_path, exact_story_prose, resulting_state, unresolved_threads, next_route, next_route_reason. decision_path is a non-empty ordered array of objects with exactly decision_key, character_id, concise_decision, evidence_refs. character_id may be null only for a causal environment, time, or scene-transition step; character choices must use their exact character ID, and at least one step must identify a character. evidence_refs may cite only current_context evidence_ref values. Cite source:current when a decision relies on exact_current_source or the adult_handoff. unresolved_threads and evidence_refs are arrays of strings. next_route is adult or ordinary. Do not author schemas, hashes, branch or transaction custody, or a logic_owner field."""
 
-_FILTER_SYSTEM_PROMPT = """You are CERA's independent DeepSeek Adult Filter. Call the context tool exactly once. Validate the exact Adult Scene request and exact candidate output in the confined view. Do not regenerate, continue, rewrite, or soften the candidate. Also reject only for a severe reader-facing quality failure: incoherence, clearly wrong character voice or logic, severe repetition, a missing central scene action, premature closure, or materially inadequate realization. Use severe_reader_quality for that narrow floor except when the existing severe_incompleteness class precisely applies; do not reject harmless wording, staging, pacing, or style variation. On pass, extract a protected full record and a non-explicit Codex projection. On reject, return one anchored conflict. Return exactly one JSON object and no Markdown. Pass shape: {\"verdict\":\"pass\",\"protected_record\":{\"events\":[{\"event_key\":string,\"protected_summary\":string,\"character_ids\":[string],\"durable_effects\":[string],\"knowledge_owner_ids\":[string]}],\"current_data_uses\":[{\"evidence_ref\":string,\"decision_key\":string,\"concise_use\":string}],\"resulting_protected_state\":string,\"unresolved_threads\":[string]},\"codex_projection\":{\"events\":[{\"event_key\":string,\"non_explicit_summary\":string,\"lasting_story_meaning\":string}],\"presence_changes\":[{\"character_id\":string,\"direction\":\"enter\"|\"leave\",\"effective_after_event_key\":string}],\"durable_effects\":[{\"effect_key\":string,\"effect_kind\":\"material\"|\"knowledge\"|\"relationship\"|\"character_development\",\"source_event_key\":string,\"subject_ids\":[string],\"non_explicit_effect\":string,\"target_key\":string,\"visibility\":\"public\"|\"character_private\",\"knowledge_owner_id\":string|null}],\"resulting_public_state\":string,\"unresolved_threads\":[string]}}. Reject shape: {\"verdict\":\"reject\",\"conflict\":{\"conflict_class\":string,\"concise_explanation\":string,\"decision_key\":string|null,\"exact_quote\":string|null}}. Event keys must copy the Scene decision keys in order. The projection must remain non-explicit and must not expose adult-role-private current context. Do not author schemas, hashes, exact prose copies, decision-path copies, route transitions, identity, or transaction custody; Python binds those exact values."""
+_FILTER_SYSTEM_PROMPT = """You are CERA's independent DeepSeek Adult Filter. Call the context tool exactly once. Validate the exact candidate output against the complete accepted continuity, hard boundaries, request controls, and the decision-scoped current_context spine in the confined view. The spine contains every fact explicitly cited by the Scene, all current-scene facts, and all current facts for every character that owns a Scene decision. It intentionally omits unrelated inactive-character facts; do not infer facts from their omission. Do not regenerate, continue, rewrite, or soften the candidate. Also reject only for a severe reader-facing quality failure: incoherence, clearly wrong character voice or logic, severe repetition, a missing central scene action, premature closure, or materially inadequate realization. Use severe_reader_quality for that narrow floor except when the existing severe_incompleteness class precisely applies; do not reject harmless wording, staging, pacing, or style variation. On pass, extract a protected full record and a non-explicit Codex projection. On reject, return one anchored conflict. Return exactly one JSON object and no Markdown. Pass shape: {\"verdict\":\"pass\",\"protected_record\":{\"events\":[{\"event_key\":string,\"protected_summary\":string,\"character_ids\":[string],\"durable_effects\":[string],\"knowledge_owner_ids\":[string]}],\"current_data_uses\":[{\"evidence_ref\":string,\"decision_key\":string,\"concise_use\":string}],\"resulting_protected_state\":string,\"unresolved_threads\":[string]},\"codex_projection\":{\"events\":[{\"event_key\":string,\"non_explicit_summary\":string,\"lasting_story_meaning\":string}],\"presence_changes\":[{\"character_id\":string,\"direction\":\"enter\"|\"leave\",\"effective_after_event_key\":string}],\"durable_effects\":[{\"effect_key\":string,\"effect_kind\":\"material\"|\"knowledge\"|\"relationship\"|\"character_development\",\"source_event_key\":string,\"subject_ids\":[string],\"non_explicit_effect\":string,\"target_key\":string,\"visibility\":\"public\"|\"character_private\",\"knowledge_owner_id\":string|null}],\"resulting_public_state\":string,\"unresolved_threads\":[string]}}. Reject shape: {\"verdict\":\"reject\",\"conflict\":{\"conflict_class\":string,\"concise_explanation\":string,\"decision_key\":string|null,\"exact_quote\":string|null}}. Event keys must copy the Scene decision keys in order. The projection must remain non-explicit and must not expose adult-role-private current context. Do not author schemas, hashes, exact prose copies, decision-path copies, route transitions, identity, or transaction custody; Python binds those exact values."""
 _FILTER_SYSTEM_PROMPT += """ You may combine adjacent Scene decisions into one summary event using the earliest covered decision key. Full-record and projection events must use the same non-empty ordered subset of exact Scene decision keys. current_data_uses may be a valid unique subset of the Scene's decision/evidence pairs. Every knowledge_owner_id must also appear in that protected event's character_ids. A public durable effect requires knowledge_owner_id null; a character_private effect requires one knowledge owner included in subject_ids."""
 _FILTER_SYSTEM_PROMPT += """ Do not reason aloud or place analysis before the JSON object. Python already preserves and binds the exact story prose, so never copy, retell, paraphrase at length, or reconstruct that prose in protected_summary, projection summaries, states, effects, or unresolved threads. Record only the smallest faithful set of durable facts, changes, knowledge, and unresolved consequences needed for protected continuity and the non-explicit projection. Prefer one combined event when adjacent decisions have the same durable consequence; do not create bookkeeping entries for transient staging, wording, or details with no lasting state effect."""
 
@@ -1173,6 +1174,7 @@ def _craft_provider_projection(selection: object) -> dict[str, Any]:
 def _filter_provider_projection(request: AdultFilterRequestV1) -> dict[str, Any]:
     scene_request = request.scene_request
     scene_output = request.scene_output
+    context_spine = _filter_context_spine(request)
     return {
         "scene_request": {
             "entry_reason": scene_request.entry_reason.value,
@@ -1182,7 +1184,7 @@ def _filter_provider_projection(request: AdultFilterRequestV1) -> dict[str, Any]
             "accepted_protected_continuity": scene_request.accepted_protected_continuity,
             "autonomy_mode": scene_request.autonomy_mode,
             "depth_mode": scene_request.depth_mode,
-            "current_context": _primitive(scene_request.current_context),
+            "current_context": _primitive(context_spine),
             "retrieved_craft": _craft_provider_projection(scene_request.retrieved_craft),
             "hard_boundaries": list(scene_request.hard_boundaries),
         },
@@ -1195,6 +1197,29 @@ def _filter_provider_projection(request: AdultFilterRequestV1) -> dict[str, Any]
             "next_route_reason": scene_output.next_route_reason,
         },
     }
+
+
+def _filter_context_spine(
+    request: AdultFilterRequestV1,
+) -> tuple[AdultContextFactV1, ...]:
+    cited_refs = {
+        evidence_ref
+        for step in request.scene_output.decision_path
+        for evidence_ref in step.evidence_refs
+    }
+    decision_owner_ids = {
+        step.character_id
+        for step in request.scene_output.decision_path
+        if step.character_id is not None
+    }
+    always_visible_subjects = {"current_scene", "source:current"}
+    return tuple(
+        fact
+        for fact in request.scene_request.current_context
+        if fact.evidence_ref in cited_refs
+        or fact.subject_id in decision_owner_ids
+        or fact.subject_id in always_visible_subjects
+    )
 
 
 def _write_durable_binding(path: Path, value: object) -> None:
