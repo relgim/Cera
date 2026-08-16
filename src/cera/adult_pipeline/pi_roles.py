@@ -461,7 +461,7 @@ class PiStructuredAdultRoleTransport:
                 invocation_id,
                 parsed_operations=parsed.provider_operations,
             )
-            raw_json = parsed.output_text.strip()
+            raw_json = _normalize_provider_json_object(parsed.output_text)
             if not raw_json:
                 raise _adult_provider_failure(
                     ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
@@ -1148,6 +1148,17 @@ def _json_object(raw: str, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractValidationError(f"{label} must be an object")
     return cast(dict[str, Any], value)
+
+
+def _normalize_provider_json_object(raw: str) -> str:
+    """Remove one harmless JSON Markdown fence at the provider boundary."""
+
+    value = raw.strip()
+    prefix = "```json\n"
+    suffix = "\n```"
+    if value.startswith(prefix) and value.endswith(suffix):
+        value = value[len(prefix) : -len(suffix)]
+    return value
 
 
 def _keys(value: Mapping[str, Any], expected: set[str], label: str) -> None:

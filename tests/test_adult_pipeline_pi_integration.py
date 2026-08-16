@@ -493,6 +493,49 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertNotIn("--fork", fake.command or ())
         self.assertIsNone(fake.requests[0].accepted_parent_session)
 
+    def test_structured_pi_transport_accepts_one_json_markdown_fence(self) -> None:
+        materializer = WriterViewMaterializer(self.root / "fenced-pi-view")
+        view = materializer.materialize(
+            WriterViewInputV1(
+                world_id=self.context.world_id,
+                branch_id=self.context.branch_id,
+                scene_id=self.context.scene_id,
+                turn_id=self.context.turn_id,
+                candidate_id=self.context.candidate_id,
+                route=SceneRoute.ADULT,
+                user_prompt="Exact source.",
+                primary_authority={"handoff": "exact"},
+                current_state={"location": "room"},
+                characters={},
+                relationships={},
+                recent_prose=(),
+                relevant_memories={},
+                voice_examples={},
+                craft_index={"mode": "off"},
+                accepted_records=(),
+            )
+        )
+        ledger = PiProviderOperationLedger(
+            (self.root / "fenced-ledger.jsonl").resolve(),
+            maximum_operations=4,
+            maximum_operations_per_invocation=4,
+        )
+        wire = _scene_wire()
+        fake = _FakePiAdapter(ledger, f"```json\n{wire}\n```")
+
+        result = PiStructuredAdultRoleTransport(fake).invoke_structured_role(  # type: ignore[arg-type]
+            role=AdultProviderRole.SCENE,
+            view=view,
+            candidate_id=self.context.candidate_id,
+            session_dir=self.root / "fenced-pi-session",
+            system_prompt="Return JSON.",
+            prompt="Run.",
+            accepted_parent_session=None,
+        )
+
+        self.assertEqual(result.raw_json, wire)
+        self.assertEqual(ledger.operation_count, 2)
+
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:
         prior_records = tuple(
             {
