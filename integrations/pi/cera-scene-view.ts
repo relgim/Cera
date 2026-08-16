@@ -17,7 +17,7 @@ import { writerContextPlan } from "./cera-scene-context.ts";
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_CONTEXT_BYTES = 64 * 1024;
 const MAX_WRITER_GENESIS_FILE_BYTES = 128 * 1024;
-const MAX_WRITER_ADULT_SCENE_AUTHORITY_BYTES = 320 * 1024;
+const MAX_WRITER_SELF_CONTAINED_ADULT_AUTHORITY_BYTES = 384 * 1024;
 const MAX_WRITER_CONTEXT_BYTES = 384 * 1024;
 const DEEPSEEK_MAXIMUM_REQUEST_BYTES = 512 * 1024;
 const WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES = 128 * 1024;
@@ -57,6 +57,18 @@ const ADULT_SCENE_REQUEST_V1_FIELDS = new Set([
 	"current_context",
 	"retrieved_craft",
 	"hard_boundaries",
+]);
+const ADULT_FILTER_INPUT_FIELDS = new Set(["scene_request", "scene_output"]);
+const ADULT_FILTER_SCENE_REQUEST_FIELDS = new Set(
+	[...ADULT_SCENE_REQUEST_V1_FIELDS].filter((field) => field !== "schema_version"),
+);
+const ADULT_FILTER_SCENE_OUTPUT_FIELDS = new Set([
+	"decision_path",
+	"exact_story_prose",
+	"resulting_state",
+	"unresolved_threads",
+	"next_route",
+	"next_route_reason",
 ]);
 const WRITER_GENESIS_CLAIM_FIELDS = new Set([
 	"source_schema_version",
@@ -230,6 +242,24 @@ function isSelfContainedAdultSceneRequest(value: unknown): boolean {
 	);
 }
 
+function isSelfContainedAdultFilterInput(value: unknown): boolean {
+	return (
+		isObject(value) &&
+		hasExactFields(value, ADULT_FILTER_INPUT_FIELDS) &&
+		isObject(value.scene_request) &&
+		hasExactFields(value.scene_request, ADULT_FILTER_SCENE_REQUEST_FIELDS) &&
+		Array.isArray(value.scene_request.current_context) &&
+		isObject(value.scene_request.retrieved_craft) &&
+		isObject(value.scene_output) &&
+		hasExactFields(value.scene_output, ADULT_FILTER_SCENE_OUTPUT_FIELDS) &&
+		isNonEmptyString(value.scene_output.exact_story_prose)
+	);
+}
+
+function isSelfContainedAdultAuthority(value: unknown): boolean {
+	return isSelfContainedAdultSceneRequest(value) || isSelfContainedAdultFilterInput(value);
+}
+
 function assertCurrentWriterProjection(controlData: Buffer): void {
 	let control: unknown;
 	try {
@@ -353,20 +383,20 @@ async function writerContextPacket(
 	const plan = writerContextPlan(controlData.toString("utf8"), availablePaths);
 	const authorityTarget = (await confinedPath(plan.authorityPath)).target;
 	const authorityData = await readFile(authorityTarget);
-	let selfContainedAdultScene = false;
+	let selfContainedAdultAuthority = false;
 	if (
 		plan.authorityPath === "ADULT_HANDOFF.json" &&
-		authorityData.byteLength <= MAX_WRITER_ADULT_SCENE_AUTHORITY_BYTES
+		authorityData.byteLength <= MAX_WRITER_SELF_CONTAINED_ADULT_AUTHORITY_BYTES
 	) {
 		try {
-			selfContainedAdultScene = isSelfContainedAdultSceneRequest(
+			selfContainedAdultAuthority = isSelfContainedAdultAuthority(
 				JSON.parse(authorityData.toString("utf8")),
 			);
 		} catch {
-			selfContainedAdultScene = false;
+			selfContainedAdultAuthority = false;
 		}
 	}
-	const semanticPaths = selfContainedAdultScene ? [] : plan.semanticPaths;
+	const semanticPaths = selfContainedAdultAuthority ? [] : plan.semanticPaths;
 	const sections: string[] = [];
 	const add = async (label: string, path: string) => {
 		const target = (await confinedPath(path)).target;
@@ -387,8 +417,8 @@ async function writerContextPacket(
 		}
 		sections.push(`===== SUPPORTING ACCEPTED CONTEXT | ${path} =====\n${data.toString("utf8")}`);
 	}
-	const authorityBound = selfContainedAdultScene
-		? MAX_WRITER_ADULT_SCENE_AUTHORITY_BYTES
+	const authorityBound = selfContainedAdultAuthority
+		? MAX_WRITER_SELF_CONTAINED_ADULT_AUTHORITY_BYTES
 		: MAX_READ_BYTES;
 	if (authorityData.byteLength > authorityBound) {
 		throw new Error("context file exceeds the read bound");

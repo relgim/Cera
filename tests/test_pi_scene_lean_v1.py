@@ -2315,7 +2315,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             authority_bytes = (view.root / "ADULT_HANDOFF.json").stat().st_size
             self.assertGreater(authority_bytes, 64 * 1024)
-            self.assertLessEqual(authority_bytes, 320 * 1024)
+            self.assertLessEqual(authority_bytes, 384 * 1024)
 
             probe = run_pi_context_extension(root=root, view_root=view.root)
             self.assertEqual(probe.returncode, 0, probe.stderr)
@@ -2326,6 +2326,48 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertLessEqual(
                 packet["serializedContextBytes"],
                 packet["serializedContextLimitBytes"],
+            )
+
+            filter_primary = {
+                "scene_request": {
+                    key: value for key, value in primary.items() if key != "schema_version"
+                },
+                "scene_output": {
+                    "decision_path": [],
+                    "exact_story_prose": "The completed adult scene remains exact.",
+                    "resulting_state": "The scene reaches its authorized boundary.",
+                    "unresolved_threads": [],
+                    "next_route": "adult",
+                    "next_route_reason": "The candidate remains on the adult route.",
+                },
+            }
+            filter_view = WriterViewMaterializer(root / "filter-views").materialize(
+                WriterViewInputV1(
+                    world_id="world-production-adult-context",
+                    branch_id="branch-main",
+                    scene_id="scene-private-ballroom",
+                    turn_id="turn-production-adult-filter",
+                    candidate_id="candidate-production-adult-filter",
+                    route=SceneRoute.ADULT,
+                    user_prompt="The completed adult scene remains exact.",
+                    primary_authority=filter_primary,
+                    current_state={"public_scene_state": "Two adults remain in the ballroom."},
+                    characters={"character:sakura": {"duplicate": "D" * 90_000}},
+                    relationships={},
+                    recent_prose=("R" * 40_000,),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={"duplicate": "C" * 22_000},
+                    accepted_records=tuple({"duplicate": "A" * 40_000} for _ in range(5)),
+                )
+            )
+            filter_probe = run_pi_context_extension(root=root, view_root=filter_view.root)
+            self.assertEqual(filter_probe.returncode, 0, filter_probe.stderr)
+            filter_packet = json.loads(filter_probe.stdout)
+            self.assertEqual(filter_packet["files"], 3)
+            self.assertLessEqual(
+                filter_packet["serializedContextBytes"],
+                filter_packet["serializedContextLimitBytes"],
             )
 
     def test_writer_context_projects_two_active_genesis_bundles_with_growth(self) -> None:
