@@ -424,6 +424,35 @@ class AdultTurnPreparationTests(unittest.TestCase):
                 product_story_boundaries=(),
             )
 
+    def test_cognition_handoff_allows_bound_terminal_stop_marker(self) -> None:
+        plan = _plan()
+        transition = plan.route_transition
+        assert transition is not None
+        boundary_item = plan.sequence.items[0]
+        stop_marker = replace(
+            plan.sequence.items[1],
+            causal_parent_item_key=boundary_item.item_key,
+        )
+        moved_boundary = replace(
+            transition,
+            boundary_item_key=boundary_item.item_key,
+        )
+
+        result = self.builder.from_cognition_handoff(
+            turn_input=_turn(),
+            cognition_plan=replace(
+                plan,
+                sequence=replace(plan.sequence, items=(boundary_item, stop_marker)),
+                route_transition=moved_boundary,
+            ),
+            accepted_safe_projection="A safe accepted projection.",
+            protected_adult_continuity=None,
+            current_facts=_facts(),
+            product_story_boundaries=(),
+        )
+
+        self.assertEqual(result.entry_reason, AdultEntryReason.CODEX_ADULT_HANDOFF)
+
     def test_catalog_queries_are_deterministic_and_bounded(self) -> None:
         turn = replace(
             _turn(),

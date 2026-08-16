@@ -17,6 +17,7 @@ from cera.cognition.contracts import CognitionPlanV1, LogicRoute
 from cera.errors import ContractValidationError
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV2
 from cera.pi_scene.review_store import LeanSceneTurnInputV1
+from cera.sequence_first.contracts import ItemKind
 from cera.serialization import canonical_json, text_sha256, to_primitive
 
 from .contracts import (
@@ -131,7 +132,26 @@ class AdultTurnPreparationBuilder:
             raise ContractValidationError(
                 "adult Cognition handoff must transition from ordinary to adult"
             )
-        if cognition_plan.sequence.items[-1].item_key != transition.boundary_item_key:
+        sequence_items = cognition_plan.sequence.items
+        boundary_index = next(
+            index
+            for index, item in enumerate(sequence_items)
+            if item.item_key == transition.boundary_item_key
+        )
+        trailing_items = sequence_items[boundary_index + 1 :]
+        terminal_stop_marker = (
+            len(trailing_items) == 1
+            and trailing_items[0].kind is ItemKind.STOPPING_BOUNDARY
+            and trailing_items[0].causal_parent_item_key == transition.boundary_item_key
+            and trailing_items[0].owner_id is None
+            and trailing_items[0].owner_response_semantics is None
+            and not trailing_items[0].evidence_keys
+            and not trailing_items[0].protected_user_claim_keys
+            and not trailing_items[0].protected_user_exact_quotes
+            and not trailing_items[0].durable_change_keys
+            and not trailing_items[0].planner_item_keys
+        )
+        if trailing_items and not terminal_stop_marker:
             raise ContractValidationError(
                 "adult Cognition handoff contains sequence items after its route boundary"
             )
