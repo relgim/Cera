@@ -558,7 +558,7 @@ class PiDeepSeekAdultScenePort:
     def generate_adult_scene(self, request: AdultSceneRequestV1) -> AdultSceneInvocationV1:
         return self.execute_adult_scene(request).invocation
 
-    def execute_adult_scene(self, request: AdultSceneRequestV1) -> AdultSceneRoleExecutionV1:
+    def prepare_adult_scene(self, request: AdultSceneRequestV1) -> MaterializedWriterViewV1:
         assert_provider_dispatch_allowed(
             "adult_pipeline.scene.pi",
             external_provider_boundary=self.external_provider_boundary,
@@ -575,6 +575,10 @@ class PiDeepSeekAdultScenePort:
             )
         )
         _assert_primary_binding(view, request, request.exact_current_source)
+        return view
+
+    def execute_adult_scene(self, request: AdultSceneRequestV1) -> AdultSceneRoleExecutionV1:
+        view = self.prepare_adult_scene(request)
         result = self.transport.invoke_structured_role(
             role=AdultProviderRole.SCENE,
             view=view,
@@ -672,7 +676,7 @@ class PiDeepSeekAdultFilterPort:
     def validate_and_stage(self, request: AdultFilterRequestV1) -> AdultFilterInvocationV1:
         return self.execute_adult_filter(request).invocation
 
-    def execute_adult_filter(self, request: AdultFilterRequestV1) -> AdultFilterRoleExecutionV1:
+    def prepare_adult_filter(self, request: AdultFilterRequestV1) -> MaterializedWriterViewV1:
         assert_provider_dispatch_allowed(
             "adult_pipeline.filter.pi",
             external_provider_boundary=self.external_provider_boundary,
@@ -692,6 +696,10 @@ class PiDeepSeekAdultFilterPort:
             )
         )
         _assert_primary_binding(view, provider_input, request.scene_output.exact_story_prose)
+        return view
+
+    def execute_adult_filter(self, request: AdultFilterRequestV1) -> AdultFilterRoleExecutionV1:
+        view = self.prepare_adult_filter(request)
         filter_candidate_id = f"{self.context.candidate_id}:adult-filter"
         result = self.transport.invoke_structured_role(
             role=AdultProviderRole.FILTER,

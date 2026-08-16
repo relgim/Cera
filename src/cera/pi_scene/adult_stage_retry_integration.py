@@ -1308,11 +1308,18 @@ class AdultPiStageAttemptOwnerFactoryV1:
                 external_provider_boundary=True,
             )
             self._assert_budget_available()
-            return (
+            request = (
                 _decode_scene_attempt_request(value, self.pi_adapter)
                 if self.stage is ProviderStage.ADULT_SCENE
                 else _decode_filter_attempt_request(value, self.pi_adapter)
             )
+            if isinstance(request, _AdultSceneAttemptRequestV1):
+                self._scene_port(request, attempt_root).prepare_adult_scene(request.scene_request)
+            else:
+                self._filter_port(request, attempt_root).prepare_adult_filter(
+                    request.filter_request
+                )
+            return request
 
         provider_calls_observed = 0
 
@@ -1620,7 +1627,14 @@ class AdultPiStageAttemptOwnerFactoryV1:
         request: _AdultSceneAttemptRequestV1,
         attempt_root: Path,
     ) -> AdultSceneRoleExecutionV1:
-        port = PiDeepSeekAdultScenePort(
+        return self._scene_port(request, attempt_root).execute_adult_scene(request.scene_request)
+
+    def _scene_port(
+        self,
+        request: _AdultSceneAttemptRequestV1,
+        attempt_root: Path,
+    ) -> PiDeepSeekAdultScenePort:
+        return PiDeepSeekAdultScenePort(
             transport=PiStructuredAdultRoleTransport(self.pi_adapter),
             # The immutable candidate view is shared across fresh attempt
             # owners. Keeping this root shallow also avoids Win32 path loss.
@@ -1629,20 +1643,25 @@ class AdultPiStageAttemptOwnerFactoryV1:
             session_root=attempt_root / "s",
             accepted_parent_session=request.accepted_parent_session,
         )
-        return port.execute_adult_scene(request.scene_request)
 
     def _invoke_filter(
         self,
         request: _AdultFilterAttemptRequestV1,
         attempt_root: Path,
     ) -> AdultFilterRoleExecutionV1:
-        port = PiDeepSeekAdultFilterPort(
+        return self._filter_port(request, attempt_root).execute_adult_filter(request.filter_request)
+
+    def _filter_port(
+        self,
+        request: _AdultFilterAttemptRequestV1,
+        attempt_root: Path,
+    ) -> PiDeepSeekAdultFilterPort:
+        return PiDeepSeekAdultFilterPort(
             transport=PiStructuredAdultRoleTransport(self.pi_adapter),
             materializer=LazyProtectedWriterViewMaterializer(self.protected_runtime_root / "v"),
             context=request.role_context,
             session_root=attempt_root / "s",
         )
-        return port.execute_adult_filter(request.filter_request)
 
     def _receipt_metrics(
         self,

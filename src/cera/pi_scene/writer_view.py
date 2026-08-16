@@ -132,7 +132,13 @@ _BRANCH_CHANGE_KINDS = frozenset({"character_development", "relationship", "know
 _BRANCH_CHANGE_VISIBILITIES = frozenset(
     {"public", "character_private", "branch_internal_unspecified"}
 )
-_RELATIONSHIP_OVERLAY_FIELDS = frozenset({"target_key", "participants", "accepted_branch_changes"})
+_LEGACY_RELATIONSHIP_OVERLAY_FIELDS = frozenset(
+    {"target_key", "participants", "accepted_branch_changes"}
+)
+_SCOPED_RELATIONSHIP_OVERLAY_FIELDS = _LEGACY_RELATIONSHIP_OVERLAY_FIELDS | {
+    "visibility",
+    "knowledge_owner_id",
+}
 _RECORDER_PROJECTION_FIELDS = frozenset(
     {"accepted_turn_id", "source_kind", "visibility", "concise_change"}
 )
@@ -1025,7 +1031,10 @@ def _validate_production_raw_overlay(
     mapping_kind: str,
 ) -> None:
     fields = set(value)
-    if mapping_kind == "relationship" and fields == _RELATIONSHIP_OVERLAY_FIELDS:
+    if mapping_kind == "relationship" and fields in {
+        _LEGACY_RELATIONSHIP_OVERLAY_FIELDS,
+        _SCOPED_RELATIONSHIP_OVERLAY_FIELDS,
+    }:
         target_key = value["target_key"]
         participants = value["participants"]
         if not isinstance(target_key, str) or not target_key.strip():
@@ -1037,6 +1046,24 @@ def _validate_production_raw_overlay(
             raise ContractValidationError("Writer relationship participants changed")
         if len(participants) != len(set(participants)):
             raise ContractValidationError("Writer relationship participants contain duplicates")
+        if fields == _SCOPED_RELATIONSHIP_OVERLAY_FIELDS:
+            visibility = value["visibility"]
+            owner = value["knowledge_owner_id"]
+            if visibility not in _BRANCH_CHANGE_VISIBILITIES:
+                raise ContractValidationError("Writer relationship visibility changed")
+            if visibility == "character_private":
+                if (
+                    not isinstance(owner, str)
+                    or not owner.startswith("character:")
+                    or owner not in participants
+                ):
+                    raise ContractValidationError(
+                        "Writer private relationship requires a participant owner"
+                    )
+            elif owner is not None:
+                raise ContractValidationError(
+                    "Writer non-private relationship cannot name an owner"
+                )
         return
     if fields == _BRANCH_CHANGE_FIELDS:
         _project_branch_changes(value=[value], active_character_ids=frozenset())

@@ -2952,6 +2952,54 @@ class PiSceneLeanTests(unittest.TestCase):
                 "fallback-active-change",
             )
 
+            scoped_relationship = materializer.materialize(
+                WriterViewInputV1(
+                    world_id="world-private-projection",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    turn_id="turn-0003",
+                    candidate_id="candidate-scoped-relationship",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue.",
+                    primary_authority=adult_handoff("scoped_relationship"),
+                    current_state={
+                        "public_scene_state": "The active adult remains present.",
+                        "genesis_revision": "genesis:test:private-projection",
+                    },
+                    characters={active_id: bundle},
+                    relationships={
+                        "relationship:active": {
+                            "target_key": "relationship:active",
+                            "participants": [active_id],
+                            "visibility": "public",
+                            "knowledge_owner_id": None,
+                            "accepted_branch_changes": [
+                                branch_change(
+                                    label="scoped-relationship-change",
+                                    subject_ids=[active_id],
+                                )
+                            ],
+                        }
+                    },
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            scoped_relationship_value = json.loads(
+                next(
+                    (scoped_relationship.root / "relationships").glob("*.json")
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(scoped_relationship_value["visibility"], "public")
+            self.assertIsNone(scoped_relationship_value["knowledge_owner_id"])
+            self.assertEqual(
+                scoped_relationship_value["accepted_branch_changes"][0]["change_key"],
+                "scoped-relationship-change",
+            )
+
             malformed_projection = json.loads(canonical_json(bundle))
             malformed_projection["genesis_record_projections"][0][
                 "future_outer_projection_field"
