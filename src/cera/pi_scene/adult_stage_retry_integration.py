@@ -28,7 +28,6 @@ from cera.adult_pipeline.contracts import (
 )
 from cera.adult_pipeline.pi_roles import (
     AdultFilterRoleExecutionV1,
-    AdultPiOutputLimitError,
     AdultRoleViewContextV1,
     AdultSceneRoleExecutionV1,
     LazyProtectedWriterViewMaterializer,
@@ -2017,8 +2016,6 @@ def _attempt_metrics_from_disposition(
 def _classify_adult_non_retryable(
     failure: ProviderTransportError,
 ) -> ProviderStageFailureClass | None:
-    if isinstance(failure, AdultPiOutputLimitError):
-        return ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED
     if failure.code is ErrorCode.PROVIDER_CONFIG_INVALID:
         return ProviderStageFailureClass.CONFIGURATION_FAILED
     if failure.code is ErrorCode.PROVIDER_BUDGET_EXCEEDED:

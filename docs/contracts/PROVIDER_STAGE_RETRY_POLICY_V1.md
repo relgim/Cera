@@ -123,7 +123,8 @@ The following are not provider Retry events:
 - authentication or authorization failure;
 - invalid request, deterministic stage input, or API configuration;
 - context-window overflow or unsupported model/parameter;
-- output ending at the configured token limit;
+- a complete, structurally valid result whose provider finish status is merely
+  `length`, `max_tokens`, or `token_limit`;
 - semantic rejection by Luna or Adult Filter;
 - creator Decline, Regenerate, or Replan;
 - changed branch, generation, request, or stage authority;
@@ -140,9 +141,13 @@ cause or parsing exception text. Recorder story acceptance remains preserved;
 this state is distinct from third-attempt retryable Recorder exhaustion and its
 `recording_repair_required` workflow.
 
-Interrupted transport truncation is distinct from deterministic output-limit
-truncation. The former may be retryable after closure; the latter requires an
-input/configuration decision.
+Completion status alone does not decide success. A complete, structurally valid
+result is successful even when the provider reports `length`, `max_tokens`, or
+`token_limit`. When that status accompanies an actually incomplete structured
+result, classify it as `provider_completion_incomplete`: close and preserve the
+attempt, then offer only the existing governed manual Retry. Do not automatically
+redispatch or continue the provider session. Repeated truncation still requires
+an input/provider-configuration decision rather than unbounded retries.
 
 ## 6. Counters and accounting
 

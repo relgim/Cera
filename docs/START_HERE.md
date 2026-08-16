@@ -2,6 +2,16 @@
 
 **Status:** controlling index
 
+## 2026-08-15 D-225 Adult DeepSeek completion handling
+
+Read D-225 before changing Adult Scene/Filter completion handling. Adult
+Pi-role compatibility V8 accepts a complete valid JSON result even when the
+provider reports an output-limit finish status. An actually truncated object
+is `provider_completion_incomplete` and may use only the existing governed
+manual Retry; no automatic redispatch or session continuation is added. The
+Filter records concise durable facts and never duplicates the exact story prose
+that Python already preserves. No new CERA output limit was introduced.
+
 ## 2026-08-15 D-224 Reader quality evidence is provisional
 
 Read D-224 before changing ordinary Reader disposition. The current

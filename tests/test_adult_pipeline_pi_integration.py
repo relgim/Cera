@@ -177,9 +177,16 @@ class _FakePiAdapter:
     timeout_seconds = 60
     readable_debug = None
 
-    def __init__(self, ledger: PiProviderOperationLedger, output: str) -> None:
+    def __init__(
+        self,
+        ledger: PiProviderOperationLedger,
+        output: str,
+        *,
+        finish_status: str = "stop",
+    ) -> None:
         self.operation_ledger = ledger
         self.output = output
+        self.finish_status = finish_status
         self.command: tuple[str, ...] | None = None
         self.requests = []
         self.process_invocations = 0
@@ -219,7 +226,7 @@ class _FakePiAdapter:
                 "message": {
                     "role": "assistant",
                     "usage": {"input": 12, "cacheRead": 8, "output": 20},
-                    "stopReason": "stop",
+                    "stopReason": self.finish_status,
                     "content": [{"type": "text", "text": self.output}],
                 },
             },
@@ -552,6 +559,93 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 self.assertEqual(result.raw_json, wire)
                 self.assertEqual(ledger.operation_count, 2)
 
+    def test_structured_pi_transport_accepts_complete_json_at_output_limit(self) -> None:
+        view = WriterViewMaterializer(self.root / "complete-limit-view").materialize(
+            WriterViewInputV1(
+                world_id=self.context.world_id,
+                branch_id=self.context.branch_id,
+                scene_id=self.context.scene_id,
+                turn_id=self.context.turn_id,
+                candidate_id=self.context.candidate_id,
+                route=SceneRoute.ADULT,
+                user_prompt="Exact source.",
+                primary_authority={"handoff": "exact"},
+                current_state={"location": "room"},
+                characters={},
+                relationships={},
+                recent_prose=(),
+                relevant_memories={},
+                voice_examples={},
+                craft_index={"mode": "off"},
+                accepted_records=(),
+            )
+        )
+        ledger = PiProviderOperationLedger(
+            (self.root / "complete-limit-ledger.jsonl").resolve(),
+            maximum_operations=4,
+            maximum_operations_per_invocation=4,
+        )
+        fake = _FakePiAdapter(ledger, _scene_wire(), finish_status="length")
+
+        result = PiStructuredAdultRoleTransport(fake).invoke_structured_role(  # type: ignore[arg-type]
+            role=AdultProviderRole.SCENE,
+            view=view,
+            candidate_id=self.context.candidate_id,
+            session_dir=self.root / "complete-limit-session",
+            system_prompt="Return JSON.",
+            prompt="Run.",
+            accepted_parent_session=None,
+        )
+
+        self.assertEqual(result.raw_json, _scene_wire())
+        self.assertEqual(result.finish_status, "length")
+        self.assertEqual(ledger.operation_count, 2)
+
+    def test_structured_pi_transport_classifies_truncated_limit_as_incomplete(self) -> None:
+        view = WriterViewMaterializer(self.root / "truncated-limit-view").materialize(
+            WriterViewInputV1(
+                world_id=self.context.world_id,
+                branch_id=self.context.branch_id,
+                scene_id=self.context.scene_id,
+                turn_id=self.context.turn_id,
+                candidate_id=self.context.candidate_id,
+                route=SceneRoute.ADULT,
+                user_prompt="Exact source.",
+                primary_authority={"handoff": "exact"},
+                current_state={"location": "room"},
+                characters={},
+                relationships={},
+                recent_prose=(),
+                relevant_memories={},
+                voice_examples={},
+                craft_index={"mode": "off"},
+                accepted_records=(),
+            )
+        )
+        ledger = PiProviderOperationLedger(
+            (self.root / "truncated-limit-ledger.jsonl").resolve(),
+            maximum_operations=4,
+            maximum_operations_per_invocation=4,
+        )
+        fake = _FakePiAdapter(ledger, '{"decision_path":[', finish_status="length")
+
+        with self.assertRaises(ProviderTransportError) as raised:
+            PiStructuredAdultRoleTransport(fake).invoke_structured_role(  # type: ignore[arg-type]
+                role=AdultProviderRole.SCENE,
+                view=view,
+                candidate_id=self.context.candidate_id,
+                session_dir=self.root / "truncated-limit-session",
+                system_prompt="Return JSON.",
+                prompt="Run.",
+                accepted_parent_session=None,
+            )
+
+        self.assertIs(
+            raised.exception.retryable_failure_category,
+            ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE,
+        )
+        self.assertEqual(ledger.operation_count, 2)
+
     def test_filter_normalizes_redundant_public_knowledge_owner(self) -> None:
         effect = _decode_projection_effect(
             {
@@ -570,6 +664,9 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertIn(
             "public durable effect requires knowledge_owner_id null", _FILTER_SYSTEM_PROMPT
         )
+        self.assertIn("Do not reason aloud", _FILTER_SYSTEM_PROMPT)
+        self.assertIn("never copy, retell, paraphrase at length", _FILTER_SYSTEM_PROMPT)
+        self.assertIn("smallest faithful set of durable facts", _FILTER_SYSTEM_PROMPT)
 
     def test_filter_includes_knowledge_owners_among_event_characters(self) -> None:
         event = _decode_protected_event(
@@ -666,7 +763,7 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
-        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v7")
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v8")
         adult_system_prompt = command[command.index("--system-prompt") + 1]
         self.assertIn(
             "more protected-user realization freedom than ordinary scenes", adult_system_prompt

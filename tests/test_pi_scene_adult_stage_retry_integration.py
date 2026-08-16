@@ -121,7 +121,7 @@ class _ScriptedPiRunner:
                     ),
                 )
             raise RuntimeError("scripted unresolved dispatch")
-        assert script.outcome in {"success", "completion_incomplete"}
+        assert script.outcome in {"success", "completion_at_limit"}
         assert script.raw_json is not None
         events = (
             {"type": "session", "id": session_id},
@@ -147,9 +147,7 @@ class _ScriptedPiRunner:
                         "output": script.output_tokens,
                         "reasoning": script.reasoning_tokens,
                     },
-                    "stopReason": (
-                        "length" if script.outcome == "completion_incomplete" else "stop"
-                    ),
+                    "stopReason": ("length" if script.outcome == "completion_at_limit" else "stop"),
                     "content": [{"type": "text", "text": script.raw_json}],
                 },
             },
@@ -621,8 +619,32 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
                 self.assertEqual(chain.attempts[0].duration_ms, 125)
                 self.assertEqual(runner.calls, ["adult_scene"])
 
-    def test_output_limit_truncation_requires_recovery_without_retry(self) -> None:
-        runner = _ScriptedPiRunner([_Script("adult_scene", "completion_incomplete", _scene_wire())])
+    def test_complete_output_at_limit_continues_without_retry(self) -> None:
+        runner = _ScriptedPiRunner(
+            [
+                _Script("adult_scene", "completion_at_limit", _scene_wire()),
+                _Script("adult_filter", "success", _filter_wire()),
+            ]
+        )
+        service = self._service(self._adapter(runner))
+        coordinator = AdultStageRetryCoordinatorV1(runtime=service, packets=self.packets)
+
+        with patch(
+            "cera.adult_pipeline.pi_roles.time.perf_counter",
+            new=_StepClock(),
+        ):
+            completed = coordinator.execute_or_continue(self.source)
+
+        self.assertTrue(completed.completed)
+        scene_chain = service.read_chain(completed.scene_chain_id)
+        self.assertEqual(scene_chain.phase, ProviderStageRetryPhase.SUCCEEDED)
+        self.assertEqual(scene_chain.attempts_total, 1)
+        self.assertEqual(runner.calls, ["adult_scene", "adult_filter"])
+
+    def test_truncated_output_at_limit_offers_only_governed_manual_retry(self) -> None:
+        runner = _ScriptedPiRunner(
+            [_Script("adult_scene", "completion_at_limit", '{"decision_path":[')]
+        )
         service = self._service(self._adapter(runner))
         coordinator = AdultStageRetryCoordinatorV1(runtime=service, packets=self.packets)
 
@@ -634,15 +656,17 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
 
         self.assertFalse(pending.completed)
         chain = service.read_chain(pending.scene_chain_id)
-        self.assertEqual(chain.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertEqual(chain.phase, ProviderStageRetryPhase.OWNER_RETIRED)
         self.assertIs(
             chain.attempts[0].failure_class,
-            ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED,
+            ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
         )
         self.assertEqual(chain.attempts[0].provider_operations_observed, 1)
         self.assertEqual(chain.attempts[0].provider_operations_conservative, 1)
         self.assertEqual(chain.attempts[0].duration_ms, 125)
-        self.assertEqual(service.canonical_status(chain_id=chain.identity.chain_id)["actions"], [])
+        actions = service.canonical_status(chain_id=chain.identity.chain_id)["actions"]
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0]["action_kind"], "provider_retry")
         self.assertEqual(runner.calls, ["adult_scene"])
 
     def test_dispatch_guard_fails_before_reservation_and_provider_call(self) -> None:

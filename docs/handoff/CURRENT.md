@@ -2,6 +2,21 @@
 
 **Updated:** 2026-08-15
 
+## 2026-08-15 D-225 Adult Filter truncation correction
+
+Adult backend run 15 completed Scene 1, then the Filter spent substantial output
+on analysis and repeated bookkeeping before ending at 8,192 output tokens with
+an incomplete JSON object. Review found two general defects: completion status
+was checked before object completeness, and actual output-limit truncation was
+classified as non-Retry recovery. Adult Pi-role compatibility V8 now accepts a
+complete valid object at a limit status, classifies only an actually incomplete
+object as `provider_completion_incomplete`, and keeps Retry manual and
+stage-local. The Filter prompt now forbids analysis and exact-prose retelling
+and requests only minimal durable facts, without imposing a new content limit.
+The exact upstream/request source of the observed 8,192-token finish is not yet
+proven. Current-context size remains a monitored concern; it was not reduced
+without a fact-preserving retrieval proof.
+
 ## 2026-08-15 D-224 whole-candidate Reader tolerance
 
 The current ordinary standing policy is `ordinary_provisional_continuity` v3.
