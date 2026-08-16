@@ -790,6 +790,15 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 "concise_use": "The duplicate pair is dropped.",
             },
         ]
+        filter_raw["protected_record"]["events"][0]["durable_effects"] = [
+            "The valid durable effect is retained.",
+            {
+                "effect_key": "wrong_shape",
+                "effect_kind": "state_change",
+                "target_key": "state:wrong_shape",
+            },
+            "The valid durable effect is retained.",
+        ]
 
         decision = _decode_filter_decision(canonical_json(filter_raw), request)
 
@@ -801,6 +810,10 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 for use in decision.passed.protected_full_record.current_data_uses
             ),
             (("decision_one", "evidence:public", "The valid pair is retained."),),
+        )
+        self.assertEqual(
+            decision.passed.protected_full_record.events[0].durable_effects,
+            ("The valid durable effect is retained.",),
         )
 
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:

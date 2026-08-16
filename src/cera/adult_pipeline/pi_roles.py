@@ -1086,7 +1086,7 @@ def _decode_protected_event(value: Mapping[str, Any]) -> AdultProtectedEventV1:
         event_key=_string(value, "event_key"),
         protected_summary=_string(value, "protected_summary"),
         character_ids=character_ids,
-        durable_effects=_strings(value, "durable_effects"),
+        durable_effects=_provider_optional_texts(value, "durable_effects"),
         knowledge_owner_ids=knowledge_owner_ids,
     )
 
@@ -1334,3 +1334,11 @@ def _strings(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
     if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
         raise ContractValidationError(f"{key} must be a string array")
     return tuple(cast(list[str], items))
+
+
+def _provider_optional_texts(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    """Normalize optional provider bookkeeping while preserving exact text items."""
+
+    raw = value.get(key)
+    items = (raw,) if isinstance(raw, str) else raw if isinstance(raw, list) else ()
+    return tuple(dict.fromkeys(item for item in items if isinstance(item, str) and item.strip()))
