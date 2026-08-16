@@ -561,6 +561,30 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 self.assertEqual(result.raw_json, wire)
                 self.assertEqual(ledger.operation_count, 2)
 
+    def test_scene_decoder_accepts_one_environmental_decision(self) -> None:
+        value = json.loads(_scene_wire())
+        value["decision_path"].insert(
+            0,
+            {
+                "decision_key": "advance_time",
+                "character_id": None,
+                "concise_decision": "Advance the scene to the established next moment.",
+                "evidence_refs": ["evidence:public"],
+            },
+        )
+
+        output = _decode_scene_output(canonical_json(value))
+
+        self.assertIsNone(output.decision_path[0].character_id)
+        self.assertEqual(output.decision_path[1].character_id, "character:hana")
+
+        value["decision_path"] = [value["decision_path"][0]]
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "requires a character decision",
+        ):
+            _decode_scene_output(canonical_json(value))
+
     def test_structured_pi_transport_accepts_complete_json_at_output_limit(self) -> None:
         view = WriterViewMaterializer(self.root / "complete-limit-view").materialize(
             WriterViewInputV1(
@@ -859,7 +883,8 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
-        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v8")
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v9")
+        self.assertIn("character_id may be null only", _SCENE_SYSTEM_PROMPT)
         adult_system_prompt = command[command.index("--system-prompt") + 1]
         self.assertIn(
             "more protected-user realization freedom than ordinary scenes", adult_system_prompt

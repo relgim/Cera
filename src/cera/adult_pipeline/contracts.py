@@ -261,13 +261,14 @@ class AdultSceneRequestV1:
 @dataclass(frozen=True, slots=True)
 class AdultDecisionStepV1:
     decision_key: str
-    character_id: str
+    character_id: str | None
     concise_decision: str
     evidence_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
         _key(self.decision_key, "adult_decision.decision_key")
-        _identity(self.character_id, "adult_decision.character_id")
+        if self.character_id is not None:
+            _identity(self.character_id, "adult_decision.character_id")
         _text(self.concise_decision, "adult_decision.concise_decision", maximum=4_000)
         _unique(self.evidence_refs, "adult_decision.evidence_refs")
         for value in self.evidence_refs:
@@ -296,6 +297,8 @@ class AdultSceneOutputV1:
             raise ContractValidationError("adult candidate has more than one logic owner")
         if not self.decision_path:
             raise ContractValidationError("adult Scene output requires a decision path")
+        if not any(value.character_id is not None for value in self.decision_path):
+            raise ContractValidationError("adult Scene output requires a character decision")
         _unique(
             tuple(value.decision_key for value in self.decision_path),
             "adult_scene.decision_path",
