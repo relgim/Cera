@@ -1081,13 +1081,13 @@ def _decode_protected_event(value: Mapping[str, Any]) -> AdultProtectedEventV1:
         "adult protected event",
     )
     character_ids = _strings(value, "character_ids")
-    knowledge_owner_ids = _strings(value, "knowledge_owner_ids")
+    knowledge_owner_ids = _provider_optional_strings(value, "knowledge_owner_ids")
     character_ids = tuple(dict.fromkeys((*character_ids, *knowledge_owner_ids)))
     return AdultProtectedEventV1(
         event_key=_string(value, "event_key"),
         protected_summary=_string(value, "protected_summary"),
         character_ids=character_ids,
-        durable_effects=_provider_optional_texts(value, "durable_effects"),
+        durable_effects=_provider_optional_strings(value, "durable_effects"),
         knowledge_owner_ids=knowledge_owner_ids,
     )
 
@@ -1361,8 +1361,8 @@ def _strings(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
     return tuple(cast(list[str], items))
 
 
-def _provider_optional_texts(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
-    """Normalize optional provider bookkeeping while preserving exact text items."""
+def _provider_optional_strings(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    """Normalize optional provider string-list bookkeeping without inventing content."""
 
     raw = value.get(key)
     items = (raw,) if isinstance(raw, str) else raw if isinstance(raw, list) else ()

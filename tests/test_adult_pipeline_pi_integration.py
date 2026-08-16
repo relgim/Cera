@@ -708,6 +708,24 @@ class AdultPiIntegrationTests(unittest.TestCase):
 
         self.assertEqual(event.character_ids, ("character:hana", "character:ted"))
 
+    def test_filter_normalizes_optional_knowledge_owner_bookkeeping(self) -> None:
+        for raw, expected in (
+            (None, ()),
+            ("character:hana", ("character:hana",)),
+        ):
+            with self.subTest(raw=raw):
+                event = _decode_protected_event(
+                    {
+                        "event_key": "shared_update",
+                        "protected_summary": "The event reaches its durable boundary.",
+                        "character_ids": ["character:hana"],
+                        "durable_effects": [],
+                        "knowledge_owner_ids": raw,
+                    }
+                )
+
+                self.assertEqual(event.knowledge_owner_ids, expected)
+
     def test_scene_repairs_unavailable_evidence_refs_without_changing_content(self) -> None:
         request = self._request(self._integration())
         request = replace(
