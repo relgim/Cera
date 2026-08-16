@@ -26,11 +26,15 @@ responses. They are design guidance, not a new runtime contract.
 Classify a failed DeepSeek response before spending another call:
 
 1. **Harmless envelope variation** — unwrap a single known wrapper such as a
-   JSON Markdown fence, then apply the unchanged strict schema.
+   JSON Markdown fence or one analysis preface followed by a single complete
+   trailing JSON object, then apply the unchanged strict schema. Ambiguous or
+   truncated outputs remain invalid.
 2. **Recoverable metadata omission** — retain usable prose and spine; let
    Python bind or omit non-story bookkeeping fields when deterministic. Adult
    Filter summaries may aggregate adjacent decisions when their event keys are
-   a valid ordered subset and the protected/public projections still match.
+   a valid ordered subset and the protected/public projections still match. A
+   redundant private-owner field on an explicitly public effect is cleared;
+   Python does not infer a missing owner for a private effect.
 3. **Incomplete visible prose** — if the core scene is present but truncated,
    use one custody-bound continuation from the last complete paragraph rather
    than regenerating the entire scene.

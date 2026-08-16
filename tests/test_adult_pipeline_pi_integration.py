@@ -28,6 +28,7 @@ from cera.adult_pipeline.integration import (
     AdultScenePreparationV1,
 )
 from cera.adult_pipeline.pi_roles import (
+    _FILTER_SYSTEM_PROMPT,
     ADULT_PI_ROLE_COMPATIBILITY_VERSION,
     AdultRoleViewContextV1,
     LazyProtectedWriterViewMaterializer,
@@ -35,6 +36,7 @@ from cera.adult_pipeline.pi_roles import (
     PiDeepSeekAdultScenePort,
     PiStructuredAdultRoleTransport,
     StructuredAdultRoleResultV1,
+    _decode_projection_effect,
 )
 from cera.adult_pipeline.pipeline import AdultPipeline
 from cera.errors import ContractValidationError, StateConflictError
@@ -493,7 +495,7 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertNotIn("--fork", fake.command or ())
         self.assertIsNone(fake.requests[0].accepted_parent_session)
 
-    def test_structured_pi_transport_accepts_one_json_markdown_fence(self) -> None:
+    def test_structured_pi_transport_recovers_one_complete_json_object(self) -> None:
         materializer = WriterViewMaterializer(self.root / "fenced-pi-view")
         view = materializer.materialize(
             WriterViewInputV1(
@@ -515,26 +517,51 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 accepted_records=(),
             )
         )
-        ledger = PiProviderOperationLedger(
-            (self.root / "fenced-ledger.jsonl").resolve(),
-            maximum_operations=4,
-            maximum_operations_per_invocation=4,
-        )
         wire = _scene_wire()
-        fake = _FakePiAdapter(ledger, f"```json\n{wire}\n```")
+        envelopes = {
+            "fenced": f"```json\n{wire}\n```",
+            "analysis_then_fenced": f"I checked the candidate.\n```json\n{wire}\n```",
+            "analysis_then_plain": f"I checked the candidate.\n{wire}",
+        }
+        for label, output in envelopes.items():
+            with self.subTest(label=label):
+                ledger = PiProviderOperationLedger(
+                    (self.root / f"{label}-ledger.jsonl").resolve(),
+                    maximum_operations=4,
+                    maximum_operations_per_invocation=4,
+                )
+                fake = _FakePiAdapter(ledger, output)
+                result = PiStructuredAdultRoleTransport(fake).invoke_structured_role(  # type: ignore[arg-type]
+                    role=AdultProviderRole.SCENE,
+                    view=view,
+                    candidate_id=self.context.candidate_id,
+                    session_dir=self.root / f"{label}-pi-session",
+                    system_prompt="Return JSON.",
+                    prompt="Run.",
+                    accepted_parent_session=None,
+                )
 
-        result = PiStructuredAdultRoleTransport(fake).invoke_structured_role(  # type: ignore[arg-type]
-            role=AdultProviderRole.SCENE,
-            view=view,
-            candidate_id=self.context.candidate_id,
-            session_dir=self.root / "fenced-pi-session",
-            system_prompt="Return JSON.",
-            prompt="Run.",
-            accepted_parent_session=None,
+                self.assertEqual(result.raw_json, wire)
+                self.assertEqual(ledger.operation_count, 2)
+
+    def test_filter_normalizes_redundant_public_knowledge_owner(self) -> None:
+        effect = _decode_projection_effect(
+            {
+                "effect_key": "shared_update",
+                "effect_kind": "relationship",
+                "source_event_key": "decision_one",
+                "subject_ids": ["character:hana", "character:ted"],
+                "non_explicit_effect": "Both participants share the update.",
+                "target_key": "relationship:shared_update",
+                "visibility": "public",
+                "knowledge_owner_id": "character:hana",
+            }
         )
 
-        self.assertEqual(result.raw_json, wire)
-        self.assertEqual(ledger.operation_count, 2)
+        self.assertIsNone(effect.knowledge_owner_id)
+        self.assertIn(
+            "public durable effect requires knowledge_owner_id null", _FILTER_SYSTEM_PROMPT
+        )
 
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:
         prior_records = tuple(
@@ -579,7 +606,7 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
-        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v4")
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v5")
         adult_system_prompt = command[command.index("--system-prompt") + 1]
         self.assertIn(
             "more protected-user realization freedom than ordinary scenes", adult_system_prompt
