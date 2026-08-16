@@ -2266,7 +2266,67 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("DEEPSEEK_MAXIMUM_REQUEST_BYTES = 512 * 1024", extension)
         self.assertIn("WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES = 128 * 1024", extension)
         self.assertIn("Buffer.byteLength(JSON.stringify(text), \"utf8\")", extension)
-        self.assertIn("cera.writer_context_packet.v8", extension)
+        self.assertIn("cera.writer_context_packet.v9", extension)
+
+    def test_production_adult_scene_request_avoids_duplicate_supporting_context(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            facts = [
+                {
+                    "evidence_ref": f"evidence:adult-context:{index:04d}",
+                    "subject_id": "character:sakura",
+                    "authoritative_fact": f"FACT-{index:04d}-" + ("F" * 320),
+                    "visibility": "public",
+                }
+                for index in range(386)
+            ]
+            primary = {
+                "schema_version": "cera.adult_pipeline.scene_request.v1",
+                "entry_reason": "codex_adult_handoff",
+                "adult_handoff": "H" * 13_000,
+                "exact_current_source": "Continue the adult scene.",
+                "accepted_safe_continuity": "S" * 27_000,
+                "accepted_protected_continuity": None,
+                "autonomy_mode": "both",
+                "depth_mode": "long",
+                "current_context": facts,
+                "retrieved_craft": {"excerpts": ["C" * 22_000]},
+                "hard_boundaries": ["Present consent and withdrawal remain authoritative."],
+            }
+            view = WriterViewMaterializer(root / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-production-adult-context",
+                    branch_id="branch-main",
+                    scene_id="scene-private-ballroom",
+                    turn_id="turn-production-adult-context",
+                    candidate_id="candidate-production-adult-context",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue the adult scene.",
+                    primary_authority=primary,
+                    current_state={"public_scene_state": "Two adults remain in the ballroom."},
+                    characters={"character:sakura": {"duplicate": "D" * 90_000}},
+                    relationships={},
+                    recent_prose=("R" * 40_000,),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={"duplicate": "C" * 22_000},
+                    accepted_records=tuple({"duplicate": "A" * 40_000} for _ in range(5)),
+                )
+            )
+            authority_bytes = (view.root / "ADULT_HANDOFF.json").stat().st_size
+            self.assertGreater(authority_bytes, 64 * 1024)
+            self.assertLessEqual(authority_bytes, 320 * 1024)
+
+            probe = run_pi_context_extension(root=root, view_root=view.root)
+            self.assertEqual(probe.returncode, 0, probe.stderr)
+            packet = json.loads(probe.stdout)
+            self.assertEqual(packet["packet"], "cera.writer_context_packet.v9")
+            self.assertEqual(packet["files"], 3)
+            self.assertGreater(packet["bytes"], 64 * 1024)
+            self.assertLessEqual(
+                packet["serializedContextBytes"],
+                packet["serializedContextLimitBytes"],
+            )
 
     def test_writer_context_projects_two_active_genesis_bundles_with_growth(self) -> None:
         sakura_id = "character:sakura"
@@ -2529,7 +2589,7 @@ class PiSceneLeanTests(unittest.TestCase):
             packet = json.loads(probe.stdout)
             self.assertGreater(packet["bytes"], 64 * 1024)
             self.assertLessEqual(packet["bytes"], 384 * 1024)
-            self.assertEqual(packet["packet"], "cera.writer_context_packet.v8")
+            self.assertEqual(packet["packet"], "cera.writer_context_packet.v9")
             self.assertTrue(packet["hasSakuraClaim"])
             self.assertTrue(packet["hasHanaClaim"])
             self.assertTrue(packet["hasSakuraOwnerPrivateClaim"])

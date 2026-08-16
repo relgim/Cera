@@ -17,6 +17,7 @@ import { writerContextPlan } from "./cera-scene-context.ts";
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_CONTEXT_BYTES = 64 * 1024;
 const MAX_WRITER_GENESIS_FILE_BYTES = 128 * 1024;
+const MAX_WRITER_ADULT_SCENE_AUTHORITY_BYTES = 320 * 1024;
 const MAX_WRITER_CONTEXT_BYTES = 384 * 1024;
 const DEEPSEEK_MAXIMUM_REQUEST_BYTES = 512 * 1024;
 const WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES = 128 * 1024;
@@ -43,6 +44,19 @@ const WRITER_GENESIS_BUNDLE_V2_FIELDS = new Set([
 	"source_accepted_branch_change_count",
 	"accepted_branch_changes",
 	"omitted_branch_change_count",
+]);
+const ADULT_SCENE_REQUEST_V1_FIELDS = new Set([
+	"schema_version",
+	"entry_reason",
+	"adult_handoff",
+	"exact_current_source",
+	"accepted_safe_continuity",
+	"accepted_protected_continuity",
+	"autonomy_mode",
+	"depth_mode",
+	"current_context",
+	"retrieved_craft",
+	"hard_boundaries",
 ]);
 const WRITER_GENESIS_CLAIM_FIELDS = new Set([
 	"source_schema_version",
@@ -197,6 +211,25 @@ function isWriterGenesisClaimBundle(value: unknown): boolean {
 	);
 }
 
+function isSelfContainedAdultSceneRequest(value: unknown): boolean {
+	return (
+		isObject(value) &&
+		hasExactFields(value, ADULT_SCENE_REQUEST_V1_FIELDS) &&
+		value.schema_version === "cera.adult_pipeline.scene_request.v1" &&
+		isNonEmptyString(value.entry_reason) &&
+		(value.adult_handoff === null || isNonEmptyString(value.adult_handoff)) &&
+		isNonEmptyString(value.exact_current_source) &&
+		isNonEmptyString(value.accepted_safe_continuity) &&
+		(value.accepted_protected_continuity === null ||
+			isNonEmptyString(value.accepted_protected_continuity)) &&
+		isNonEmptyString(value.autonomy_mode) &&
+		isNonEmptyString(value.depth_mode) &&
+		Array.isArray(value.current_context) &&
+		isObject(value.retrieved_craft) &&
+		isStringArray(value.hard_boundaries)
+	);
+}
+
 function assertCurrentWriterProjection(controlData: Buffer): void {
 	let control: unknown;
 	try {
@@ -318,6 +351,22 @@ async function writerContextPacket(
 	}
 	assertCurrentWriterProjection(controlData);
 	const plan = writerContextPlan(controlData.toString("utf8"), availablePaths);
+	const authorityTarget = (await confinedPath(plan.authorityPath)).target;
+	const authorityData = await readFile(authorityTarget);
+	let selfContainedAdultScene = false;
+	if (
+		plan.authorityPath === "ADULT_HANDOFF.json" &&
+		authorityData.byteLength <= MAX_WRITER_ADULT_SCENE_AUTHORITY_BYTES
+	) {
+		try {
+			selfContainedAdultScene = isSelfContainedAdultSceneRequest(
+				JSON.parse(authorityData.toString("utf8")),
+			);
+		} catch {
+			selfContainedAdultScene = false;
+		}
+	}
+	const semanticPaths = selfContainedAdultScene ? [] : plan.semanticPaths;
 	const sections: string[] = [];
 	const add = async (label: string, path: string) => {
 		const target = (await confinedPath(path)).target;
@@ -330,7 +379,7 @@ async function writerContextPacket(
 		"USER-SUPPLIED STORY MATERIAL | USER_PROMPT.txt | PLANNER ADJUDICATES COMPLETION, ATTEMPT, INTERRUPTION, AND PENDING DIRECTION",
 		sourcePath,
 	);
-	for (const path of plan.semanticPaths) {
+	for (const path of semanticPaths) {
 		const target = (await confinedPath(path)).target;
 		const data = await readFile(target);
 		if (data.byteLength > writerSemanticFileBound(path, data)) {
@@ -338,9 +387,14 @@ async function writerContextPacket(
 		}
 		sections.push(`===== SUPPORTING ACCEPTED CONTEXT | ${path} =====\n${data.toString("utf8")}`);
 	}
-	await add(
-		`LOGIC-OWNER REALIZATION AUTHORITY | ${plan.authorityPath} | PRESENT WITH NARRATIVE FREEDOM`,
-		plan.authorityPath,
+	const authorityBound = selfContainedAdultScene
+		? MAX_WRITER_ADULT_SCENE_AUTHORITY_BYTES
+		: MAX_READ_BYTES;
+	if (authorityData.byteLength > authorityBound) {
+		throw new Error("context file exceeds the read bound");
+	}
+	sections.push(
+		`===== LOGIC-OWNER REALIZATION AUTHORITY | ${plan.authorityPath} | PRESENT WITH NARRATIVE FREEDOM =====\n${authorityData.toString("utf8")}`,
 	);
 	const text = sections.join("\n\n");
 	if (Buffer.byteLength(text, "utf8") > MAX_WRITER_CONTEXT_BYTES) {
@@ -350,7 +404,7 @@ async function writerContextPacket(
 	if (serializedContextBytes > MAX_WRITER_SERIALIZED_CONTEXT_BYTES) {
 		throw new Error("Writer view exceeds the serialized request bound");
 	}
-	return { text, files: plan.semanticPaths.length + 3, serializedContextBytes };
+	return { text, files: semanticPaths.length + 3, serializedContextBytes };
 }
 
 const toolGuidelines = [
@@ -396,7 +450,7 @@ export default function (pi: ExtensionAPI) {
 						nonContextRequestReserveBytes: WRITER_NON_CONTEXT_REQUEST_RESERVE_BYTES,
 						maximumRequestBytes: DEEPSEEK_MAXIMUM_REQUEST_BYTES,
 						files: packet.files,
-						packet: "cera.writer_context_packet.v8",
+						packet: "cera.writer_context_packet.v9",
 					},
 				};
 			}
