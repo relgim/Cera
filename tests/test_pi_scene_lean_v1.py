@@ -1041,6 +1041,7 @@ class PiSceneLeanTests(unittest.TestCase):
                     view.root,
                     "../custody/CANONICAL_SEQUENCE.json",
                 )
+
             with self.assertRaises(ContractValidationError):
                 resolve_confined_path(view.root, str((root / "outside.txt").resolve()))
             outside = root / "outside.txt"
@@ -1120,6 +1121,38 @@ class PiSceneLeanTests(unittest.TestCase):
                 "response projection custody hash changed",
             ):
                 verify_writer_view(view.root)
+
+    def test_writer_view_short_staging_path_preserves_long_windows_context_name(self) -> None:
+        with TemporaryDirectory() as temporary:
+            base = Path(temporary).resolve()
+            self.assertLess(len(str(base)), 95)
+            root = base / ("r" * (95 - len(str(base))))
+            view = WriterViewMaterializer(root).materialize(
+                WriterViewInputV1(
+                    world_id="world-long-stage",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    turn_id="turn-0002",
+                    candidate_id="candidate-long-stage",
+                    route=SceneRoute.ADULT,
+                    user_prompt="Continue.",
+                    primary_authority=adult_handoff("long_stage"),
+                    current_state={"public_scene_state": "The adults remain present."},
+                    characters={},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={
+                        "knowledge-00000001-consent-state-governe": {
+                            "summary": "Current consent remains governed."
+                        }
+                    },
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            self.assertEqual(view, verify_writer_view(view.root))
+            self.assertFalse(any(path.name.startswith(".s-") for path in root.rglob("*")))
 
     def test_writer_contract_preserves_established_relations_without_blocking_npc_interruption(self) -> None:
         with TemporaryDirectory() as temporary:

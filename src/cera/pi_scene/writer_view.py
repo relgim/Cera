@@ -9,8 +9,8 @@ import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import mkdtemp
 from typing import Any
-from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.sequence_first.contracts import SequenceItemV1
@@ -231,11 +231,10 @@ class WriterViewMaterializer:
             return verify_writer_view(visible)
 
         final.parent.mkdir(parents=True, exist_ok=True)
-        # The final path already binds the candidate. Repeating that component in
-        # the transient name can cross Win32's legacy path limit before the
-        # immutable directory is atomically installed.
-        stage = final.parent / f".stage-{uuid4().hex}"
-        stage.mkdir(parents=False, exist_ok=False)
+        # The final path already binds the candidate. Keep the collision-safe
+        # transient component short so its children stay within Win32's legacy
+        # path budget before the immutable directory is atomically installed.
+        stage = Path(mkdtemp(prefix=".s-", dir=final.parent))
         try:
             self._write_view(stage / "visible", stage / "custody", source)
             os.replace(stage, final)
