@@ -19,6 +19,7 @@ from cera.adult_pipeline.contracts import (
     AdultCraftMode,
     AdultCraftQueryV1,
     AdultEntryReason,
+    AdultFilterRequestV1,
     AdultProviderReceiptV2,
     AdultProviderRole,
 )
@@ -37,6 +38,7 @@ from cera.adult_pipeline.pi_roles import (
     PiDeepSeekAdultScenePort,
     PiStructuredAdultRoleTransport,
     StructuredAdultRoleResultV1,
+    _decode_filter_decision,
     _decode_projection_effect,
     _decode_protected_event,
     _decode_scene_output,
@@ -748,6 +750,57 @@ class AdultPiIntegrationTests(unittest.TestCase):
                 "Hana makes a distinct second choice.",
                 "Hana makes a distinct third choice.",
             ),
+        )
+
+    def test_filter_drops_mismatched_or_duplicate_current_data_bookkeeping(self) -> None:
+        scene_request = self._request(self._integration())
+        scene_raw = json.loads(_scene_wire())
+        scene_raw["decision_path"] = [
+            {
+                **scene_raw["decision_path"][0],
+                "evidence_refs": ["evidence:public"],
+            },
+            {
+                **scene_raw["decision_path"][0],
+                "decision_key": "decision_two",
+                "evidence_refs": ["evidence:private"],
+            },
+        ]
+        scene = _decode_scene_output(canonical_json(scene_raw))
+        request = AdultFilterRequestV1(
+            schema_version=AdultFilterRequestV1.SCHEMA_VERSION,
+            scene_request=scene_request,
+            scene_output=scene,
+        )
+        filter_raw = json.loads(_filter_wire())
+        filter_raw["protected_record"]["current_data_uses"] = [
+            {
+                "evidence_ref": "evidence:public",
+                "decision_key": "decision_one",
+                "concise_use": "The valid pair is retained.",
+            },
+            {
+                "evidence_ref": "evidence:private",
+                "decision_key": "decision_one",
+                "concise_use": "The mismatched pair is dropped.",
+            },
+            {
+                "evidence_ref": "evidence:public",
+                "decision_key": "decision_one",
+                "concise_use": "The duplicate pair is dropped.",
+            },
+        ]
+
+        decision = _decode_filter_decision(canonical_json(filter_raw), request)
+
+        self.assertIsNotNone(decision.passed)
+        assert decision.passed is not None
+        self.assertEqual(
+            tuple(
+                (use.decision_key, use.evidence_ref, use.concise_use)
+                for use in decision.passed.protected_full_record.current_data_uses
+            ),
+            (("decision_one", "evidence:public", "The valid pair is retained."),),
         )
 
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:

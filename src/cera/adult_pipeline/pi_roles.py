@@ -986,7 +986,10 @@ def _decode_filter_decision(
         "adult Filter protected record",
     )
     events = tuple(_decode_protected_event(item) for item in _objects(protected, "events"))
-    uses = tuple(_decode_data_use(item) for item in _objects(protected, "current_data_uses"))
+    uses = _normalize_filter_current_data_uses(
+        tuple(_decode_data_use(item) for item in _objects(protected, "current_data_uses")),
+        scene,
+    )
     full = AdultProtectedFullRecordV1(
         schema_version=AdultProtectedFullRecordV1.SCHEMA_VERSION,
         scene_output_sha256=canonical_sha256(scene),
@@ -1040,6 +1043,28 @@ def _decode_filter_decision(
         ),
         conflict=None,
     )
+
+
+def _normalize_filter_current_data_uses(
+    uses: tuple[AdultCurrentDataUseV1, ...],
+    scene: AdultSceneOutputV1,
+) -> tuple[AdultCurrentDataUseV1, ...]:
+    """Retain only unambiguous Filter bookkeeping pairs present in the Scene."""
+
+    available = {
+        (step.decision_key, evidence_ref)
+        for step in scene.decision_path
+        for evidence_ref in step.evidence_refs
+    }
+    retained: list[AdultCurrentDataUseV1] = []
+    seen: set[tuple[str, str]] = set()
+    for use in uses:
+        pair = (use.decision_key, use.evidence_ref)
+        if pair not in available or pair in seen:
+            continue
+        seen.add(pair)
+        retained.append(use)
+    return tuple(retained)
 
 
 def _decode_protected_event(value: Mapping[str, Any]) -> AdultProtectedEventV1:
