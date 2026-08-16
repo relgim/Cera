@@ -17,7 +17,7 @@ from cera.cognition.contracts import CognitionPlanV1, LogicRoute
 from cera.errors import ContractValidationError
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV2
 from cera.pi_scene.review_store import LeanSceneTurnInputV1
-from cera.serialization import canonical_json, to_primitive
+from cera.serialization import canonical_json, text_sha256, to_primitive
 
 from .contracts import (
     AdultContextFactV1,
@@ -291,6 +291,15 @@ def _preparation(
     product_story_boundaries: tuple[str, ...],
 ) -> AdultScenePreparationV1:
     autonomy_mode, depth_mode = _semantic_controls(turn_input)
+    current_source_fact = AdultContextFactV1(
+        evidence_ref="source:current",
+        subject_id="source:current",
+        authoritative_fact=(
+            "The exact current source is available in exact_current_source and is bound by "
+            f"SHA-256 {text_sha256(turn_input.exact_user_source)}."
+        ),
+        visibility="adult_role_private",
+    )
     return AdultScenePreparationV1(
         entry_reason=entry_reason,
         adult_handoff=adult_handoff,
@@ -299,7 +308,7 @@ def _preparation(
         accepted_protected_continuity=protected_adult_continuity,
         autonomy_mode=autonomy_mode,
         depth_mode=depth_mode,
-        current_context=current_facts,
+        current_context=(*current_facts, current_source_fact),
         craft_mode=craft_mode,
         craft_concept_keys=concept_keys,
         craft_keyword_keys=keyword_keys,

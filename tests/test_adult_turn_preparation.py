@@ -38,7 +38,7 @@ from cera.pi_scene.http_contracts import (
 )
 from cera.pi_scene.review_store import LeanSceneTurnInputV1
 from cera.sequence_first.contracts import ItemKind, SequenceDraftV1, SequenceItemV1
-from cera.serialization import canonical_json
+from cera.serialization import canonical_json, text_sha256
 
 ROOT = Path(__file__).parents[1]
 CATALOG_ROOT = ROOT / "adult" / "catalog" / "adult_craft_v1"
@@ -224,7 +224,12 @@ class AdultTurnPreparationTests(unittest.TestCase):
         self.assertIn("hana_boundary_response", result.adult_handoff or "")
         self.assertIn("Private unease remains present.", result.adult_handoff or "")
         self.assertIn("adult_boundary_stop", result.adult_handoff or "")
-        self.assertEqual(result.current_context, _facts())
+        self.assertEqual(result.current_context[:-1], _facts())
+        self.assertEqual(result.current_context[-1].evidence_ref, "source:current")
+        self.assertIn(
+            text_sha256(_turn().exact_user_source),
+            result.current_context[-1].authoritative_fact,
+        )
         self.assertEqual(result.hard_boundaries, boundaries)
         self.assertEqual(result.autonomy_mode, "both")
         self.assertEqual(result.depth_mode, "medium")
@@ -323,7 +328,7 @@ class AdultTurnPreparationTests(unittest.TestCase):
             current_facts=facts,
             product_story_boundaries=(),
         )
-        self.assertEqual(result.current_context, facts)
+        self.assertEqual(result.current_context[:-1], facts)
         private = result.current_context[1]
         self.assertEqual(private.subject_id, HANA)
         self.assertEqual(private.visibility, "adult_role_private")

@@ -29,6 +29,7 @@ from cera.adult_pipeline.integration import (
 )
 from cera.adult_pipeline.pi_roles import (
     _FILTER_SYSTEM_PROMPT,
+    _SCENE_SYSTEM_PROMPT,
     ADULT_PI_ROLE_COMPATIBILITY_VERSION,
     AdultRoleViewContextV1,
     LazyProtectedWriterViewMaterializer,
@@ -38,6 +39,8 @@ from cera.adult_pipeline.pi_roles import (
     StructuredAdultRoleResultV1,
     _decode_projection_effect,
     _decode_protected_event,
+    _decode_scene_output,
+    _normalize_scene_evidence_refs,
 )
 from cera.adult_pipeline.pipeline import AdultPipeline
 from cera.errors import ContractValidationError, StateConflictError
@@ -581,6 +584,45 @@ class AdultPiIntegrationTests(unittest.TestCase):
 
         self.assertEqual(event.character_ids, ("character:hana", "character:ted"))
 
+    def test_scene_repairs_unavailable_evidence_refs_without_changing_content(self) -> None:
+        request = self._request(self._integration())
+        request = replace(
+            request,
+            current_context=(
+                *request.current_context,
+                AdultContextFactV1(
+                    evidence_ref="source:current",
+                    subject_id="source:current",
+                    authoritative_fact="The exact current source is separately bound.",
+                    visibility="adult_role_private",
+                ),
+            ),
+        )
+        raw = json.loads(_scene_wire())
+        raw["decision_path"] = [
+            {
+                **raw["decision_path"][0],
+                "evidence_refs": [
+                    "evidence:public",
+                    "evidence:adult_context:unknown",
+                ],
+            },
+            {
+                **raw["decision_path"][0],
+                "decision_key": "decision_two",
+                "evidence_refs": ["evidence:adult_context:8ac2d54573bd6563"],
+            },
+        ]
+        output = _decode_scene_output(canonical_json(raw))
+
+        normalized = _normalize_scene_evidence_refs(output, request)
+
+        self.assertEqual(normalized.decision_path[0].evidence_refs, ("evidence:public",))
+        self.assertEqual(normalized.decision_path[1].evidence_refs, ("source:current",))
+        self.assertEqual(normalized.exact_story_prose, output.exact_story_prose)
+        self.assertEqual(normalized.resulting_state, output.resulting_state)
+        self.assertIn("Cite source:current", _SCENE_SYSTEM_PROMPT)
+
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:
         prior_records = tuple(
             {
@@ -624,7 +666,7 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
-        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v6")
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v7")
         adult_system_prompt = command[command.index("--system-prompt") + 1]
         self.assertIn(
             "more protected-user realization freedom than ordinary scenes", adult_system_prompt
