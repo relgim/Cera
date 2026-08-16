@@ -894,13 +894,38 @@ def _decode_scene_output(raw: str) -> AdultSceneOutputV1:
     return AdultSceneOutputV1(
         schema_version=AdultSceneOutputV1.SCHEMA_VERSION,
         logic_owner="deepseek_adult_scene",
-        decision_path=steps,
+        decision_path=_normalize_scene_decision_keys(steps),
         exact_story_prose=_string(value, "exact_story_prose"),
         resulting_state=_string(value, "resulting_state"),
         unresolved_threads=_strings(value, "unresolved_threads"),
         next_route=AdultNextRoute(_string(value, "next_route")),
         next_route_reason=_string(value, "next_route_reason"),
     )
+
+
+def _normalize_scene_decision_keys(
+    steps: tuple[AdultDecisionStepV1, ...],
+) -> tuple[AdultDecisionStepV1, ...]:
+    """Make repeated provider-local keys unique without changing decision content."""
+
+    reserved = {step.decision_key for step in steps}
+    used: set[str] = set()
+    normalized: list[AdultDecisionStepV1] = []
+    for step in steps:
+        key = step.decision_key
+        if key in used:
+            ordinal = 2
+            while True:
+                suffix = f"_{ordinal}"
+                candidate = f"{key[: 96 - len(suffix)]}{suffix}"
+                if candidate not in reserved and candidate not in used:
+                    key = candidate
+                    break
+                ordinal += 1
+            step = replace(step, decision_key=key)
+        used.add(key)
+        normalized.append(step)
+    return tuple(normalized)
 
 
 def _normalize_scene_evidence_refs(

@@ -720,6 +720,36 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertEqual(normalized.resulting_state, output.resulting_state)
         self.assertIn("Cite source:current", _SCENE_SYSTEM_PROMPT)
 
+    def test_scene_makes_repeated_decision_keys_unique_without_changing_steps(self) -> None:
+        raw = json.loads(_scene_wire())
+        first = raw["decision_path"][0]
+        raw["decision_path"] = [
+            first,
+            {
+                **first,
+                "concise_decision": "Hana makes a distinct second choice.",
+            },
+            {
+                **first,
+                "concise_decision": "Hana makes a distinct third choice.",
+            },
+        ]
+
+        output = _decode_scene_output(canonical_json(raw))
+
+        self.assertEqual(
+            tuple(step.decision_key for step in output.decision_path),
+            ("decision_one", "decision_one_2", "decision_one_3"),
+        )
+        self.assertEqual(
+            tuple(step.concise_decision for step in output.decision_path),
+            (
+                "Hana makes the character-consistent next choice.",
+                "Hana makes a distinct second choice.",
+                "Hana makes a distinct third choice.",
+            ),
+        )
+
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:
         prior_records = tuple(
             {
