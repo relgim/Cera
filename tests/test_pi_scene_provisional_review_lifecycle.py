@@ -869,16 +869,19 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                         passing_semantic,
                         rejected_reader,
                     )
-                    if scope is RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY:
-                        self.assertIsNone(reasons)
-                    else:
-                        self.assertEqual(reasons, (f"reader:{scope.value}",))
+                    self.assertEqual(reasons, (f"reader:{scope.value}",))
 
             current = ordinary_standing_creator_policy()
-            historical = ordinary_standing_creator_policy(1)
-            self.assertEqual(current.policy_version, 2)
-            self.assertEqual(historical.policy_version, 1)
+            historical_v1 = ordinary_standing_creator_policy(1)
+            historical = ordinary_standing_creator_policy(2)
+            self.assertEqual(current.policy_version, 3)
+            self.assertEqual(historical_v1.policy_version, 1)
+            self.assertEqual(historical.policy_version, 2)
             self.assertNotEqual(current.policy_sha256, historical.policy_sha256)
+            self.assertNotIn(
+                RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY.value,
+                historical.soft_reader_feedback_scopes,
+            )
             historical_audit = OrdinaryPolicyAcceptanceAuditV1(
                 schema_version=OrdinaryPolicyAcceptanceAuditV1.SCHEMA_VERSION,
                 authority_kind=historical.authority_kind,
@@ -891,7 +894,7 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 python_qualification_sha256="4" * 64,
                 tolerated_reason_codes=("luna:omitted_decision",),
             )
-            self.assertEqual(historical_audit.policy_version, 1)
+            self.assertEqual(historical_audit.policy_version, 2)
 
     def test_localized_reader_issues_override_no_luna_class_and_do_not_regenerate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -932,6 +935,27 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertEqual(public["acceptance"]["mode"], "standing_policy")
             self.assertEqual(public["acceptance"]["canon_status"], "provisional")
             self.assertFalse(any(public["actions"].values()))
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
+
+    def test_standing_policy_whole_candidate_quality_is_provisional(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, pi, _retry = self._runtime(
+                Path(temporary),
+                reader=ReaderStatus.REJECTED,
+                reader_scope=RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY,
+            )
+            frozen = coordinator.start_ordinary(_turn())
+            accepted = coordinator.begin_ordinary_validation(frozen.review_id)
+            public = self._adapter(coordinator).review_payload(accepted)
+
+            self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
+            self.assertEqual(public["gate_status"], "reject")
+            self.assertEqual(public["acceptance"]["mode"], "standing_policy")
+            self.assertEqual(
+                public["acceptance"]["standing_policy"]["tolerated_reason_codes"],
+                ["reader:whole_candidate_quality"],
+            )
+            self.assertFalse(public["actions"]["regenerate_enabled"])
             self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
 
     def test_python_privacy_gate_rebuilds_the_safe_reader_projection(self) -> None:
@@ -1088,10 +1112,14 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertEqual(payload["state"], "checks_pending")
             self.assertEqual(payload["gate_status"], "pending")
 
-    def test_reader_reject_finishes_both_checks_and_requires_feedback_bound_override(self) -> None:
+    def test_hard_luna_reject_finishes_both_checks_and_requires_feedback_bound_override(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             coordinator, _store, pi, retry = self._runtime(
-                Path(temporary), reader=ReaderStatus.REJECTED
+                Path(temporary),
+                luna=SemanticVerdict.REJECT,
+                luna_conflict=SemanticConflictClass.LOCKED_FACT_CONFLICT,
             )
             frozen = coordinator.start_ordinary(_turn())
             rejected = coordinator.begin_ordinary_validation(frozen.review_id)
@@ -1151,7 +1179,8 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             root = Path(temporary)
             coordinator, store, _pi, _retry = self._runtime(
                 root,
-                reader=ReaderStatus.REJECTED,
+                luna=SemanticVerdict.REJECT,
+                luna_conflict=SemanticConflictClass.LOCKED_FACT_CONFLICT,
             )
             frozen = coordinator.start_ordinary(_turn())
             rejected = coordinator.begin_ordinary_validation(frozen.review_id)
@@ -1190,7 +1219,8 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
 
             restarted, _store, restarted_pi, _retry = self._runtime(
                 root,
-                reader=ReaderStatus.REJECTED,
+                luna=SemanticVerdict.REJECT,
+                luna_conflict=SemanticConflictClass.LOCKED_FACT_CONFLICT,
             )
             recovered = restarted.terminal_decision_replay(rejected.review_id)
             self.assertIsNotNone(recovered)
@@ -1222,7 +1252,8 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             root = Path(temporary)
             coordinator, store, _pi, _retry = self._runtime(
                 root,
-                reader=ReaderStatus.REJECTED,
+                luna=SemanticVerdict.REJECT,
+                luna_conflict=SemanticConflictClass.LOCKED_FACT_CONFLICT,
             )
             frozen = coordinator.start_ordinary(_turn())
             rejected = coordinator.begin_ordinary_validation(frozen.review_id)
@@ -1327,37 +1358,28 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
             self.assertEqual([call.purpose for call in pi.calls], ["writer", "recorder"])
             self.assertEqual(retry.writer_occurrences, 1)
 
-    def test_manual_pass_and_reader_only_regenerate_keep_generic_writer_prompt(self) -> None:
+    def test_manual_pass_regenerate_keeps_generic_writer_prompt(self) -> None:
         self.assertEqual(_writer_prompt(None), _GENERIC_WRITER_PROMPT)
         self.assertNotIn(_REPAIR_WHOLE_SCENE_AUDIT, _writer_prompt(None))
-        cases = (
-            ("manual_pass", ReaderStatus.ACCEPTED),
-            ("reader_only_reject", ReaderStatus.REJECTED),
-        )
-        for label, reader_status in cases:
-            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
-                coordinator, _store, pi, retry = self._runtime(
-                    Path(temporary),
-                    luna=SemanticVerdict.PASS,
-                    reader=reader_status,
-                )
-                frozen = coordinator.start_ordinary(_turn(mode="manual"))
-                review = coordinator.begin_ordinary_validation(frozen.review_id)
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _store, pi, retry = self._runtime(Path(temporary))
+            frozen = coordinator.start_ordinary(_turn(mode="manual"))
+            review = coordinator.begin_ordinary_validation(frozen.review_id)
 
-                with patch.object(
-                    coordinator,
-                    "_prepare_review",
-                    wraps=coordinator._prepare_review,
-                ) as prepare:
-                    regenerated = coordinator.regenerate(review.review_id)
+            with patch.object(
+                coordinator,
+                "_prepare_review",
+                wraps=coordinator._prepare_review,
+            ) as prepare:
+                regenerated = coordinator.regenerate(review.review_id)
 
-                self.assertIsNotNone(regenerated.successor)
-                self.assertIsNone(prepare.call_args.kwargs["repair_validation"])
-                self.assertEqual(pi.calls[-1].prompt, _GENERIC_WRITER_PROMPT)
-                self.assertNotIn(_REPAIR_WHOLE_SCENE_AUDIT, pi.calls[-1].prompt)
-                self.assertEqual(retry.planner.calls, 1)
-                self.assertEqual([call.purpose for call in pi.calls], ["writer", "writer"])
-                self.assertEqual(retry.writer_occurrences, 2)
+            self.assertIsNotNone(regenerated.successor)
+            self.assertIsNone(prepare.call_args.kwargs["repair_validation"])
+            self.assertEqual(pi.calls[-1].prompt, _GENERIC_WRITER_PROMPT)
+            self.assertNotIn(_REPAIR_WHOLE_SCENE_AUDIT, pi.calls[-1].prompt)
+            self.assertEqual(retry.planner.calls, 1)
+            self.assertEqual([call.purpose for call in pi.calls], ["writer", "writer"])
+            self.assertEqual(retry.writer_occurrences, 2)
 
     def test_writer_repair_prompt_supports_quote_and_decision_anchors(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

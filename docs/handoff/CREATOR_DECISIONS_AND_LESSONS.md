@@ -656,6 +656,15 @@ HTTP security, and no-fallback strengths while replacing the unsafe seams.
    scopes remain provisional; inconclusive and whole-candidate quality remain
    hard. Preserve historical v1 receipts and V45 manifests; use V46 for new
    qualification roots.
+20. D-224 supersedes only D-223's Reader `whole_candidate_quality` stop.
+   `ordinary_provisional_continuity` v3 uses policy-text SHA-256
+   `a176af62f75717396bd9cc50aeb2f771b66e2966bc89d04181c43b1e45aa76fd`
+   and policy-object SHA-256
+   `6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802`.
+   All three Reader rejection scopes are provisional after Python custody
+   passes. Reader inconclusive remains a technical stop; Luna
+   `severe_incompleteness` retains the hard unusable-output boundary. Preserve
+   policy v1/v2 receipts and V45/V46 manifests; use V47 for new roots.
 
 ## 14. Update discipline
 

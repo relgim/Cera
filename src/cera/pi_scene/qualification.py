@@ -288,7 +288,8 @@ QUALIFICATION_MANIFEST_SCHEMA_V42 = "cera.pi_scene.full_model_qualification_mani
 QUALIFICATION_MANIFEST_SCHEMA_V43 = "cera.pi_scene.full_model_qualification_manifest.v43"
 QUALIFICATION_MANIFEST_SCHEMA_V44 = "cera.pi_scene.full_model_qualification_manifest.v44"
 QUALIFICATION_MANIFEST_SCHEMA_V45 = "cera.pi_scene.full_model_qualification_manifest.v45"
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v46"
+QUALIFICATION_MANIFEST_SCHEMA_V46 = "cera.pi_scene.full_model_qualification_manifest.v46"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v47"
 QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v6"
 
 _QUALIFICATION_ADVERSARIAL_STRESS_TAGS = frozenset(
@@ -532,7 +533,7 @@ QUALIFICATION_EXECUTION_POLICY = {
 QUALIFICATION_EXECUTION_POLICY_V43: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
 QUALIFICATION_EXECUTION_POLICY_V44: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
 QUALIFICATION_EXECUTION_POLICY_V45: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
-_CURRENT_ORDINARY_STANDING_POLICY = ordinary_standing_creator_policy()
+_V46_ORDINARY_STANDING_POLICY = ordinary_standing_creator_policy(2)
 QUALIFICATION_EXECUTION_POLICY = {
     **deepcopy(QUALIFICATION_EXECUTION_POLICY_V45),
     "fixture_campaign_replay": "exact_frozen_set_only",
@@ -544,6 +545,30 @@ QUALIFICATION_EXECUTION_POLICY = {
             cast(
                 Mapping[str, Any],
                 QUALIFICATION_EXECUTION_POLICY_V45["ordinary_standing_creator_policy"],
+            )
+        ),
+        "authority_kind": _V46_ORDINARY_STANDING_POLICY.authority_kind,
+        "policy_id": _V46_ORDINARY_STANDING_POLICY.policy_id,
+        "policy_version": _V46_ORDINARY_STANDING_POLICY.policy_version,
+        "policy_sha256": _V46_ORDINARY_STANDING_POLICY.policy_sha256,
+        "policy_text_sha256": _V46_ORDINARY_STANDING_POLICY.policy_text_sha256,
+        "soft_semantic_conflict_classes": list(
+            _V46_ORDINARY_STANDING_POLICY.soft_semantic_conflict_classes
+        ),
+        "soft_reader_feedback_scopes": list(
+            _V46_ORDINARY_STANDING_POLICY.soft_reader_feedback_scopes
+        ),
+    },
+}
+QUALIFICATION_EXECUTION_POLICY_V46: Mapping[str, Any] = deepcopy(QUALIFICATION_EXECUTION_POLICY)
+_CURRENT_ORDINARY_STANDING_POLICY = ordinary_standing_creator_policy()
+QUALIFICATION_EXECUTION_POLICY = {
+    **deepcopy(QUALIFICATION_EXECUTION_POLICY_V46),
+    "ordinary_standing_creator_policy": {
+        **deepcopy(
+            cast(
+                Mapping[str, Any],
+                QUALIFICATION_EXECUTION_POLICY_V46["ordinary_standing_creator_policy"],
             )
         ),
         "authority_kind": _CURRENT_ORDINARY_STANDING_POLICY.authority_kind,
@@ -5385,6 +5410,7 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         required.add("fixture_ancestry")
@@ -5414,6 +5440,8 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         raise StateConflictError("qualification provider ceilings changed")
     if schema_version == QUALIFICATION_MANIFEST_SCHEMA:
         expected_execution_policy = QUALIFICATION_EXECUTION_POLICY
+    elif schema_version == QUALIFICATION_MANIFEST_SCHEMA_V46:
+        expected_execution_policy = QUALIFICATION_EXECUTION_POLICY_V46
     elif schema_version in {
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
@@ -5508,6 +5536,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }
     if (
@@ -5549,7 +5578,11 @@ def _validate_manifest_fixture_metadata(
             str(value["source_sha256"]) for value in novelty if isinstance(value, Mapping)
         }
         if (
-            manifest_schema != QUALIFICATION_MANIFEST_SCHEMA
+            manifest_schema
+            not in {
+                QUALIFICATION_MANIFEST_SCHEMA_V46,
+                QUALIFICATION_MANIFEST_SCHEMA,
+            }
             or replay_policy != "exact_frozen_set_only"
             or not current_novelty_ids
             or not current_novelty_ids.issubset(set(spent_novelty))
@@ -5610,6 +5643,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5657,6 +5691,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5703,6 +5738,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -5748,6 +5784,7 @@ def _validate_manifest_fixture_metadata(
         QUALIFICATION_MANIFEST_SCHEMA_V43,
         QUALIFICATION_MANIFEST_SCHEMA_V44,
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {
@@ -6030,6 +6067,7 @@ def _validate_manifest_fixture_metadata(
         expected_ancestry = _qualification_fixture_ancestry()[:39]
     elif schema_version == QUALIFICATION_FIXTURE_SCHEMA and manifest_schema in {
         QUALIFICATION_MANIFEST_SCHEMA_V45,
+        QUALIFICATION_MANIFEST_SCHEMA_V46,
         QUALIFICATION_MANIFEST_SCHEMA,
     }:
         expected_baseline = {

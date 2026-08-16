@@ -15,11 +15,11 @@ authority.
 
 ## Pi Scene ordinary provisional-review V3 controlling family (D-220)
 
-D-223 keeps this V3 public family and adds a backward-compatible standing-policy
-pair: historical `ordinary_provisional_continuity` v1 remains valid, while new
-acceptances use v2 with policy SHA-256
-`628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5`.
-The version and hash must match as one closed pair.
+D-224 keeps this V3 public family and adds a third backward-compatible
+standing-policy pair. Historical `ordinary_provisional_continuity` v1 and v2
+remain valid, while new acceptances use v3 with policy SHA-256
+`6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802`.
+Each version and hash must match as one closed pair.
 
 Ordinary review V2 is historical. The current ordinary-only public family is:
 

@@ -3572,7 +3572,7 @@ test('accepted standing policy is distinct and keeps provenance plus failures vi
         await attachLifecycleCompletion(environment, review, review.story_text);
         const text = elementText(environment.testDocument.body.querySelector('.cera-creator-review'));
         assert.match(text, /STANDING CREATOR POLICY APPLIED/);
-        assert.match(text, /ordinary_provisional_continuity v2/);
+        assert.match(text, /ordinary_provisional_continuity v3/);
         assert.match(text, new RegExp(review.acceptance.standing_policy.audit_sha256));
         assert.match(text, /The candidate contradicts one required current-plan item/);
         assert.doesNotMatch(text, /ACCEPTED OVERRIDE/);

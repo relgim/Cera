@@ -626,6 +626,7 @@ def _validate_acceptance(
         approved_policy_hashes = {
             1: "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
             2: "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5",
+            3: "6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802",
         }
         if (
             canon != "provisional"
@@ -693,6 +694,12 @@ def _validate_standing_policy_review(
             "unauthorized_consequence",
         }
     )
+    soft_reader_scopes = {
+        "exact_quote",
+        "omitted_planner_item",
+    }
+    if authority["policy_version"] == 3:
+        soft_reader_scopes.add("whole_candidate_quality")
     if luna["status"] == "reject":
         conflict = next(
             _object(value, "checks.luna.failure")
@@ -708,7 +715,7 @@ def _validate_standing_policy_review(
         for value in _array(reader["failures"], "checks.reader.failures"):
             failure = _object(value, "checks.reader.failure")
             scope = failure["feedback_scope"]
-            if scope not in {"exact_quote", "omitted_planner_item"}:
+            if scope not in soft_reader_scopes:
                 _review_error("standing policy accepted a hard Reader issue")
             expected_reasons.add(f"reader:{scope}")
     reasons = _array(
@@ -1187,6 +1194,7 @@ function validateAcceptance(acceptance, reviewMode, gateStatus) {
     const approvedPolicyHashes = new Map([
       [1, '47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23'],
       [2, '628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5'],
+      [3, '6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802'],
     ]);
     if (
       acceptance.canon_status !== 'provisional'
@@ -1253,6 +1261,11 @@ function validateStandingPolicyReview(review, acceptance) {
       'stopping_boundary',
       'unauthorized_consequence',
     ];
+  const softReaderScopes = [
+    'exact_quote',
+    'omitted_planner_item',
+    ...(authority.policy_version === 3 ? ['whole_candidate_quality'] : []),
+  ];
   if (luna.status === 'reject') {
     const conflict = arrayValue(luna.failures, 'checks.luna.failures')
       .map(value => objectValue(value, 'checks.luna.failure'))
@@ -1265,7 +1278,7 @@ function validateStandingPolicyReview(review, acceptance) {
   if (reader.status === 'reject') {
     arrayValue(reader.failures, 'checks.reader.failures').forEach(value => {
       const failure = objectValue(value, 'checks.reader.failure');
-      if (!['exact_quote', 'omitted_planner_item'].includes(failure.feedback_scope)) {
+      if (!softReaderScopes.includes(failure.feedback_scope)) {
         reviewError('standing policy accepted a hard Reader issue');
       }
       expectedReasons.add(`reader:${failure.feedback_scope}`);

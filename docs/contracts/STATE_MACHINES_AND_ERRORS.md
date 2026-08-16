@@ -31,10 +31,12 @@ remains the active product route.
 
 ## D-220 Pi Scene ordinary review V3 disposition
 
-D-223 updates only the standing-policy classifier: Python-pass ordinary
+D-224 updates only the standing-policy classifier: Python-pass ordinary
 rejections are provisional unless the Luna primary conflict is one of the five
-exact D-223 hard classes, Reader is inconclusive, or Reader includes
-`whole_candidate_quality`. The rejected validator receipts remain attached.
+exact D-223 hard classes or Reader is inconclusive. All three Reader rejection
+scopes, including `whole_candidate_quality`, remain attached as evidence but do
+not cause a second Writer call. Luna `severe_incompleteness` retains the hard
+unusable/off-topic/incoherent boundary.
 The acceptance transition, durable audit, and Recorder sequence are unchanged.
 
 This state path is ordinary-only and narrows D-219 only after the independent

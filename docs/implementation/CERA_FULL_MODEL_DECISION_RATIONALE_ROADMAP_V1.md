@@ -136,6 +136,14 @@ remain hard. Historical policy v1 and manifest V45 stay readable, while new
 roots use manifest V46. Adult protected projection and consent/capacity rules
 remain separate and unchanged.
 
+### 1.5 Creator-approved delta D-224 - 2026-08-15
+
+D-224 makes Reader `whole_candidate_quality` provisional alongside
+`exact_quote` and `omitted_planner_item`. Reader inconclusive remains a
+technical stop, while Luna `severe_incompleteness` owns the truly unusable,
+off-topic, or incoherent hard boundary. Historical policy v1/v2 and manifests
+V45/V46 remain readable; new roots use manifest V47. Adult rules are unchanged.
+
 ## 2. Supersession and preservation
 
 ### 2.1 This roadmap supersedes these assumptions

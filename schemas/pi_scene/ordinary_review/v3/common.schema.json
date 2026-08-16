@@ -544,13 +544,15 @@
         "policy_version": {
           "enum": [
             1,
-            2
+            2,
+            3
           ]
         },
         "policy_sha256": {
           "enum": [
             "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
-            "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+            "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5",
+            "6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802"
           ]
         },
         "candidate_sha256": {
@@ -581,7 +583,8 @@
               "luna:stopping_boundary",
               "luna:unauthorized_consequence",
               "reader:exact_quote",
-              "reader:omitted_planner_item"
+              "reader:omitted_planner_item",
+              "reader:whole_candidate_quality"
             ]
           }
         },
@@ -609,6 +612,16 @@
                 },
                 "policy_sha256": {
                   "const": "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+                }
+              }
+            },
+            {
+              "properties": {
+                "policy_version": {
+                  "const": 3
+                },
+                "policy_sha256": {
+                  "const": "6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802"
                 }
               }
             }

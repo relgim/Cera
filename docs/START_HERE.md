@@ -2,7 +2,17 @@
 
 **Status:** controlling index
 
-## 2026-08-15 D-223 executable practical validation boundary
+## 2026-08-15 D-224 Reader quality evidence is provisional
+
+Read D-224 before changing ordinary Reader disposition. The current
+`ordinary_provisional_continuity` policy is v3. Reader `exact_quote`,
+`omitted_planner_item`, and `whole_candidate_quality` rejections remain visible
+but provisional; only Reader inconclusive is a technical stop. Luna still owns
+the hard unusable/off-topic/incoherent boundary through `severe_incompleteness`,
+along with the other four D-223 hard classes. Historical v1/v2 receipts and
+V45/V46 manifests remain readable; new qualification roots use manifest V47.
+
+## 2026-08-15 D-223 executable practical validation boundary (historical)
 
 Read D-223 before changing ordinary validation disposition. The current
 `ordinary_provisional_continuity` policy is v2. It retains a usable candidate
@@ -12,7 +22,7 @@ conflict, an immutable locked-fact contradiction, or unusable output. Local
 continuity, staging, knowledge, authority, capability, ordering, and event-detail
 drift remain visible validator evidence but do not cause a second Writer call.
 Historical v1 policy receipts and V45 qualification manifests remain readable;
-new qualification roots use manifest V46.
+new qualification roots used manifest V46 before D-224.
 
 ## 2026-08-14 D-222 hard-Regenerate soft-successor handling
 

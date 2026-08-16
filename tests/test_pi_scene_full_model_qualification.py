@@ -33,6 +33,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_EXECUTION_POLICY_V43,
     QUALIFICATION_EXECUTION_POLICY_V44,
     QUALIFICATION_EXECUTION_POLICY_V45,
+    QUALIFICATION_EXECUTION_POLICY_V46,
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_MANIFEST_SCHEMA,
     QUALIFICATION_MANIFEST_SCHEMA_V5,
@@ -76,6 +77,7 @@ from cera.pi_scene.qualification import (
     QUALIFICATION_MANIFEST_SCHEMA_V43,
     QUALIFICATION_MANIFEST_SCHEMA_V44,
     QUALIFICATION_MANIFEST_SCHEMA_V45,
+    QUALIFICATION_MANIFEST_SCHEMA_V46,
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
     QUALIFICATION_PLANNER_REASONING_EFFORT,
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
@@ -2757,7 +2759,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse((root / "logs").exists())
         stop.assert_not_called()
 
-    def test_manifest_v46_freezes_every_execution_policy_field(self) -> None:
+    def test_manifest_v47_freezes_every_execution_policy_field(self) -> None:
         mutations = {
             "one_sequential_session_per_phase": False,
             "backend_route_order": ["adult"] * 10 + ["ordinary"] * 10,
@@ -2825,6 +2827,14 @@ class FullModelQualificationTests(unittest.TestCase):
             {name: value for name, value in historical_v45.items() if name != "manifest_sha256"}
         )
         validate_qualification_manifest(historical_v45)
+
+        historical_v46 = _manifest()
+        historical_v46["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V46
+        historical_v46["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V46)
+        historical_v46["manifest_sha256"] = canonical_sha256(
+            {name: value for name, value in historical_v46.items() if name != "manifest_sha256"}
+        )
+        validate_qualification_manifest(historical_v46)
 
         manifest["schema_version"] = QUALIFICATION_MANIFEST_SCHEMA_V23
         manifest["execution_policy"] = deepcopy(QUALIFICATION_EXECUTION_POLICY_V31)

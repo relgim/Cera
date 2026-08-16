@@ -2,6 +2,21 @@
 
 **Updated:** 2026-08-15
 
+## 2026-08-15 D-224 whole-candidate Reader tolerance
+
+The current ordinary standing policy is `ordinary_provisional_continuity` v3.
+Policy text SHA-256 is
+`a176af62f75717396bd9cc50aeb2f771b66e2966bc89d04181c43b1e45aa76fd`;
+policy-object SHA-256 is
+`6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802`.
+Root run-07 scene 3 showed a coherent first Writer candidate being stopped only
+because Reader combined localized issues with `whole_candidate_quality`.
+D-224 makes all three Reader rejection scopes provisional while preserving the
+evidence. Reader inconclusive and the five hard Luna classes still stop. Policy
+v2 and manifest V46 remain exact historical authority; current qualification is
+V47. Exact artifact replay and focused runtime/contract checks cover the change;
+the next action is a fresh 10/10/5/5 from scene 1.
+
 ## 2026-08-15 D-223 policy and run-risk correction
 
 The ordinary standing policy is now `ordinary_provisional_continuity` v2.

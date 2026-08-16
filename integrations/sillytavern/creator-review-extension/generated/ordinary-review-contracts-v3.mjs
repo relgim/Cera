@@ -546,13 +546,15 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           "policy_version": {
             "enum": [
               1,
-              2
+              2,
+              3
             ]
           },
           "policy_sha256": {
             "enum": [
               "47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23",
-              "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+              "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5",
+              "6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802"
             ]
           },
           "candidate_sha256": {
@@ -583,7 +585,8 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 "luna:stopping_boundary",
                 "luna:unauthorized_consequence",
                 "reader:exact_quote",
-                "reader:omitted_planner_item"
+                "reader:omitted_planner_item",
+                "reader:whole_candidate_quality"
               ]
             }
           },
@@ -611,6 +614,16 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                   },
                   "policy_sha256": {
                     "const": "628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "policy_version": {
+                    "const": 3
+                  },
+                  "policy_sha256": {
+                    "const": "6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802"
                   }
                 }
               }
@@ -3076,6 +3089,7 @@ function validateAcceptance(acceptance, reviewMode, gateStatus) {
     const approvedPolicyHashes = new Map([
       [1, '47729a4fc27046e8da768c8e0f1bc6670be48e576e606f193339de30b3bf3b23'],
       [2, '628b72c8e5ced09f6af1b469a9825bad446eb3fd1560702854d8529b37e9dcc5'],
+      [3, '6c105deb691bb3062a31b5361f09511d8e57d718cd4c2a854d81356dd2b38802'],
     ]);
     if (
       acceptance.canon_status !== 'provisional'
@@ -3142,6 +3156,11 @@ function validateStandingPolicyReview(review, acceptance) {
       'stopping_boundary',
       'unauthorized_consequence',
     ];
+  const softReaderScopes = [
+    'exact_quote',
+    'omitted_planner_item',
+    ...(authority.policy_version === 3 ? ['whole_candidate_quality'] : []),
+  ];
   if (luna.status === 'reject') {
     const conflict = arrayValue(luna.failures, 'checks.luna.failures')
       .map(value => objectValue(value, 'checks.luna.failure'))
@@ -3154,7 +3173,7 @@ function validateStandingPolicyReview(review, acceptance) {
   if (reader.status === 'reject') {
     arrayValue(reader.failures, 'checks.reader.failures').forEach(value => {
       const failure = objectValue(value, 'checks.reader.failure');
-      if (!['exact_quote', 'omitted_planner_item'].includes(failure.feedback_scope)) {
+      if (!softReaderScopes.includes(failure.feedback_scope)) {
         reviewError('standing policy accepted a hard Reader issue');
       }
       expectedReasons.add(`reader:${failure.feedback_scope}`);
