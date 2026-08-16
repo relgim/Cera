@@ -269,6 +269,56 @@ class BranchStateReducerTests(unittest.TestCase):
             genesis.characters[0].as_mapping(),
         )
 
+    def test_repeated_presence_edges_are_idempotent(self) -> None:
+        first = _ordinary_payload(
+            1,
+            parent_turn_id=None,
+            parent_receipt_sha256=None,
+            presence_changes=(
+                {
+                    "character_id": "character:ted",
+                    "direction": "enter",
+                    "effective_after_item_key": "item:0001:a",
+                },
+            ),
+        )
+        first_receipt = first["receipt"]
+        assert isinstance(first_receipt, dict)
+        second = _ordinary_payload(
+            2,
+            parent_turn_id=str(first_receipt["accepted_turn_id"]),
+            parent_receipt_sha256=str(first["accepted_receipt_sha256"]),
+            presence_changes=(
+                {
+                    "character_id": "character:ted",
+                    "direction": "leave",
+                    "effective_after_item_key": "item:0002:a",
+                },
+            ),
+        )
+        second_receipt = second["receipt"]
+        assert isinstance(second_receipt, dict)
+        third = _ordinary_payload(
+            3,
+            parent_turn_id=str(second_receipt["accepted_turn_id"]),
+            parent_receipt_sha256=str(second["accepted_receipt_sha256"]),
+            presence_changes=(
+                {
+                    "character_id": "character:ted",
+                    "direction": "leave",
+                    "effective_after_item_key": "item:0003:a",
+                },
+            ),
+        )
+
+        checkpoint = BranchStateReducerV1(_genesis()).reduce(
+            branch_id=ROOT_BRANCH,
+            payloads=(first, second, third),
+        )
+
+        self.assertEqual(checkpoint.accepted_order, 3)
+        self.assertNotIn("character:ted", checkpoint.accepted_present_character_ids)
+
     def test_restart_rebuild_and_checkpoint_decode_are_exact(self) -> None:
         payloads = _chain_payloads(8)
         first = BranchStateReducerV1(_genesis()).reduce(

@@ -316,13 +316,14 @@ class BranchStateReducerV1:
     ) -> tuple[str, ...]:
         present = list(checkpoint.accepted_present_character_ids)
         for change in event.presence_changes:
+            # Presence is set state; repeated provider edges are idempotent.
             if change.direction == "enter":
                 if change.character_id in present:
-                    raise StateConflictError("accepted presence re-enters a present character")
+                    continue
                 present.append(change.character_id)
             else:
                 if change.character_id not in present:
-                    raise StateConflictError("accepted presence removes an absent character")
+                    continue
                 present.remove(change.character_id)
         return tuple(present)
 
