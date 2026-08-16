@@ -37,6 +37,7 @@ from cera.adult_pipeline.pi_roles import (
     PiStructuredAdultRoleTransport,
     StructuredAdultRoleResultV1,
     _decode_projection_effect,
+    _decode_protected_event,
 )
 from cera.adult_pipeline.pipeline import AdultPipeline
 from cera.errors import ContractValidationError, StateConflictError
@@ -521,6 +522,10 @@ class AdultPiIntegrationTests(unittest.TestCase):
         envelopes = {
             "fenced": f"```json\n{wire}\n```",
             "analysis_then_fenced": f"I checked the candidate.\n```json\n{wire}\n```",
+            "invalid_fence_then_valid_fence": (
+                f"I considered this invalid draft:\n```json\nnot-json\n```\n"
+                f"The final result is:\n```json\n{wire}\n```"
+            ),
             "analysis_then_plain": f"I checked the candidate.\n{wire}",
         }
         for label, output in envelopes.items():
@@ -562,6 +567,19 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertIn(
             "public durable effect requires knowledge_owner_id null", _FILTER_SYSTEM_PROMPT
         )
+
+    def test_filter_includes_knowledge_owners_among_event_characters(self) -> None:
+        event = _decode_protected_event(
+            {
+                "event_key": "shared_update",
+                "protected_summary": "Hana speaks while Ted receives the update.",
+                "character_ids": ["character:hana"],
+                "durable_effects": [],
+                "knowledge_owner_ids": ["character:hana", "character:ted"],
+            }
+        )
+
+        self.assertEqual(event.character_ids, ("character:hana", "character:ted"))
 
     def test_consecutive_scene_rehydrates_complete_state_without_pi_fork(self) -> None:
         prior_records = tuple(
@@ -606,7 +624,7 @@ class AdultPiIntegrationTests(unittest.TestCase):
         self.assertTrue(request.force_rehydrate)
         command = fake.command or ()
         self.assertNotIn("--fork", command)
-        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v5")
+        self.assertEqual(ADULT_PI_ROLE_COMPATIBILITY_VERSION, "cera.adult_pipeline.pi_roles.v6")
         adult_system_prompt = command[command.index("--system-prompt") + 1]
         self.assertIn(
             "more protected-user realization freedom than ordinary scenes", adult_system_prompt
