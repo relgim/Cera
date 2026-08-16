@@ -477,16 +477,17 @@ def _facts_for_record(
     genesis_projections = value.get("genesis_record_projections")
     if genesis_projections is not None:
         return _genesis_projection_facts(namespace, record_id, genesis_projections)
+    fact_value = _scoped_fact_value(namespace, value)
     subject_id, visibility = _fact_scope(
         namespace,
         record_id,
-        value,
+        fact_value,
         inherited=(
             _default_subject_id(namespace, record_id),
             default_visibility,
         ),
     )
-    fragments = tuple(_fact_fragments(value, path=()))
+    fragments = tuple(_fact_fragments(fact_value, path=()))
     if not fragments:
         fragments = (((), canonical_json({})),)
     output: list[AdultContextFactV1] = []
@@ -494,7 +495,7 @@ def _facts_for_record(
         nested_subject, nested_visibility = _scope_at_path(
             namespace,
             record_id,
-            value,
+            fact_value,
             path,
             initial=(subject_id, visibility),
         )
@@ -518,6 +519,28 @@ def _facts_for_record(
             )
         )
     return tuple(output)
+
+
+def _scoped_fact_value(namespace: str, value: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Discard only legacy unscoped relationship scaffolding.
+
+    Older branch checkpoints stored ``target_key`` and ``participants`` beside
+    fully scoped ``accepted_branch_changes`` without giving the wrapper its own
+    visibility.  The scoped changes carry the complete durable relationship
+    facts; treating the duplicate wrapper fields as private would invent a
+    character owner.  Unexpected unscoped fields remain fail-closed.
+    """
+
+    if (
+        namespace != "relationship"
+        or "visibility" in value
+        or "knowledge_owner_id" in value
+        or "accepted_branch_changes" not in value
+    ):
+        return value
+    if not set(value).issubset({"accepted_branch_changes", "participants", "target_key"}):
+        return value
+    return {"accepted_branch_changes": value["accepted_branch_changes"]}
 
 
 def _genesis_projection_facts(

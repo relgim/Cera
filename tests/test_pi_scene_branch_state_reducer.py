@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from cera.serialization import canonical_json, text_sha256
 from cera.pi_scene.branch_state import (
     BranchStateCheckpointV1,
     BranchStateReducerV1,
     GenesisBranchStateV1,
     ProvisionalCanonLineageEntryV1,
 )
-
+from cera.serialization import canonical_json, text_sha256
 
 WORLD_ID = "world:branch-state-test"
 ROOT_BRANCH = "branch:main"
@@ -194,6 +193,45 @@ def _chain_payloads(count: int, *, branch_id: str = ROOT_BRANCH) -> list[dict[st
 
 
 class BranchStateReducerTests(unittest.TestCase):
+    def test_new_relationship_overlays_preserve_public_and_private_scope(self) -> None:
+        payload = _ordinary_payload(
+            1,
+            branch_id=ROOT_BRANCH,
+            parent_turn_id=None,
+            parent_receipt_sha256=None,
+            durable_changes=(
+                {
+                    "change_key": "public-relationship-change",
+                    "kind": "relationship",
+                    "subject_ids": ["character:ted", "character:hana"],
+                    "concise_change": "A public relationship change.",
+                    "target_key": "relationship:new-public",
+                    "visibility": "public",
+                    "knowledge_owner_id": None,
+                },
+                {
+                    "change_key": "private-relationship-change",
+                    "kind": "relationship",
+                    "subject_ids": ["character:hana"],
+                    "concise_change": "A private relationship change.",
+                    "target_key": "relationship:new-private",
+                    "visibility": "character_private",
+                    "knowledge_owner_id": "character:hana",
+                },
+            ),
+        )
+        checkpoint = BranchStateReducerV1(_genesis()).reduce(
+            branch_id=ROOT_BRANCH,
+            payloads=[payload],
+        )
+
+        public = checkpoint.relationship_mapping()["relationship:new-public"]
+        private = checkpoint.relationship_mapping()["relationship:new-private"]
+        self.assertEqual(public["visibility"], "public")
+        self.assertIsNone(public["knowledge_owner_id"])
+        self.assertEqual(private["visibility"], "character_private")
+        self.assertEqual(private["knowledge_owner_id"], "character:hana")
+
     def test_more_than_six_turns_reduce_cumulatively_without_mutating_genesis(self) -> None:
         genesis = _genesis()
         genesis_before = genesis.genesis_sha256

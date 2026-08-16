@@ -370,6 +370,8 @@ class BranchStateReducerV1:
                     fallback={
                         "target_key": change.target_key,
                         "participants": list(change.subject_ids),
+                        "visibility": change.visibility,
+                        "knowledge_owner_id": change.knowledge_owner_id,
                     },
                 )
             elif change.kind == "knowledge":

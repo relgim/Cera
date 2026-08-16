@@ -400,6 +400,76 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
         self.assertNotIn(large_payload, private.authoritative_fact)
         self.assertNotIn(large_payload, shared.authoritative_fact)
 
+    def test_context_uses_scoped_changes_from_legacy_relationship_wrappers(self) -> None:
+        turn = replace(
+            _turn(),
+            relationships={
+                "public_relationship": {
+                    "target_key": "public_relationship",
+                    "participants": ["character:hana"],
+                    "accepted_branch_changes": [
+                        {
+                            "change_key": "public_change",
+                            "kind": "relationship",
+                            "subject_ids": ["character:hana"],
+                            "concise_change": "PUBLIC_BRANCH_FACT_SENTINEL",
+                            "target_key": "public_relationship",
+                            "visibility": "public",
+                            "knowledge_owner_id": None,
+                        }
+                    ],
+                },
+                "private_relationship": {
+                    "target_key": "private_relationship",
+                    "participants": ["character:hana"],
+                    "accepted_branch_changes": [
+                        {
+                            "change_key": "private_change",
+                            "kind": "relationship",
+                            "subject_ids": ["character:hana"],
+                            "concise_change": "PRIVATE_BRANCH_FACT_SENTINEL",
+                            "target_key": "private_relationship",
+                            "visibility": "character_private",
+                            "knowledge_owner_id": "character:hana",
+                        }
+                    ],
+                },
+            },
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            store = _Store(_route_state())
+            context = self._factory(Path(temporary), store).execution_context(
+                turn,
+                store.route_state,
+            )
+
+        public = tuple(
+            value
+            for value in context.current_facts
+            if "PUBLIC_BRANCH_FACT_SENTINEL" in value.authoritative_fact
+        )
+        private = tuple(
+            value
+            for value in context.current_facts
+            if "PRIVATE_BRANCH_FACT_SENTINEL" in value.authoritative_fact
+        )
+        self.assertEqual(len(public), 1)
+        self.assertEqual(public[0].visibility, "public")
+        self.assertEqual(len(private), 1)
+        self.assertEqual(private[0].visibility, "adult_role_private")
+        self.assertEqual(private[0].subject_id, "character:hana")
+        self.assertTrue(
+            all(
+                value.visibility == "public"
+                for value in context.current_facts
+                if value.subject_id == "public_relationship"
+            )
+        )
+        self.assertNotIn(
+            "private_relationship",
+            {value.subject_id for value in context.current_facts},
+        )
+
     def test_candidate_factory_binds_exact_request_turn_route_and_parent_session(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
