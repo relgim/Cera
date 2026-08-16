@@ -28,7 +28,9 @@ Classify a failed DeepSeek response before spending another call:
 1. **Harmless envelope variation** — unwrap a single known wrapper such as a
    JSON Markdown fence, then apply the unchanged strict schema.
 2. **Recoverable metadata omission** — retain usable prose and spine; let
-   Python bind or omit non-story bookkeeping fields when deterministic.
+   Python bind or omit non-story bookkeeping fields when deterministic. Adult
+   Filter summaries may aggregate adjacent decisions when their event keys are
+   a valid ordered subset and the protected/public projections still match.
 3. **Incomplete visible prose** — if the core scene is present but truncated,
    use one custody-bound continuation from the last complete paragraph rather
    than regenerating the entire scene.
@@ -44,4 +46,3 @@ Do not add a new parser exception for every novel one-off response. Record the
 raw failure shape. Generalize only when the repair is demonstrably safe or the
 same failure pattern recurs. Prefer one stage-level normalization/recovery seam
 over scattered scenario-specific patches.
-

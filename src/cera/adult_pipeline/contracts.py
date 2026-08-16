@@ -782,8 +782,14 @@ class BoundAdultFilterResultV1:
         if full.decision_path != scene.decision_path:
             raise ContractValidationError("adult Filter rewrote the adult decision path")
         decision_keys = tuple(value.decision_key for value in scene.decision_path)
-        if tuple(value.event_key for value in full.events) != decision_keys:
-            raise ContractValidationError("adult full record changed decision/event ordering")
+        event_keys = tuple(value.event_key for value in full.events)
+        decision_positions = {value: index for index, value in enumerate(decision_keys)}
+        if any(value not in decision_positions for value in event_keys) or event_keys != tuple(
+            sorted(event_keys, key=decision_positions.__getitem__)
+        ):
+            raise ContractValidationError(
+                "adult full record events are not an ordered decision subset"
+            )
         context_refs = {value.evidence_ref for value in self.request.scene_request.current_context}
         for use in full.current_data_uses:
             if use.evidence_ref not in context_refs or use.decision_key not in decision_keys:
@@ -793,19 +799,19 @@ class BoundAdultFilterResultV1:
         )
         if len(use_pairs) != len(set(use_pairs)):
             raise ContractValidationError("adult full record duplicates a current-data use")
-        expected_use_pairs = {
+        available_use_pairs = {
             (step.decision_key, evidence_ref)
             for step in scene.decision_path
             for evidence_ref in step.evidence_refs
         }
-        if set(use_pairs) != expected_use_pairs:
+        if not set(use_pairs).issubset(available_use_pairs):
             raise ContractValidationError(
-                "adult full record did not validate every decision current-data reference"
+                "adult full record cites a mismatched decision/current-data pair"
             )
         if projection.protected_full_record_sha256 != canonical_sha256(full):
             raise ContractValidationError("adult projection cites another protected record")
-        if tuple(value.event_key for value in projection.events) != decision_keys:
-            raise ContractValidationError("adult projection changed decision/event ordering")
+        if tuple(value.event_key for value in projection.events) != event_keys:
+            raise ContractValidationError("adult projection changed filtered event ordering")
         if passed.route_transition.next_route is not scene.next_route:
             raise ContractValidationError("adult Filter changed the next-route decision")
         if passed.route_transition.concise_reason != scene.next_route_reason:

@@ -563,7 +563,7 @@ class AdultPipelineRuntimeTests(unittest.TestCase):
                 filter_port=FakeAdultFilter(changed),
             ).run(self.prepared(request))
 
-    def test_filter_must_validate_every_scene_current_data_reference(self) -> None:
+    def test_filter_may_preserve_a_valid_current_data_subset(self) -> None:
         output = scene_output()
         decision = pass_decision(output)
         assert decision.passed is not None
@@ -573,9 +573,79 @@ class AdultPipelineRuntimeTests(unittest.TestCase):
         )
         changed = replace(
             decision,
-            passed=replace(decision.passed, protected_full_record=changed_full),
+            passed=replace(
+                decision.passed,
+                protected_full_record=changed_full,
+                codex_projection=replace(
+                    decision.passed.codex_projection,
+                    protected_full_record_sha256=canonical_sha256(changed_full),
+                ),
+            ),
         )
-        with self.assertRaisesRegex(ContractValidationError, "every decision current-data"):
+        result = AdultPipeline(
+            scene=FakeAdultScene(output),
+            filter_port=FakeAdultFilter(changed),
+        ).run(self.prepared())
+        self.assertTrue(result.eligible_for_atomic_acceptance)
+
+    def test_filter_may_aggregate_adjacent_scene_decisions(self) -> None:
+        first = scene_output()
+        output = replace(
+            first,
+            decision_path=(
+                *first.decision_path,
+                AdultDecisionStepV1(
+                    decision_key="decision_two",
+                    character_id="character:hana",
+                    concise_decision="Hana carries the same response into its next beat.",
+                    evidence_refs=("evidence:public",),
+                ),
+            ),
+        )
+        result = AdultPipeline(
+            scene=FakeAdultScene(output),
+            filter_port=FakeAdultFilter(pass_decision(output)),
+        ).run(self.prepared())
+        self.assertTrue(result.eligible_for_atomic_acceptance)
+
+    def test_filter_cannot_reassign_current_data_between_decisions(self) -> None:
+        first = scene_output()
+        output = replace(
+            first,
+            decision_path=(
+                *first.decision_path,
+                AdultDecisionStepV1(
+                    decision_key="decision_two",
+                    character_id="character:hana",
+                    concise_decision="Hana carries the response into its next beat.",
+                    evidence_refs=("evidence:public",),
+                ),
+            ),
+        )
+        decision = pass_decision(output)
+        assert decision.passed is not None
+        changed_full = replace(
+            decision.passed.protected_full_record,
+            current_data_uses=(
+                AdultCurrentDataUseV1(
+                    evidence_ref="evidence:private",
+                    decision_key="decision_two",
+                    concise_use="The Filter reassigns private evidence to another decision.",
+                ),
+            ),
+        )
+        changed = replace(
+            decision,
+            passed=replace(
+                decision.passed,
+                protected_full_record=changed_full,
+                codex_projection=replace(
+                    decision.passed.codex_projection,
+                    protected_full_record_sha256=canonical_sha256(changed_full),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(ContractValidationError, "mismatched decision/current-data"):
             AdultPipeline(
                 scene=FakeAdultScene(output),
                 filter_port=FakeAdultFilter(changed),
