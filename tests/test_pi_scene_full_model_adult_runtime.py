@@ -299,6 +299,40 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
             self.assertNotIn("exact_accepted_prose", record)
             self.assertEqual(len(record["source_receipt_sha256"]), 64)
 
+    def test_context_compacts_large_protected_receipts_without_losing_story_records(
+        self,
+    ) -> None:
+        records = _protected_records()
+        large_authority = "frozen prior request authority " * 10_000
+        large_receipt = {
+            **records[1]["receipt"],
+            "primary_authority_json": large_authority,
+        }
+        protected_records = (
+            records[0],
+            {**records[1], "receipt": large_receipt},
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            store = _Store(_route_state(), protected_records=protected_records)
+            factory = self._factory(Path(temporary), store)
+            context = factory.execution_context(_turn(), store.route_state)
+            orchestrator = factory.orchestrator(
+                _turn(),
+                "request:adult:compact",
+                "candidate:adult:compact",
+            )
+
+        assert context.protected_adult_continuity is not None
+        self.assertLessEqual(len(context.protected_adult_continuity), 100_000)
+        self.assertNotIn(large_authority, context.protected_adult_continuity)
+        protected = json.loads(context.protected_adult_continuity)["accepted_adult_records"][0]
+        self.assertEqual(protected["exact_accepted_prose"], PROTECTED_PROSE)
+        self.assertEqual(protected["source_receipt_sha256"], canonical_sha256(large_receipt))
+        self.assertEqual(protected["adult_full_record"]["exact_story_prose"], PROTECTED_PROSE)
+        scene = orchestrator.pipeline.scene_port  # type: ignore[attr-defined]
+        self.assertNotIn(large_authority, str(scene.context.accepted_records))
+        self.assertIn(PROTECTED_PROSE, str(scene.context.accepted_records))
+
     def test_context_compacts_genesis_records_and_preserves_visibility(self) -> None:
         large_payload = "private expanded Genesis payload " * 2_000
         private_projection = {

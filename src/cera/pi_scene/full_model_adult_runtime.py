@@ -168,16 +168,19 @@ class FullModelAdultRuntimeFactory:
             safe_records=safe_records,
         )
 
+        compact_protected_records = tuple(
+            _protected_record_projection(value) for value in protected_adult_records
+        )
         protected_continuity = (
             None
-            if not protected_adult_records
+            if not compact_protected_records
             else canonical_json(
                 {
                     "schema_version": "cera.pi_scene.protected_adult_continuity.v1",
                     "world_id": turn.world_id,
                     "branch_id": turn.branch_id,
                     "accepted_head_sha256": route_state.accepted_head_sha256,
-                    "accepted_adult_records": protected_adult_records,
+                    "accepted_adult_records": compact_protected_records,
                 }
             )
         )
@@ -272,6 +275,9 @@ class FullModelAdultRuntimeFactory:
                 limit=6,
             )
         )
+        compact_protected_records = tuple(
+            _protected_record_projection(value) for value in protected_records
+        )
         current_route_state = self.store.current_logic_route(
             world_id=turn.world_id,
             branch_id=turn.branch_id,
@@ -304,7 +310,7 @@ class FullModelAdultRuntimeFactory:
             recent_prose=_accepted_prose(protected_records),
             relevant_memories={key: dict(value) for key, value in turn.relevant_memories.items()},
             voice_examples=dict(turn.voice_examples),
-            accepted_records=protected_records,
+            accepted_records=compact_protected_records,
         )
         integration = build_pi_adult_pipeline_integration(
             pi_adapter=self.pi_adapter,
@@ -775,6 +781,22 @@ def _safe_record_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         ):
             raise ContractValidationError("adult safe continuity receipt hash is invalid")
         output["accepted_receipt_sha256"] = accepted_receipt_sha256
+    return output
+
+
+def _protected_record_projection(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep protected story continuity without repeating frozen request authority."""
+
+    receipt = value.get("receipt")
+    if not isinstance(receipt, Mapping):
+        raise ContractValidationError("protected adult continuity record lacks its receipt")
+    prose = receipt.get("exact_accepted_prose")
+    if not isinstance(prose, str) or not prose.strip():
+        raise StateConflictError("protected accepted context omitted exact prose")
+    output = _safe_record_projection(value)
+    output["exact_accepted_prose"] = prose
+    if "adult_full_record" in value:
+        output["adult_full_record"] = value["adult_full_record"]
     return output
 
 
