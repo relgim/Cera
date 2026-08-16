@@ -363,14 +363,16 @@ class PiProviderOperationLedger:
         )
         if len(terminal_indexes) != 1:
             raise StateConflictError("Pi invocation metrics terminal prefix is unavailable")
+        input_tokens = token_total("input_tokens")
+        cached_input_tokens = min(input_tokens, token_total("cached_input_tokens"))
         return PiProviderInvocationMetricsV1(
             invocation_id=invocation_id,
             request_sha256=request_sha256,
             status=status,
             provider_operations_started=self.started_for(invocation_id),
             provider_operations_completed=self.completed_for(invocation_id),
-            input_tokens=token_total("input_tokens"),
-            cached_input_tokens=token_total("cached_input_tokens"),
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
             output_tokens=token_total("output_tokens"),
             reasoning_tokens=token_total("reasoning_tokens"),
             duration_ms=duration_ms,

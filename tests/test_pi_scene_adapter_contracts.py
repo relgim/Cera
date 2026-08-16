@@ -317,6 +317,50 @@ class PiSceneCompletionContractTests(unittest.TestCase):
 
 
 class PiProviderOperationLedgerTests(unittest.TestCase):
+    def test_metrics_normalize_provider_cache_counts_without_changing_raw_ledger(self) -> None:
+        with TemporaryDirectory() as temporary:
+            ledger = PiProviderOperationLedger(
+                (Path(temporary) / "provider_operations.jsonl").resolve(),
+                maximum_operations=2,
+                maximum_operations_per_invocation=2,
+            )
+            invocation_id = ledger.begin(
+                candidate_id="candidate-cache-normalization",
+                purpose="adult_scene",
+                route="adult",
+                request_sha256=text_sha256("request-cache-normalization"),
+            )
+            ledger.observe_line(invocation_id, json.dumps({"type": "turn_start"}))
+            ledger.observe_line(
+                invocation_id,
+                json.dumps(
+                    {
+                        "type": "message_end",
+                        "message": {
+                            "role": "assistant",
+                            "content": [],
+                            "usage": {"input": 10, "cacheRead": 20, "output": 1},
+                            "stopReason": "toolUse",
+                        },
+                    }
+                ),
+            )
+            ledger.finish(
+                invocation_id,
+                status="failed",
+                duration_ms=1,
+                failure_category="provider_output_invalid",
+            )
+
+            raw_completion = next(
+                event
+                for event in ledger.events
+                if event.get("event") == "provider_operation_completed"
+            )
+            self.assertEqual(raw_completion["cached_input_tokens"], 20)
+            metrics = ledger.invocation_metrics(invocation_id)
+            self.assertEqual((metrics.input_tokens, metrics.cached_input_tokens), (10, 10))
+
     def test_concurrent_reservations_cannot_exceed_global_operation_ceiling(self) -> None:
         with TemporaryDirectory() as temporary:
             ledger = PiProviderOperationLedger(
